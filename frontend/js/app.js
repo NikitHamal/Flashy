@@ -790,6 +790,11 @@ function loadSession(session, pushState = true) {
             session.messages.forEach(msg => {
                 // Pass parts if available (new format), else pass text (old format)
                 const content = msg.parts || msg.text;
+                if (!content) return; // Skip empty messages
+                
+                // If parts is an empty array, it might be a corrupted message
+                if (Array.isArray(content) && content.length === 0) return;
+
                 UI.addMessage(content, msg.role, msg.images, [], msg.tool_outputs || []);
             });
         }

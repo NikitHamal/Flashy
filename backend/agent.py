@@ -28,53 +28,41 @@ class Agent:
         return prompt
     
     def parse_tool_call(self, text: str) -> Optional[dict]:
-        """Parse a tool call from the model's output (Extremely aggressive)."""
+        """Parse a tool call from the model's output (Robust & Fast)."""
         if not text:
             return None
 
-        # 1. Clean up common markdown artifact: sometimes models put JSON in a code block but don't close it
-        # or put text immediately after. We'll try to extract everything between ```json and the end
+        # 1. Primary: Standard Markdown Blocks
         if '```json' in text:
             blocks = text.split('```json')
-            for block in blocks[1:]: # Skip text before first block
-                # Find the closing ``` or assume end of string
+            for block in blocks[1:]:
                 content = block.split('```')[0].strip()
                 try:
                     data = json.loads(content)
                     if self._is_valid_tool_data(data):
-                        return self._format_tool_match(data, f"```json{content}")
-                except:
-                    # If it didn't parse, maybe it has trailing garbage?
-                    # Try to find the last }
-                    last_brace = content.rfind('}')
-                    if last_brace != -1:
-                        try:
-                            data = json.loads(content[:last_brace+1])
-                            if self._is_valid_tool_data(data):
-                                return self._format_tool_match(data, f"```json{content[:last_brace+1]}")
-                        except: pass
+                        return self._format_tool_match(data, f"```json{content}```")
+                except: continue
 
-        # 2. Look for any JSON-like structure { ... } using regex and try to parse it
-        # This is the "Aggressive" part - find everything that looks like a JSON object
-        potential_objects = re.finditer(r'\{(?:[^{}]|(?R))*\}', text, re.DOTALL) # Recursion not supported in standard re
-        # Alternative for Python's re: find all { and try to find matching }
+        # 2. Secondary: Aggressive Bracket Matching (Non-Recursive)
+        # Find all '{' indices
+        start_indices = [i for i, char in enumerate(text) if char == '{']
         
-        stack = []
-        for i, char in enumerate(text):
-            if char == '{':
-                stack.append(i)
-            elif char == '}' and stack:
-                start_idx = stack.pop()
-                # We only care if the stack is empty (top-level object) or if we want to try every level
-                # Let's try every potential object from largest to smallest
-                potential_json = text[start_idx:i+1]
+        # Try to find matching '}' for each '{', starting from the largest possible blocks
+        for start_idx in start_indices:
+            # We look for the last '}' that could possibly close this JSON
+            end_idx = text.rfind('}', start_idx)
+            while end_idx != -1 and end_idx > start_idx:
+                potential_json = text[start_idx:end_idx+1]
                 try:
-                    data = json.loads(potential_json)
-                    if self._is_valid_tool_data(data):
-                        # Ensure this is the tool call the AI intended (contains action/name/tool)
-                        return self._format_tool_match(data, potential_json)
+                    # Quick check if it looks like our tool before expensive parse
+                    if '"action"' in potential_json or '"tool"' in potential_json or '"name"' in potential_json:
+                        data = json.loads(potential_json)
+                        if self._is_valid_tool_data(data):
+                            return self._format_tool_match(data, potential_json)
                 except:
-                    continue
+                    pass
+                # Try the next '}' coming backwards
+                end_idx = text.rfind('}', start_idx, end_idx)
 
         return None
 

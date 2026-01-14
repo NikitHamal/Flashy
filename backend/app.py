@@ -71,7 +71,7 @@ async def chat(
         if workspace_id:
             ws = get_workspace_data(workspace_id)
             if ws:
-                gemini_service.set_workspace(ws['path'])
+                gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
 
         # Save user message using parts format
         save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
@@ -143,6 +143,7 @@ async def api_git_clone(request: CloneRequest):
             
         # Add as workspace
         ws = storage.add_workspace(target_path)
+        gemini_service.set_workspace(target_path, workspace_id=ws['id'])
         return ws
     except HTTPException as e:
         raise e
@@ -227,7 +228,7 @@ def pick_workspace():
     path = _run_isolated_picker()
     if path:
         ws = storage.add_workspace(path)
-        gemini_service.set_workspace(path)
+        gemini_service.set_workspace(path, workspace_id=ws['id'])
         return ws
     return {"message": "Cancelled"}
 
