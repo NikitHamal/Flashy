@@ -1255,6 +1255,57 @@ code {
     margin-bottom: 8px;
 }
 
+/* ==================== THOUGHT BLOCK ==================== */
+.thought-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.thought-header {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.thought-header .chevron {
+    margin-left: auto;
+    font-size: 16px;
+    transition: transform 0.2s;
+}
+
+.thought-block.expanded .chevron {
+    transform: rotate(180deg);
+}
+
+.thought-content {
+    padding: 0 12px 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.thought-block.expanded .thought-content {
+    display: block;
+    margin-top: 8px;
+}
+
+.thought-content p {
+    margin: 8px 0;
+}
+
 /* ==================== TOOL PILLS ==================== */
 .tool-pill {
     margin: 12px 0;

@@ -73,17 +73,21 @@ class GeminiService:
             model = getattr(Model, model_name, Model.G_2_5_FLASH)
             response = await client.generate_content(full_prompt, model=model, files=files)
         
-        response_text = response.text or ""
-        
-        # Extract images if any
-        images = [img.url for img in response.images] if hasattr(response, 'images') and response.images else []
-        
         # Process agent response for tool calls
         if agent and self.workspace_path:
             max_iterations = 10
             iteration = 0
             
+            # Use a while loop to handle potential multi-step tool usage
             while iteration < max_iterations:
+                response_text = response.text or ""
+                thoughts = getattr(response, 'thoughts', "")
+                images = [img.url for img in response.images] if hasattr(response, 'images') and response.images else []
+                
+                # If there are thoughts, yield them first
+                if thoughts and iteration == 0:
+                    yield {"thought": thoughts}
+
                 tool_call = agent.parse_tool_call(response_text)
                 
                 if not tool_call:
@@ -111,19 +115,17 @@ class GeminiService:
                     
                     # Feed result back to Gemini
                     response = await chat.send_message(tool_result)
-                    response_text = response.text or ""
-                    images = [img.url for img in response.images] if hasattr(response, 'images') and response.images else []
                     iteration += 1
                 except Exception as e:
                     error_msg = f"Error executing tool '{tool_call['name']}': {str(e)}"
                     yield {"tool_result": error_msg}
                     # Feed error back to Gemini so it can try to correct it
                     response = await chat.send_message(error_msg)
-                    response_text = response.text or ""
-                    images = [img.url for img in response.images] if hasattr(response, 'images') and response.images else []
                     iteration += 1
         else:
-            # Simple response, yield at once (native streaming not supported by this webapi wrapper yet easily)
+            # Simple response
+            response_text = response.text or ""
+            images = [img.url for img in response.images] if hasattr(response, 'images') and response.images else []
             yield {"text": response_text, "images": images, "is_final": True}
 
 

@@ -357,6 +357,29 @@ const UI = {
 
         const bubble = lastMsg.querySelector('.message-bubble');
 
+        if (chunk.thought) {
+            let thoughtDiv = bubble.querySelector('.thought-block');
+            if (!thoughtDiv) {
+                thoughtDiv = document.createElement('div');
+                thoughtDiv.className = 'thought-block';
+                thoughtDiv.innerHTML = `
+                    <div class="thought-header">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>Thought Process</span>
+                        <span class="material-symbols-outlined chevron">expand_more</span>
+                    </div>
+                    <div class="thought-content"></div>
+                `;
+                bubble.prepend(thoughtDiv);
+                
+                thoughtDiv.querySelector('.thought-header').onclick = () => {
+                    thoughtDiv.classList.toggle('expanded');
+                };
+            }
+            const content = thoughtDiv.querySelector('.thought-content');
+            content.innerHTML = marked.parse(chunk.thought);
+        }
+
         // Get or create the current text segment
         let currentTextDiv = bubble.querySelector('.text-segment.active');
         if (!currentTextDiv) {

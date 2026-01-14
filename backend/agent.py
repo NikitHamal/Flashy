@@ -29,11 +29,12 @@ class Agent:
     
     def parse_tool_call(self, text: str) -> Optional[dict]:
         """Parse a tool call from the model's output (Primary: JSON block)."""
-        # 1. Look for JSON code blocks
-        json_block_pattern = r'```json\s*(.*?)\s*```'
-        json_matches = re.finditer(json_block_pattern, text, re.DOTALL)
+        # 1. Look for JSON or Markdown code blocks
+        # Pattern matches ```json ... ``` or ```markdown ... ``` or just ``` ... ```
+        block_pattern = r'```(?:json|markdown|)?\s*(\{\s*".*?"\s*:.*?\})\s*```'
+        matches = re.finditer(block_pattern, text, re.DOTALL)
         
-        for match in json_matches:
+        for match in matches:
             try:
                 content = match.group(1).strip()
                 data = json.loads(content)
@@ -45,8 +46,9 @@ class Agent:
             except Exception:
                 continue
 
-        # 2. Look for raw JSON objects (if no code block)
-        raw_json_pattern = r'(\{\s*"(action|tool|name)"\s*:\s*".*?"\s*,\s*"(args|arguments)"\s*:\s*\{.*?\s*\}\s*\})'
+        # 2. Look for raw JSON objects that have an "action", "tool", or "name" key
+        # We look for a { followed by one of our keywords
+        raw_json_pattern = r'(\{\s*"(?:action|tool|name)"\s*:\s*".*?"\s*,\s*"(?:args|arguments)"\s*:\s*\{.*?\s*\}\s*\})'
         raw_matches = re.finditer(raw_json_pattern, text, re.DOTALL)
         for match in raw_matches:
             try:
@@ -57,19 +59,28 @@ class Agent:
                     return {"name": action, "args": args, "raw_match": match.group(0)}
             except Exception:
                 continue
-
-        # 3. Last resort XML fallback
-        xml_match = re.search(r'<tool_call>(.*?)</tool_call>', text, re.DOTALL)
-        if xml_match:
-            try:
-                tc_content = xml_match.group(1)
-                name_match = re.search(r'<name>\s*(.*?)\s*</name>', tc_content, re.DOTALL)
-                tool_name = name_match.group(1).strip() if name_match else None
-                args_match = re.search(r'<(args|arguments)>\s*(.*?)\s*</(args|arguments)>', tc_content, re.DOTALL)
-                args_str = args_match.group(2).strip() if args_match else "{}"
-                if tool_name:
-                    return {"name": tool_name, "args": json.loads(args_str), "raw_match": xml_match.group(0)}
-            except: pass
+                
+        # 3. Fallback for larger/complex JSON if the above simple regex missed it
+        # Try to find anything between { and } that looks like our tool call
+        try:
+            start_idx = text.find('{')
+            if start_idx != -1:
+                # Find the matching closing brace (simple version)
+                # This is risky but helpful as a last resort
+                depth = 0
+                for i in range(start_idx, len(text)):
+                    if text[i] == '{': depth += 1
+                    elif text[i] == '}': depth -= 1
+                    
+                    if depth == 0:
+                        potential_json = text[start_idx:i+1]
+                        data = json.loads(potential_json)
+                        action = data.get("action") or data.get("tool") or data.get("name")
+                        args = data.get("args") or data.get("arguments") or {}
+                        if action:
+                            return {"name": action, "args": args, "raw_match": potential_json}
+                        break
+        except: pass
 
         return None
     

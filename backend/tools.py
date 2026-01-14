@@ -283,6 +283,26 @@ class Tools:
         except Exception as e:
             return f"Error browsing {url}: {str(e)}"
 
+    def get_symbol_info(self, symbol_name: str) -> str:
+        """Find where a specific symbol (class/function/variable) is defined using grep."""
+        # Search for definitions like "def symbol", "class symbol", "symbol =", "export const symbol"
+        patterns = [
+            f"def {symbol_name}",
+            f"class {symbol_name}",
+            f"{symbol_name} =",
+            f"const {symbol_name}",
+            f"function {symbol_name}"
+        ]
+        results = []
+        for pattern in patterns:
+            res = self.grep_search(pattern)
+            if "Search results" in res:
+                results.append(res)
+        
+        if results:
+            return "\n\n".join(results)
+        return f"Could not find any clear definitions for '{symbol_name}'."
+
     def get_available_tools(self) -> list:
         """Return list of available tools with descriptions."""
         return [
@@ -298,7 +318,8 @@ class Tools:
             {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"},
             {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
             {"name": "web_search", "description": "Search the web. Args: query (str)"},
-            {"name": "web_browse", "description": "Browse a website. Args: url (str)"}
+            {"name": "web_browse", "description": "Browse a website. Args: url (str)"},
+            {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"}
         ]
     
     def execute(self, tool_name: str, **kwargs) -> str:
