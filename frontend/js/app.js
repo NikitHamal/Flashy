@@ -159,12 +159,13 @@ function setupEventListeners() {
     if (pickCloneParentBtn) {
         pickCloneParentBtn.addEventListener('click', async () => {
             try {
-                // Reuse pickWorkspace logic to get a parent folder
-                const ws = await API.pickWorkspace();
-                if (ws && ws.path) {
-                    document.getElementById('clone-parent-path').value = ws.path;
+                // Use the new path-only picker
+                const res = await API.pickPath();
+                if (res && res.path) {
+                    document.getElementById('clone-parent-path').value = res.path;
                 }
             } catch (e) {
+                alert("Failed to open dialog. You can enter the path manually.");
                 console.error(e);
             }
         });

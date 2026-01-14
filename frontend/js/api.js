@@ -123,6 +123,14 @@ const API = {
         return response.json();
     },
 
+    async pickPath() {
+        const response = await fetch(`${this.baseUrl}/path/pick`, {
+            method: 'POST'
+        });
+        if (!response.ok) throw new Error('Failed to pick path');
+        return response.json();
+    },
+
     async getExplorer(workspaceId) {
         const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/explorer`);
         if (!response.ok) throw new Error('Failed to load explorer');

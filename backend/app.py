@@ -199,30 +199,41 @@ async def api_add_workspace(path: str = Body(..., embed=True)):
 async def api_get_workspace_sessions(workspace_id: str):
     return storage.get_workspace_sessions(workspace_id)
 
+def _run_isolated_picker():
+    """Run the folder picker in a separate process to avoid thread conflicts."""
+    import subprocess
+    import sys
+    try:
+        result = subprocess.run(
+            [sys.executable, "backend/picker.py"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        output = result.stdout.strip()
+        if output == "CANCELLED":
+            return None
+        if output.startswith("ERROR:"):
+            raise Exception(output)
+        return output
+    except Exception as e:
+        print(f"Isolated picker error: {e}")
+        return None
+
 @app.post("/workspace/pick")
 def pick_workspace():
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        path = filedialog.askdirectory()
-        root.destroy()
-        
-        if path:
-            # Normalize path for Windows
-            path = os.path.abspath(path)
-            # Register workspace and return it
-            ws = storage.add_workspace(path)
-            # Update agent workspace path
-            gemini_service.set_workspace(path)
-            return ws
-        return {"message": "Cancelled"}
-    except Exception as e:
-        print(f"Error in pick_workspace: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    path = _run_isolated_picker()
+    if path:
+        ws = storage.add_workspace(path)
+        gemini_service.set_workspace(path)
+        return ws
+    return {"message": "Cancelled"}
+
+@app.post("/path/pick")
+def api_pick_path():
+    """Pick a path without adding it as a workspace."""
+    path = _run_isolated_picker()
+    return {"path": path}
 
 @app.get("/workspace/{workspace_id}/explorer")
 async def get_explorer(workspace_id: str):
