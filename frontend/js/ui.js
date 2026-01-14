@@ -458,6 +458,11 @@ const UI = {
                 // Populate result
                 const resultDiv = toolPill.querySelector('.tool-pill-result');
                 resultDiv.innerHTML = `<pre>${this.escapeHtml(chunk.tool_result)}</pre>`;
+                
+                // If it was a write or patch to plan.md, refresh the plan UI
+                if (typeof refreshPlan === 'function') {
+                    refreshPlan();
+                }
             }
 
             // Create a new text segment for content after tool call
@@ -613,6 +618,7 @@ const UI = {
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) {
             const isHidden = sidebar.classList.toggle('hidden');
+            if (!isHidden) this.hidePlan(); // Hide plan if explorer is shown
             if (resizer) {
                 if (isHidden) resizer.classList.add('hidden');
                 else resizer.classList.remove('hidden');
@@ -632,6 +638,31 @@ const UI = {
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) sidebar.classList.remove('hidden');
         if (resizer) resizer.classList.remove('hidden');
+    },
+
+    togglePlan() {
+        const sidebar = document.getElementById('plan-sidebar');
+        if (sidebar) {
+            const isHidden = sidebar.classList.toggle('hidden');
+            if (!isHidden) this.hideExplorer(); // Hide explorer if plan is shown
+        }
+    },
+
+    hidePlan() {
+        const sidebar = document.getElementById('plan-sidebar');
+        if (sidebar) sidebar.classList.add('hidden');
+    },
+
+    renderPlan(content) {
+        const container = document.getElementById('plan-content');
+        if (!container) return;
+
+        if (!content) {
+            container.innerHTML = '<div class="plan-empty">No active plan found (plan.md)</div>';
+            return;
+        }
+
+        container.innerHTML = marked.parse(content);
     },
 
     renderExplorer(data, onFileSelect) {

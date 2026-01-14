@@ -103,6 +103,24 @@ function setupEventListeners() {
         });
     }
 
+    // Plan Toggle
+    const togglePlanBtn = document.getElementById('btn-toggle-plan');
+    if (togglePlanBtn) {
+        togglePlanBtn.addEventListener('click', () => {
+            UI.togglePlan();
+            if (!document.getElementById('plan-sidebar').classList.contains('hidden')) {
+                refreshPlan();
+            }
+        });
+    }
+
+    const refreshPlanBtn = document.getElementById('btn-refresh-plan');
+    if (refreshPlanBtn) {
+        refreshPlanBtn.addEventListener('click', () => {
+            if (currentWorkspaceId) refreshPlan();
+        });
+    }
+
     // Dashboard New Session
     const dashNewSessBtn = document.getElementById('btn-dashboard-new-session');
     if (dashNewSessBtn) {
@@ -405,6 +423,16 @@ async function refreshExplorer() {
     }
 }
 
+async function refreshPlan() {
+    if (!currentWorkspaceId) return;
+    try {
+        const data = await API.getPlan(currentWorkspaceId);
+        UI.renderPlan(data.content);
+    } catch (e) {
+        console.error("Failed to refresh plan", e);
+    }
+}
+
 async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession = false) {
     currentWorkspaceId = workspaceId;
     localStorage.setItem('lastWorkspaceId', workspaceId);
@@ -431,6 +459,7 @@ async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession 
     UI.renderSidebarSessions(globalData.workspaces, globalData.sessions, currentSessionId, loadSession, deleteSession);
     UI.renderSessionDropdown(workspaceId, workspaceSessions, currentSessionId, loadSession, createNewSession);
     refreshExplorer();
+    refreshPlan();
 
     if (autoLoadLastSession && workspaceSessions.length > 0) {
         loadSession(workspaceSessions[0], pushState);

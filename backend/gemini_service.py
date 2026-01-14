@@ -100,7 +100,13 @@ class GeminiService:
                 
                 # Execute tool
                 try:
-                    tool_result = agent.execute_tool(tool_call["name"], tool_call["args"])
+                    if tool_call["name"] == "delegate_task":
+                        task = tool_call["args"].get("task")
+                        context = tool_call["args"].get("context", "")
+                        tool_result = await self.run_delegated_task(task, context)
+                    else:
+                        tool_result = agent.execute_tool(tool_call["name"], tool_call["args"])
+                    
                     yield {"tool_result": tool_result}
                     
                     # Feed result back to Gemini
@@ -120,6 +126,37 @@ class GeminiService:
             # Simple response, yield at once (native streaming not supported by this webapi wrapper yet easily)
             yield {"text": response_text, "images": images, "is_final": True}
 
+
+    async def run_delegated_task(self, task, context="") -> str:
+        """Run a task in a separate, temporary session and return the final result."""
+        try:
+            client = await self.get_client()
+            model_name = self.config.get("model", "G_2_5_FLASH")
+            model = getattr(Model, model_name, Model.G_2_5_FLASH)
+            
+            # Create a temporary agent
+            temp_agent = Agent(self.workspace_path)
+            chat = client.start_chat(model=model)
+            
+            prompt = f"{temp_agent.get_system_prompt()}\n\nCONTEXT FROM MAIN AGENT: {context}\n\nTASK: {task}\n\nExecute this task autonomously and provide a final summary of what you did."
+            
+            response = await chat.send_message(prompt)
+            response_text = response.text or ""
+            
+            # Run the agent loop for the sub-agent
+            max_iterations = 5
+            for _ in range(max_iterations):
+                tool_call = temp_agent.parse_tool_call(response_text)
+                if not tool_call:
+                    break
+                
+                tool_result = temp_agent.execute_tool(tool_call["name"], tool_call["args"])
+                response = await chat.send_message(tool_result)
+                response_text = response.text or ""
+            
+            return f"Sub-agent completion result:\n{response_text}"
+        except Exception as e:
+            return f"Error in delegated task: {str(e)}"
 
     async def reset(self):
         self.client = None

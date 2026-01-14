@@ -229,6 +229,60 @@ class Tools:
         except Exception as e:
             return {"error": str(e)}
 
+    def get_dependencies(self) -> str:
+        """Analyze project dependencies (package.json, requirements.txt, etc.)."""
+        results = []
+        files_to_check = ["package.json", "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"]
+        
+        for file in files_to_check:
+            full_path = self._resolve_path(file)
+            if os.path.exists(full_path):
+                try:
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    results.append(f"--- {file} ---\n{content}")
+                except: pass
+        
+        if results:
+            return "\n\n".join(results)
+        return "No dependency files found in root."
+
+    def web_search(self, query: str) -> str:
+        """Search the web using DuckDuckGo."""
+        try:
+            from requests_html import HTMLSession
+            session = HTMLSession()
+            # DuckDuckGo HTML version (simpler to parse)
+            url = f"https://html.duckduckgo.com/html/?q={query}"
+            resp = session.get(url)
+            results = []
+            for item in resp.html.find('.result'):
+                title_node = item.find('.result__a', first=True)
+                snippet_node = item.find('.result__snippet', first=True)
+                if title_node and snippet_node:
+                    results.append(f"Title: {title_node.text}\nLink: {title_node.attrs['href']}\nSnippet: {snippet_node.text}\n")
+            
+            if results:
+                return "\n".join(results[:8])
+            return "No web results found."
+        except Exception as e:
+            return f"Error during web search: {str(e)}"
+
+    def web_browse(self, url: str) -> str:
+        """Browse a website and return its text content."""
+        try:
+            from requests_html import HTMLSession
+            session = HTMLSession()
+            resp = session.get(url)
+            # Basic text extraction
+            text = resp.html.text
+            # Clean up excessive whitespace
+            import re
+            text = re.sub(r'\n\s*\n', '\n\n', text)
+            return f"Content of {url}:\n\n{text[:10000]}..." # Cap at 10k chars
+        except Exception as e:
+            return f"Error browsing {url}: {str(e)}"
+
     def get_available_tools(self) -> list:
         """Return list of available tools with descriptions."""
         return [
@@ -241,7 +295,10 @@ class Tools:
             {"name": "search_files", "description": "Search for files by name pattern. Args: pattern (str), path (str, optional)"},
             {"name": "grep_search", "description": "Search for text inside files. Args: query (str), path (str, optional), extensions (list, optional)"},
             {"name": "run_command", "description": "Execute shell command. Args: command (str), cwd (str, optional)"},
-            {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"}
+            {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"},
+            {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
+            {"name": "web_search", "description": "Search the web. Args: query (str)"},
+            {"name": "web_browse", "description": "Browse a website. Args: url (str)"}
         ]
     
     def execute(self, tool_name: str, **kwargs) -> str:

@@ -17,8 +17,15 @@ class Agent:
         return self.tools.set_workspace(path)
     
     def get_system_prompt(self) -> str:
-        """Get the system prompt with current workspace."""
-        return SYSTEM_PROMPT.format(workspace_path=self.tools.workspace_path)
+        """Get the system prompt with current workspace and plan if available."""
+        prompt = SYSTEM_PROMPT.format(workspace_path=self.tools.workspace_path)
+        
+        # Check for plan.md
+        plan_content = self.tools.read_file("plan.md")
+        if "Content of plan.md" in plan_content:
+            prompt += f"\n\n## Current Plan (plan.md)\n{plan_content}"
+            
+        return prompt
     
     def parse_tool_call(self, text: str) -> Optional[dict]:
         """Parse a tool call from the model's output (Primary: JSON block)."""
@@ -68,8 +75,22 @@ class Agent:
     
     def execute_tool(self, tool_name: str, args: dict) -> str:
         """Execute a tool and return formatted result."""
+        if tool_name == "delegate_task":
+            return self.delegate_task(**args)
         result = self.tools.execute(tool_name, **args)
         return TOOL_RESULT_TEMPLATE.format(tool_name=tool_name, output=result)
+    
+    def delegate_task(self, task: str, context: Optional[str] = None) -> str:
+        """Spawn a sub-agent to perform a specific task."""
+        # This is a bit tricky since it needs to be async or wait for result
+        # For simplicity in this local version, we'll run it synchronously 
+        # but in reality we might want a separate process or thread.
+        print(f"Delegating task: {task}")
+        # To avoid infinite recursion, we could limit depth
+        # For now, let's just run a one-off completion with Gemini
+        # We need access to GeminiService here, but Agent shouldn't depend on it directly
+        # Let's instead return a message that the system should handle delegation
+        return f"SYSTEM: Delegation requested for task: '{task}'. Context: {context}. Please process this sub-task."
     
     def format_for_streaming(self, text: str, tool_call: dict = None, tool_result: str = None) -> dict:
         """Format response for streaming to frontend."""
@@ -111,4 +132,6 @@ class Agent:
     def get_tool_descriptions(self) -> str:
         """Get formatted tool descriptions for the prompt."""
         tools = self.tools.get_available_tools()
-        return "\n".join([f"- `{t['name']}`: {t['description']}" for t in tools])
+        descriptions = [f"- `{t['name']}`: {t['description']}" for t in tools]
+        descriptions.append("- `delegate_task`: Delegate a complex sub-task to a specialized sub-agent. Args: task (str), context (str, optional)")
+        return "\n".join(descriptions)

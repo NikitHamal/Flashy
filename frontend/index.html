@@ -92,6 +92,9 @@
                         </div>
                     </div>
                     <div class="top-actions">
+                        <button id="btn-toggle-plan" class="btn-ghost" title="View Plan">
+                            <span class="material-symbols-outlined">assignment</span>
+                        </button>
                         <button id="btn-toggle-explorer" class="btn-ghost" title="Toggle Explorer">
                             <span class="material-symbols-outlined">side_navigation</span>
                         </button>
@@ -163,6 +166,20 @@
                     </div>
 
                     <div id="explorer-resizer" class="resizer-h hidden"></div>
+
+                    <!-- Right Sidebar: Plan (New) -->
+                    <aside id="plan-sidebar" class="plan-sidebar hidden">
+                        <div class="explorer-header">
+                            <span>CURRENT PLAN</span>
+                            <button id="btn-refresh-plan" class="btn-icon-xs" title="Refresh Plan">
+                                <span class="material-symbols-outlined">refresh</span>
+                            </button>
+                        </div>
+                        <div id="plan-content" class="plan-content">
+                            <!-- Plan content injected here -->
+                            <div class="plan-empty">No active plan found (plan.md)</div>
+                        </div>
+                    </aside>
 
                     <!-- Right Sidebar: Explorer -->
                     <aside id="explorer-sidebar" class="explorer-sidebar hidden">

@@ -195,6 +195,21 @@ async def get_explorer(workspace_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/workspace/{workspace_id}/plan")
+async def get_plan(workspace_id: str):
+    try:
+        ws = get_workspace_data(workspace_id)
+        if not ws:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        plan_path = os.path.join(ws['path'], "plan.md")
+        if os.path.exists(plan_path):
+            with open(plan_path, 'r', encoding='utf-8') as f:
+                return {"content": f.read()}
+        return {"content": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/proxy_image")
 async def proxy_image(url: str):
     async with httpx.AsyncClient() as client:
