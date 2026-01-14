@@ -377,6 +377,16 @@ function setupEventListeners() {
     }
 
     const handleSend = async () => {
+        if (UI.isWorking) {
+            // Stop logic
+            try {
+                await API.interruptChat(currentSessionId);
+            } catch (e) {
+                console.error("Failed to stop agent", e);
+            }
+            return;
+        }
+
         const text = input.value.trim();
         const uploadedFiles = UI.uploadedFiles;
         const taggedFiles = UI.taggedFiles;
@@ -402,6 +412,7 @@ function setupEventListeners() {
         UI.clearTaggedFiles();
         UI.clearUploadedFiles();
         UI.showLoading();
+        UI.setAgentState('working');
 
         try {
             await API.sendMessage(finalText, currentSessionId, currentWorkspaceId, uploadedFiles, (chunk) => {
@@ -410,6 +421,7 @@ function setupEventListeners() {
             await refreshState(false);
         } catch (e) {
             UI.hideLoading();
+            UI.setAgentState('idle');
             UI.addMessage(`Error: ${e.message}`, 'ai');
         }
     };
@@ -456,6 +468,8 @@ function setupEventListeners() {
         input.addEventListener('input', function (e) {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
+
+            if (UI.isWorking) return; // Don't change button state while working
 
             const value = this.value;
             const cursorCoords = this.selectionStart;

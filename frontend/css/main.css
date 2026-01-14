@@ -1364,6 +1364,14 @@ code {
     background: var(--accent-hover);
 }
 
+.btn-send.btn-stop {
+    background: #ef4444 !important;
+}
+
+.btn-send.btn-stop:hover {
+    background: #dc2626 !important;
+}
+
 .btn-send .material-symbols-outlined {
     font-size: 18px;
 }
@@ -1478,52 +1486,10 @@ code {
     transform: scale(1.1);
 }
 
-/* ==================== WORKING INDICATOR ==================== */
-.working-indicator {
-    position: fixed;
-    bottom: 100px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(26, 26, 26, 0.9);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--accent);
-    padding: 8px 16px;
-    border-radius: 100px;
-    z-index: 5000;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-.working-content {
+.loading-dots-container {
+    padding: 8px 0;
     display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-}
-
-.btn-stop {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-    padding: 4px 12px;
-    border-radius: 100px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.btn-stop:hover {
-    background: #ef4444;
-    color: white;
-}
-
-.btn-stop .material-symbols-outlined {
-    font-size: 16px;
+    justify-content: flex-start;
 }
 
 /* ==================== THOUGHT BLOCK ==================== */

@@ -171,6 +171,8 @@ const UI = {
             this.elements.chatInput.style.height = 'auto';
             this.elements.chatInput.style.height = (this.elements.chatInput.scrollHeight) + 'px';
 
+            if (this.isWorking) return;
+
             if (this.elements.chatInput.value.trim().length > 0) {
                 this.elements.sendBtn.classList.add('active');
             } else {
@@ -321,15 +323,30 @@ const UI = {
 
     handleStreamChunk(chunk) {
         this.hideLoading();
-        this.showWorkingIndicator();
+        this.setAgentState('working');
+
         let lastMsg = this.elements.chatHistoryWrapper.lastElementChild;
         if (!lastMsg || !lastMsg.classList.contains('ai')) {
             lastMsg = this.addMessage([], 'ai');
         }
+
         const bubble = lastMsg.querySelector('.message-bubble');
+        
+        // Ensure dots are at the bottom
+        let dots = bubble.querySelector('.loading-dots-container');
+        if (!dots) {
+            dots = document.createElement('div');
+            dots.className = 'loading-dots-container';
+            dots.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+            bubble.appendChild(dots);
+        }
 
         if (chunk.thought) {
-            this._renderPart(bubble, { type: 'thought', content: chunk.thought }, 'ai');
+            const thoughtPart = { type: 'thought', content: chunk.thought };
+            // Insert before dots
+            const tempDiv = document.createElement('div');
+            this._renderPart(tempDiv, thoughtPart, 'ai');
+            dots.before(tempDiv.firstChild);
         }
         if (chunk.text) {
             let activeText = bubble.querySelector('.message-text.active');
@@ -337,7 +354,8 @@ const UI = {
                 activeText = document.createElement('div');
                 activeText.className = 'message-text active';
                 activeText.dataset.raw = '';
-                bubble.appendChild(activeText);
+                // Insert before dots
+                dots.before(activeText);
             }
             activeText.dataset.raw += chunk.text;
             activeText.innerHTML = marked.parse(activeText.dataset.raw);
@@ -348,7 +366,8 @@ const UI = {
             const toolPill = this._createToolPill(chunk.tool_call);
             toolPill.classList.add('executing');
             toolPill.id = `tool-${Date.now()}`;
-            bubble.appendChild(toolPill);
+            // Insert before dots
+            dots.before(toolPill);
             lastMsg.dataset.currentToolId = toolPill.id;
         }
         if (chunk.tool_result) {
@@ -364,44 +383,40 @@ const UI = {
             if (typeof refreshPlan === 'function') refreshPlan();
         }
         if (chunk.images) {
-            this._renderImages(bubble, chunk.images);
+            this._renderImages(bubble, chunk.images); // Note: _renderImages currently appends, might need adjustment to stay before dots
         }
+
         if (chunk.is_final) {
             bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
-            this.hideWorkingIndicator();
+            this.setAgentState('idle');
+            if (dots) dots.remove();
         }
         this.scrollToBottom();
     },
 
-    showWorkingIndicator() {
-        let indicator = document.getElementById('working-indicator');
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.id = 'working-indicator';
-            indicator.className = 'working-indicator';
-            indicator.innerHTML = `
-                <div class="working-content">
-                    <span class="material-symbols-outlined rotating">sync</span>
-                    <span>Agent is working...</span>
-                    <button id="btn-stop-agent" class="btn-stop">
-                        <span class="material-symbols-outlined">stop_circle</span> Stop
-                    </button>
-                </div>
-            `;
-            document.body.appendChild(indicator);
-            document.getElementById('btn-stop-agent').onclick = () => {
-                if (typeof currentSessionId !== 'undefined') {
-                    API.interruptChat(currentSessionId);
-                }
-            };
+    setAgentState(state) {
+        const sendBtn = this.elements.sendBtn;
+        const chatInput = this.elements.chatInput;
+        if (!sendBtn) return;
+
+        if (state === 'working') {
+            sendBtn.classList.add('btn-stop');
+            sendBtn.innerHTML = '<span class="material-symbols-outlined">stop_circle</span>';
+            sendBtn.title = 'Stop Agent';
+            // Disable input but keep it readable
+            if (chatInput) chatInput.placeholder = 'Agent is working...';
+        } else {
+            sendBtn.classList.remove('btn-stop');
+            sendBtn.innerHTML = '<span class="material-symbols-outlined">arrow_upward</span>';
+            sendBtn.title = 'Send Message';
+            if (chatInput) chatInput.placeholder = "Ask anything... 'Find and fix security vulnerabilities'";
         }
-        indicator.classList.remove('hidden');
+        this.isWorking = (state === 'working');
     },
 
-    hideWorkingIndicator() {
-        const indicator = document.getElementById('working-indicator');
-        if (indicator) indicator.classList.add('hidden');
-    },
+    // Remove old indicator methods
+    showWorkingIndicator() {},
+    hideWorkingIndicator() {},
 
     _renderImages(container, images) {
         let imgContainer = container.querySelector('.generated-images');
