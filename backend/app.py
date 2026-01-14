@@ -77,37 +77,26 @@ async def chat(
         save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
         
         async def response_generator():
-            full_text = ""
-            tool_outputs = []
-            last_tool_call = None
-            
-            async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
-                if "tool_call" in chunk:
-                    last_tool_call = chunk["tool_call"]
-                    yield json.dumps(chunk) + "\n"
-                elif "tool_result" in chunk:
-                    tool_outputs.append({
-                        "tool": last_tool_call["name"],
-                        "args": last_tool_call["args"],
-                        "result": chunk["tool_result"]
-                    })
-                    yield json.dumps(chunk) + "\n"
-                else:
-                    text = chunk.get("text", "")
-                    full_text += text
-                    # Rewrite image URLs if present in the final chunk
-                    if chunk.get("images"):
-                        chunk["images"] = [f"/proxy_image?url={url}" for url in chunk["images"]]
-                    
-                    yield json.dumps(chunk) + "\n"
-                
-            # Save AI message when done
-            save_chat_message(session_id, "ai", full_text, tool_outputs=tool_outputs, workspace_id=workspace_id)
-            
-            # Cleanup files after sending
-            for path in file_paths:
-                try: os.remove(path)
-                except: pass
+            try:
+                async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+                    if "tool_call" in chunk:
+                        yield json.dumps(chunk) + "\n"
+                    elif "tool_result" in chunk:
+                        yield json.dumps(chunk) + "\n"
+                    else:
+                        # Rewrite image URLs if present in the final chunk
+                        if chunk.get("images"):
+                            chunk["images"] = [f"/proxy_image?url={url}" for url in chunk["images"]]
+                        
+                        yield json.dumps(chunk) + "\n"
+            except Exception as e:
+                print(f"Error in streaming: {e}")
+                yield json.dumps({"text": f"\n\n**STREAM ERROR:** {str(e)}", "is_final": True}) + "\n"
+            finally:
+                # Cleanup files after sending
+                for path in file_paths:
+                    try: os.remove(path)
+                    except: pass
 
         return StreamingResponse(response_generator(), media_type="application/x-ndjson")
     except Exception as e:
