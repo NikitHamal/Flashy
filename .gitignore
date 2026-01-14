@@ -1,0 +1,18 @@
+# Local config and secrets
+config.json
+.vscode/
+.idea/
+*.pyc
+__pycache__/
+.env
+
+# Storage
+storage/
+history/
+
+# Node
+node_modules/
+
+# Temp
+temp/
+flashy_uploads/
