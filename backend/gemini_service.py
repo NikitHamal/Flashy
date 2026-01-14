@@ -14,6 +14,21 @@ class GeminiService:
         self.interrupted_sessions = set() # Track interrupted sessions
         self.workspace_path = None
     
+    def set_workspace(self, path: str) -> str:
+        """Set workspace for all new agent sessions."""
+        import os
+        if os.path.isdir(path):
+            self.workspace_path = os.path.abspath(path)
+            # Update all existing agents
+            for agent in self.agents.values():
+                agent.set_workspace(self.workspace_path)
+            return f"Workspace set to: {self.workspace_path}"
+        return f"Error: '{path}' is not a valid directory."
+    
+    def get_workspace(self) -> str:
+        """Get current workspace path."""
+        return self.workspace_path or ""
+
     def interrupt_session(self, session_id: str):
         """Interrupt a running session."""
         self.interrupted_sessions.add(session_id)

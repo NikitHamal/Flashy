@@ -226,12 +226,31 @@ const UI = {
             const textDiv = document.createElement('div');
             textDiv.className = 'message-text';
             if (role === 'user') {
-                textDiv.innerHTML = `<span class="user-text-content">${this.escapeHtml(part.content)}</span>`;
+                const escaped = this.escapeHtml(part.content);
+                textDiv.innerHTML = `<span class="user-text-content">${escaped}</span>`;
+                container.appendChild(textDiv);
+
+                // Add collapsible logic for long user messages
+                setTimeout(() => {
+                    if (textDiv.scrollHeight > 120) {
+                        textDiv.classList.add('collapsible');
+                        const expandBtn = document.createElement('button');
+                        expandBtn.className = 'btn-expand-message';
+                        expandBtn.innerHTML = 'Show More <span class="material-symbols-outlined">expand_more</span>';
+                        expandBtn.onclick = () => {
+                            textDiv.classList.toggle('expanded');
+                            expandBtn.innerHTML = textDiv.classList.contains('expanded')
+                                ? 'Show Less <span class="material-symbols-outlined">expand_less</span>'
+                                : 'Show More <span class="material-symbols-outlined">expand_more</span>';
+                        };
+                        textDiv.after(expandBtn);
+                    }
+                }, 0);
             } else {
                 textDiv.innerHTML = marked.parse(part.content);
                 textDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                container.appendChild(textDiv);
             }
-            container.appendChild(textDiv);
         } else if (part.type === 'thought') {
             const thoughtDiv = document.createElement('div');
             thoughtDiv.className = 'thought-block';
