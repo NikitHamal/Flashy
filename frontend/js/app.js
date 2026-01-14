@@ -23,6 +23,15 @@ let globalData = {
 };
 
 function setupEventListeners() {
+    // Brand Logo Click - Return to Home
+    const brand = document.querySelector('.brand');
+    if (brand) {
+        brand.style.cursor = 'pointer';
+        brand.addEventListener('click', () => {
+            showDashboard();
+        });
+    }
+
     // Top-bar Dropdown
     const sessSelector = document.getElementById('session-selector');
     const sessMenu = document.getElementById('session-dropdown-menu');
@@ -490,10 +499,40 @@ function renderSidebarWorkspaces(workspaces) {
     Object.values(workspaces).forEach(ws => {
         const item = document.createElement('div');
         item.className = `nav-item ${ws.id === currentWorkspaceId ? 'active' : ''}`;
-        item.innerHTML = `<span class="material-symbols-outlined icon">folder</span><span class="name">${ws.name}</span>`;
-        item.onclick = () => openWorkspace(ws.id);
+        item.innerHTML = `
+            <span class="material-symbols-outlined icon">folder</span>
+            <span class="name">${ws.name}</span>
+            <div class="nav-actions">
+                <button class="btn-item-action close-workspace" title="Close project">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        `;
+        item.onclick = (e) => {
+            if (e.target.closest('.close-workspace')) {
+                e.stopPropagation();
+                closeWorkspace(ws.id);
+                return;
+            }
+            openWorkspace(ws.id);
+        };
         list.appendChild(item);
     });
+}
+
+async function closeWorkspace(workspaceId) {
+    if (confirm("Are you sure you want to disconnect this project? All associated chat sessions will also be removed.")) {
+        try {
+            await API.deleteWorkspace(workspaceId);
+            if (currentWorkspaceId === workspaceId) {
+                showDashboard();
+            } else {
+                refreshState();
+            }
+        } catch (e) {
+            alert("Failed to close workspace");
+        }
+    }
 }
 
 function renderRecentProjects(workspaces) {

@@ -91,6 +91,14 @@ const API = {
         return response.json();
     },
 
+    async deleteWorkspace(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspaces/${workspaceId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete workspace');
+        return response.json();
+    },
+
     async getWorkspaceSessions(workspaceId) {
         const response = await fetch(`${this.baseUrl}/workspaces/${workspaceId}/sessions`);
         if (!response.ok) throw new Error('Failed to load sessions');

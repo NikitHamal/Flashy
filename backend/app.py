@@ -183,6 +183,12 @@ async def set_workspace(data: WorkspaceUpdate):
 async def api_get_workspaces():
     return storage.get_workspaces()
 
+@app.delete("/workspaces/{workspace_id}")
+async def api_delete_workspace(workspace_id: str):
+    if storage.delete_workspace(workspace_id):
+        return {"message": "Workspace deleted"}
+    raise HTTPException(status_code=404, detail="Workspace not found")
+
 @app.post("/workspaces")
 async def api_add_workspace(path: str = Body(..., embed=True)):
     if not os.path.exists(path):

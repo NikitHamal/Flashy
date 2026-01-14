@@ -58,6 +58,22 @@ def get_workspace(workspace_id):
     workspaces = load_json(WORKSPACES_FILE)
     return workspaces.get(workspace_id)
 
+def delete_workspace(workspace_id):
+    """Remove a workspace and its associated chats."""
+    workspaces = load_json(WORKSPACES_FILE)
+    if workspace_id in workspaces:
+        del workspaces[workspace_id]
+        save_json(WORKSPACES_FILE, workspaces)
+        
+        # Also clean up associated chats
+        chats = load_chats()
+        to_delete = [sid for sid, chat in chats.items() if chat.get('workspace_id') == workspace_id]
+        for sid in to_delete:
+            del chats[sid]
+        save_json(CHATS_FILE, chats)
+        return True
+    return False
+
 # --- Chat Management ---
 
 def load_chats():
