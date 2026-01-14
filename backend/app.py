@@ -248,6 +248,27 @@ def api_pick_path():
     path = _run_isolated_picker()
     return {"path": path}
 
+class CheckoutRequest(BaseModel):
+    branch: str
+
+@app.post("/workspace/{workspace_id}/git/checkout")
+async def git_checkout(workspace_id: str, request: CheckoutRequest):
+    try:
+        ws = get_workspace_data(workspace_id)
+        if not ws:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        from .git_manager import GitManager
+        git = GitManager(ws['path'])
+        result = git.checkout(request.branch)
+        
+        if "Error" in result:
+            raise HTTPException(status_code=400, detail=result)
+            
+        return {"message": f"Switched to branch {request.branch}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/workspace/{workspace_id}/explorer")
 async def get_explorer(workspace_id: str):
     try:

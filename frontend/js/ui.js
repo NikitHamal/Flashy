@@ -545,7 +545,7 @@ const UI = {
         if (sidebar) sidebar.classList.add('hidden');
     },
 
-    renderGit(data) {
+    renderGit(data, onBranchClick) {
         const container = document.getElementById('git-repo-status');
         const branchesList = document.getElementById('git-branches-list');
         const logList = document.getElementById('git-log-list');
@@ -562,12 +562,19 @@ const UI = {
             <pre style="font-size: 10px; margin-top: 4px; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">${this.escapeHtml(data.status || 'Clean')}</pre>
         `;
 
-        branchesList.innerHTML = data.branches.map(b => `
-            <div class="git-branch-item ${b.current ? 'active' : ''}">
+        branchesList.innerHTML = '';
+        data.branches.forEach(b => {
+            const item = document.createElement('div');
+            item.className = `git-branch-item ${b.current ? 'active' : ''}`;
+            item.innerHTML = `
                 <span class="material-symbols-outlined" style="font-size: 14px;">${b.current ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
                 <span>${b.name}</span>
-            </div>
-        `).join('');
+            `;
+            if (!b.current) {
+                item.onclick = () => onBranchClick(b.name);
+            }
+            branchesList.appendChild(item);
+        });
 
         logList.innerHTML = `<div class="git-log-item">${this.escapeHtml(data.log)}</div>`;
     },

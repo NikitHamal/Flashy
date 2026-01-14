@@ -149,6 +149,19 @@ const API = {
         return await response.json();
     },
 
+    async switchBranch(workspaceId, branch) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ branch })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Checkout failed");
+        }
+        return await response.json();
+    },
+
     async interruptChat(sessionId) {
         const response = await fetch(`${this.baseUrl}/chat/interrupt`, {
             method: 'POST',

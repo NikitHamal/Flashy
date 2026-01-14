@@ -599,7 +599,18 @@ async function refreshGit() {
     if (!currentWorkspaceId) return;
     try {
         const data = await API.getGitInfo(currentWorkspaceId);
-        UI.renderGit(data);
+        UI.renderGit(data, async (branchName) => {
+            try {
+                UI.showWorkingIndicator();
+                await API.switchBranch(currentWorkspaceId, branchName);
+                await refreshGit();
+                await refreshExplorer();
+                UI.hideWorkingIndicator();
+            } catch (e) {
+                UI.hideWorkingIndicator();
+                alert("Failed to switch branch: " + e.message);
+            }
+        });
     } catch (e) {
         console.error("Failed to refresh git", e);
     }
