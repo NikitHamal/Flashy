@@ -608,6 +608,96 @@ body {
     font-style: italic;
 }
 
+/* ==================== GIT SIDEBAR ==================== */
+.git-sidebar {
+    width: 320px;
+    background: #0d0d0d;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.git-sidebar.hidden {
+    width: 0;
+    border-left: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.git-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.git-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    margin-top: 8px;
+}
+
+.git-empty {
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+}
+
+.git-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+}
+
+.git-branches-list, .git-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.git-branch-item {
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+}
+
+.git-branch-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+.git-branch-item.active {
+    color: var(--accent);
+    background: rgba(74, 222, 128, 0.05);
+}
+
+.git-log-item {
+    font-size: 11px;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    white-space: pre-wrap;
+    color: var(--text-secondary);
+}
+
 /* ==================== EXPLORER SIDEBAR ==================== */
 .explorer-sidebar {
     width: 260px;

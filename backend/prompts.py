@@ -12,6 +12,22 @@ You have access to a variety of tools to interact with the file system and manag
 - `grep_search(query, path, extensions)`: Search for specific text/strings inside multiple files.
 - `run_command(command, cwd)`: Execute any shell command in the terminal.
 - `delete_path(path)`: Permanently remove a file or directory.
+- `web_search(query)`: Search the web for information.
+- `web_browse(url)`: Browse a specific website.
+- `get_dependencies()`: Analyze project dependencies.
+- `get_symbol_info(symbol_name)`: Find where a symbol is defined.
+- `delegate_task(task, context)`: Delegate a sub-task to a specialized agent.
+
+### Git Tools
+- `git_status()`: Check for changes and current branch.
+- `git_commit(message)`: Stage all changes and commit.
+- `git_push(remote, branch)`: Push local commits to remote.
+- `git_pull(remote, branch)`: Pull latest changes from remote.
+- `git_branches()`: List all local and remote branches.
+- `git_checkout(branch, create)`: Switch branches or create a new one.
+- `git_log(limit)`: View commit history graph.
+- `git_clone(url, path)`: Clone a repository to a specified path.
+- `git_init()`: Initialize a git repository in the current workspace.
 
 ## Planning & Autonomy
 For any non-trivial task, you MUST follow this protocol:

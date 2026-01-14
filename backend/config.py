@@ -6,7 +6,8 @@ CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
     "Secure_1PSID": "",
     "Secure_1PSIDTS": "",
-    "model": "G_2_0_PRO"
+    "model": "G_2_0_PRO",
+    "GITHUB_PAT": ""
 }
 
 def load_config():

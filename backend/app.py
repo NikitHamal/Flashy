@@ -200,6 +200,28 @@ async def get_explorer(workspace_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/workspace/{workspace_id}/git")
+async def get_git_info(workspace_id: str):
+    try:
+        ws = get_workspace_data(workspace_id)
+        if not ws:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        from .git_manager import GitManager
+        git = GitManager(ws['path'])
+        
+        if not git.is_repo():
+            return {"is_repo": False}
+        
+        return {
+            "is_repo": True,
+            "status": git.get_status(),
+            "branches": git.get_branches(),
+            "log": git.get_log(10)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/workspace/{workspace_id}/plan")
 async def get_plan(workspace_id: str):
     try:
@@ -227,6 +249,7 @@ async def proxy_image(url: str):
 class ConfigUpdate(BaseModel):
     Secure_1PSID: str
     Secure_1PSIDTS: str
+    GITHUB_PAT: Optional[str] = None
     model: Optional[str] = None
 
 @app.get("/config")

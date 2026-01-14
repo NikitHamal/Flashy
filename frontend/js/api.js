@@ -127,6 +127,12 @@ const API = {
         return await response.json();
     },
 
+    async getGitInfo(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git`);
+        if (!response.ok) throw new Error('Failed to load git info');
+        return await response.json();
+    },
+
     async interruptChat(sessionId) {
         const response = await fetch(`${this.baseUrl}/chat/interrupt`, {
             method: 'POST',

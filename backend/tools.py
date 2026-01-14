@@ -2,17 +2,20 @@ import os
 import subprocess
 import glob
 from typing import Optional, List
+from .git_manager import GitManager
 
 class Tools:
     """Collection of tools the agent can use to interact with the local system."""
     
     def __init__(self, workspace_path: str = None):
         self.workspace_path = workspace_path or os.getcwd()
+        self.git = GitManager(self.workspace_path)
     
     def set_workspace(self, path: str):
         """Set the workspace root path."""
         if os.path.isdir(path):
             self.workspace_path = os.path.abspath(path)
+            self.git.workspace_path = self.workspace_path
             return f"Workspace set to: {self.workspace_path}"
         else:
             return f"Error: '{path}' is not a valid directory."
@@ -303,6 +306,68 @@ class Tools:
             return "\n\n".join(results)
         return f"Could not find any clear definitions for '{symbol_name}'."
 
+    # --- Git Tools ---
+
+    def git_status(self) -> str:
+        """Check the status of the current git repository."""
+        if not self.git.is_repo():
+            return "Current workspace is not a git repository."
+        return self.git.get_status()
+
+    def git_commit(self, message: str) -> str:
+        """Stage all changes and commit with a message."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.commit(message)
+
+    def git_push(self, remote: str = "origin", branch: str = None) -> str:
+        """Push changes to a remote repository."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        # Note: We'll try to use the PAT from config if not already set in remote
+        from .config import load_config
+        config = load_config()
+        pat = config.get("GITHUB_PAT")
+        return self.git.push(remote, branch, pat=pat)
+
+    def git_pull(self, remote: str = "origin", branch: str = None) -> str:
+        """Pull changes from a remote repository."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.pull(remote, branch)
+
+    def git_branches(self) -> str:
+        """List all branches in the current repository."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        branches = self.git.get_branches()
+        return "\n".join([f"{'* ' if b['current'] else '  '}{b['name']}" for b in branches])
+
+    def git_checkout(self, branch: str, create: bool = False) -> str:
+        """Switch to a branch or create a new one."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.checkout(branch, create)
+
+    def git_log(self, limit: int = 10) -> str:
+        """Show git commit history."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.get_log(limit)
+
+    def git_clone(self, url: str, path: str = ".") -> str:
+        """Clone a git repository from a URL."""
+        from .config import load_config
+        config = load_config()
+        pat = config.get("GITHUB_PAT")
+        # Ensure path is absolute or relative to workspace
+        full_target_path = self._resolve_path(path)
+        return self.git.clone_repo(url, full_target_path, pat=pat)
+
+    def git_init(self) -> str:
+        """Initialize a new git repository in the current workspace."""
+        return self.git.init_repo()
+
     def get_available_tools(self) -> list:
         """Return list of available tools with descriptions."""
         return [
@@ -319,7 +384,16 @@ class Tools:
             {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
             {"name": "web_search", "description": "Search the web. Args: query (str)"},
             {"name": "web_browse", "description": "Browse a website. Args: url (str)"},
-            {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"}
+            {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"},
+            {"name": "git_status", "description": "Get git status. No args."},
+            {"name": "git_commit", "description": "Commit all changes. Args: message (str)"},
+            {"name": "git_push", "description": "Push changes. Args: remote (str, optional), branch (str, optional)"},
+            {"name": "git_pull", "description": "Pull changes. Args: remote (str, optional), branch (str, optional)"},
+            {"name": "git_branches", "description": "List all branches. No args."},
+            {"name": "git_checkout", "description": "Switch/create branch. Args: branch (str), create (bool, optional)"},
+            {"name": "git_log", "description": "Show commit history. Args: limit (int, optional)"},
+            {"name": "git_clone", "description": "Clone a repo. Args: url (str), path (str, optional)"},
+            {"name": "git_init", "description": "Initialize a new git repo. No args."}
         ]
     
     def execute(self, tool_name: str, **kwargs) -> str:

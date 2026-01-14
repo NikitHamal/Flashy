@@ -121,6 +121,24 @@ function setupEventListeners() {
         });
     }
 
+    // Git Toggle
+    const toggleGitBtn = document.getElementById('btn-toggle-git');
+    if (toggleGitBtn) {
+        toggleGitBtn.addEventListener('click', () => {
+            UI.toggleGit();
+            if (!document.getElementById('git-sidebar').classList.contains('hidden')) {
+                refreshGit();
+            }
+        });
+    }
+
+    const refreshGitBtn = document.getElementById('btn-refresh-git');
+    if (refreshGitBtn) {
+        refreshGitBtn.addEventListener('click', () => {
+            if (currentWorkspaceId) refreshGit();
+        });
+    }
+
     // Dashboard New Session
     const dashNewSessBtn = document.getElementById('btn-dashboard-new-session');
     if (dashNewSessBtn) {
@@ -142,6 +160,7 @@ function setupEventListeners() {
                 const config = await API.getConfig();
                 document.getElementById('settings-psid').value = config.Secure_1PSID || '';
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
+                document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
             } catch (e) {
                 console.error("Failed to load settings", e);
             }
@@ -174,7 +193,8 @@ function setupEventListeners() {
         saveSettingsBtn.addEventListener('click', async () => {
             const config = {
                 Secure_1PSID: document.getElementById('settings-psid').value,
-                Secure_1PSIDTS: document.getElementById('settings-psidts').value
+                Secure_1PSIDTS: document.getElementById('settings-psidts').value,
+                GITHUB_PAT: document.getElementById('settings-github-pat').value
             };
             try {
                 saveSettingsBtn.disabled = true;
@@ -433,6 +453,16 @@ async function refreshPlan() {
     }
 }
 
+async function refreshGit() {
+    if (!currentWorkspaceId) return;
+    try {
+        const data = await API.getGitInfo(currentWorkspaceId);
+        UI.renderGit(data);
+    } catch (e) {
+        console.error("Failed to refresh git", e);
+    }
+}
+
 async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession = false) {
     currentWorkspaceId = workspaceId;
     localStorage.setItem('lastWorkspaceId', workspaceId);
@@ -460,6 +490,7 @@ async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession 
     UI.renderSessionDropdown(workspaceId, workspaceSessions, currentSessionId, loadSession, createNewSession);
     refreshExplorer();
     refreshPlan();
+    refreshGit();
 
     if (autoLoadLastSession && workspaceSessions.length > 0) {
         loadSession(workspaceSessions[0], pushState);

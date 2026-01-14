@@ -92,6 +92,9 @@
                         </div>
                     </div>
                     <div class="top-actions">
+                        <button id="btn-toggle-git" class="btn-ghost" title="Git Status">
+                            <span class="material-symbols-outlined">account_tree</span>
+                        </button>
                         <button id="btn-toggle-plan" class="btn-ghost" title="View Plan">
                             <span class="material-symbols-outlined">assignment</span>
                         </button>
@@ -181,6 +184,30 @@
                         </div>
                     </aside>
 
+                    <!-- Right Sidebar: Git (New) -->
+                    <aside id="git-sidebar" class="git-sidebar hidden">
+                        <div class="explorer-header">
+                            <span>GIT REPOSITORY</span>
+                            <button id="btn-refresh-git" class="btn-icon-xs" title="Refresh Git">
+                                <span class="material-symbols-outlined">refresh</span>
+                            </button>
+                        </div>
+                        <div id="git-content" class="git-content">
+                            <div id="git-repo-status">
+                                <!-- Git status info here -->
+                                <div class="git-empty">Detecting repository...</div>
+                            </div>
+                            <div class="git-actions-grid">
+                                <button id="btn-git-pull" class="btn-secondary btn-sm"><span class="material-symbols-outlined">download</span> Pull</button>
+                                <button id="btn-git-push" class="btn-secondary btn-sm"><span class="material-symbols-outlined">upload</span> Push</button>
+                            </div>
+                            <div class="git-section-title">BRANCHES</div>
+                            <div id="git-branches-list" class="git-branches-list"></div>
+                            <div class="git-section-title">RECENT COMMITS</div>
+                            <div id="git-log-list" class="git-log-list"></div>
+                        </div>
+                    </aside>
+
                     <!-- Right Sidebar: Explorer -->
                     <aside id="explorer-sidebar" class="explorer-sidebar hidden">
                         <div class="explorer-header">
@@ -226,6 +253,15 @@
                         <div class="input-with-action">
                             <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
                             <button class="btn-toggle-visibility" data-target="settings-psidts">
+                                <span class="material-symbols-outlined">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-field">
+                        <label>GitHub Personal Access Token (PAT)</label>
+                        <div class="input-with-action">
+                            <input type="password" id="settings-github-pat" placeholder="ghp_xxxxxxxxxxxx">
+                            <button class="btn-toggle-visibility" data-target="settings-github-pat">
                                 <span class="material-symbols-outlined">visibility</span>
                             </button>
                         </div>

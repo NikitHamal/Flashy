@@ -517,13 +517,59 @@ const UI = {
         const sidebar = document.getElementById('plan-sidebar');
         if (sidebar) {
             const isHidden = sidebar.classList.toggle('hidden');
-            if (!isHidden) this.hideExplorer();
+            if (!isHidden) {
+                this.hideExplorer();
+                this.hideGit();
+            }
         }
     },
 
     hidePlan() {
         const sidebar = document.getElementById('plan-sidebar');
         if (sidebar) sidebar.classList.add('hidden');
+    },
+
+    toggleGit() {
+        const sidebar = document.getElementById('git-sidebar');
+        if (sidebar) {
+            const isHidden = sidebar.classList.toggle('hidden');
+            if (!isHidden) {
+                this.hideExplorer();
+                this.hidePlan();
+            }
+        }
+    },
+
+    hideGit() {
+        const sidebar = document.getElementById('git-sidebar');
+        if (sidebar) sidebar.classList.add('hidden');
+    },
+
+    renderGit(data) {
+        const container = document.getElementById('git-repo-status');
+        const branchesList = document.getElementById('git-branches-list');
+        const logList = document.getElementById('git-log-list');
+        
+        if (!data.is_repo) {
+            container.innerHTML = '<div class="git-empty">No git repository detected.</div>';
+            branchesList.innerHTML = '';
+            logList.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="font-size: 12px; color: var(--text-primary); font-weight: 500;">Status</div>
+            <pre style="font-size: 10px; margin-top: 4px; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">${this.escapeHtml(data.status || 'Clean')}</pre>
+        `;
+
+        branchesList.innerHTML = data.branches.map(b => `
+            <div class="git-branch-item ${b.current ? 'active' : ''}">
+                <span class="material-symbols-outlined" style="font-size: 14px;">${b.current ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
+                <span>${b.name}</span>
+            </div>
+        `).join('');
+
+        logList.innerHTML = `<div class="git-log-item">${this.escapeHtml(data.log)}</div>`;
     },
 
     renderPlan(content) {
