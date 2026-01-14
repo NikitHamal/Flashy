@@ -101,7 +101,29 @@ function setupEventListeners() {
                     openWorkspace(ws.id);
                 }
             } catch (e) {
+                alert("Failed to open dialog. Please try entering the path manually below.");
+                connectModal.classList.remove('hidden');
                 console.error(e);
+            }
+        });
+    }
+
+    const addManualBtn = document.getElementById('btn-add-manual-path');
+    if (addManualBtn) {
+        addManualBtn.addEventListener('click', async () => {
+            const path = document.getElementById('manual-workspace-path').value.trim();
+            if (!path) return;
+            
+            try {
+                const ws = await API.setWorkspace(path);
+                if (ws && ws.id) {
+                    document.getElementById('manual-workspace-path').value = '';
+                    connectModal.classList.add('hidden');
+                    await refreshState();
+                    openWorkspace(ws.id);
+                }
+            } catch (e) {
+                alert("Error connecting path: " + e.message);
             }
         });
     }

@@ -194,7 +194,7 @@ async def api_get_workspace_sessions(workspace_id: str):
     return storage.get_workspace_sessions(workspace_id)
 
 @app.post("/workspace/pick")
-async def pick_workspace():
+def pick_workspace():
     try:
         import tkinter as tk
         from tkinter import filedialog
@@ -206,6 +206,8 @@ async def pick_workspace():
         root.destroy()
         
         if path:
+            # Normalize path for Windows
+            path = os.path.abspath(path)
             # Register workspace and return it
             ws = storage.add_workspace(path)
             # Update agent workspace path
@@ -213,6 +215,7 @@ async def pick_workspace():
             return ws
         return {"message": "Cancelled"}
     except Exception as e:
+        print(f"Error in pick_workspace: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/workspace/{workspace_id}/explorer")
