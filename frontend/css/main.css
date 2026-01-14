@@ -688,14 +688,44 @@ body {
 }
 
 .git-log-item {
-    font-size: 11px;
-    padding: 8px;
-    border-radius: 6px;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.commit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.commit-hash {
     font-family: var(--font-mono);
-    white-space: pre-wrap;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.commit-date {
+    font-size: 10px;
     color: var(--text-secondary);
+}
+
+.commit-msg {
+    color: var(--text-primary);
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.commit-author {
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.7;
 }
 
 /* ==================== EXPLORER SIDEBAR ==================== */

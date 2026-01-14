@@ -269,6 +269,34 @@ async def git_checkout(workspace_id: str, request: CheckoutRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/workspace/{workspace_id}/git/pull")
+async def git_pull(workspace_id: str):
+    try:
+        ws = get_workspace_data(workspace_id)
+        if not ws: raise HTTPException(status_code=404, detail="Workspace not found")
+        from .git_manager import GitManager
+        git = GitManager(ws['path'])
+        result = git.pull()
+        if "failed" in result.lower(): raise HTTPException(status_code=400, detail=result)
+        return {"message": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workspace/{workspace_id}/git/push")
+async def git_push(workspace_id: str):
+    try:
+        ws = get_workspace_data(workspace_id)
+        if not ws: raise HTTPException(status_code=404, detail="Workspace not found")
+        from .git_manager import GitManager
+        git = GitManager(ws['path'])
+        from .config import load_config
+        pat = load_config().get("GITHUB_PAT")
+        result = git.push(pat=pat)
+        if "failed" in result.lower(): raise HTTPException(status_code=400, detail=result)
+        return {"message": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/workspace/{workspace_id}/explorer")
 async def get_explorer(workspace_id: str):
     try:

@@ -251,6 +251,40 @@ function setupEventListeners() {
         });
     }
 
+    const pullBtn = document.getElementById('btn-git-pull');
+    if (pullBtn) {
+        pullBtn.addEventListener('click', async () => {
+            if (!currentWorkspaceId) return;
+            try {
+                UI.showWorkingIndicator();
+                const res = await API.gitPull(currentWorkspaceId);
+                await refreshGit();
+                UI.hideWorkingIndicator();
+                alert(res.message);
+            } catch (e) {
+                UI.hideWorkingIndicator();
+                alert("Pull failed: " + e.message);
+            }
+        });
+    }
+
+    const pushBtn = document.getElementById('btn-git-push');
+    if (pushBtn) {
+        pushBtn.addEventListener('click', async () => {
+            if (!currentWorkspaceId) return;
+            try {
+                UI.showWorkingIndicator();
+                const res = await API.gitPush(currentWorkspaceId);
+                await refreshGit();
+                UI.hideWorkingIndicator();
+                alert(res.message);
+            } catch (e) {
+                UI.hideWorkingIndicator();
+                alert("Push failed: " + e.message);
+            }
+        });
+    }
+
     // Dashboard New Session
     const dashNewSessBtn = document.getElementById('btn-dashboard-new-session');
     if (dashNewSessBtn) {

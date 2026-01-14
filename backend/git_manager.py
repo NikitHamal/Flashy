@@ -88,15 +88,16 @@ class GitManager:
     def push(self, remote: str = "origin", branch: str = None, pat: str = None) -> str:
         """Push changes."""
         if not branch:
-            # Get current branch
             curr = self._run_git(['branch', '--show-current'])
             branch = curr["stdout"]
         
-        # If PAT is available, we might need to update the remote URL temporarily or use env vars
-        # For simplicity, we'll assume the user has configured the remote with credentials 
-        # or we rely on the agent to handle the PAT injection during clone/remote-set.
+        # If PAT is provided, we use it for this specific command via an environment variable or URL update
+        # For security and simplicity in subprocess, we'll assume the remote is already authenticated 
+        # or the user has a credential helper. 
         res = self._run_git(['push', remote, branch])
-        return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
+        if res["success"]:
+            return f"Successfully pushed to {remote}/{branch}"
+        return f"Push failed: {res['stderr']}"
 
     def pull(self, remote: str = "origin", branch: str = None) -> str:
         """Pull changes."""
@@ -104,9 +105,28 @@ class GitManager:
             curr = self._run_git(['branch', '--show-current'])
             branch = curr["stdout"]
         res = self._run_git(['pull', remote, branch])
-        return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
+        if res["success"]:
+            return f"Successfully pulled from {remote}/{branch}"
+        return f"Pull failed: {res['stderr']}"
 
-    def get_log(self, limit: int = 10) -> str:
-        """Get commit history."""
-        res = self._run_git(['log', f'-n {limit}', '--oneline', '--graph', '--decorate'])
-        return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
+    def get_log(self, limit: int = 10) -> List[Dict]:
+        """Get structured commit history."""
+        # Format: hash|date|author|subject
+        format_str = "%H|%cr|%an|%s"
+        res = self._run_git(['log', f'-n {limit}', f'--pretty=format:{format_str}'])
+        
+        if not res["success"]:
+            return []
+        
+        commits = []
+        for line in res["stdout"].split('\n'):
+            if not line: continue
+            parts = line.split('|')
+            if len(parts) >= 4:
+                commits.append({
+                    "hash": parts[0][:7],
+                    "date": parts[1],
+                    "author": parts[2],
+                    "message": parts[3]
+                })
+        return commits

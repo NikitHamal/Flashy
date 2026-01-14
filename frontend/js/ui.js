@@ -576,7 +576,24 @@ const UI = {
             branchesList.appendChild(item);
         });
 
-        logList.innerHTML = `<div class="git-log-item">${this.escapeHtml(data.log)}</div>`;
+        logList.innerHTML = '';
+        if (data.log && Array.isArray(data.log)) {
+            data.log.forEach(commit => {
+                const item = document.createElement('div');
+                item.className = 'git-log-item';
+                item.innerHTML = `
+                    <div class="commit-header">
+                        <span class="commit-hash">${commit.hash}</span>
+                        <span class="commit-date">${commit.date}</span>
+                    </div>
+                    <div class="commit-msg">${this.escapeHtml(commit.message)}</div>
+                    <div class="commit-author">by ${commit.author}</div>
+                `;
+                logList.appendChild(item);
+            });
+        } else {
+            logList.innerHTML = '<div class="git-empty">No commit history found.</div>';
+        }
     },
 
     renderPlan(content) {

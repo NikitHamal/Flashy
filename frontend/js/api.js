@@ -162,6 +162,28 @@ const API = {
         return await response.json();
     },
 
+    async gitPull(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/pull`, {
+            method: 'POST'
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Pull failed");
+        }
+        return await response.json();
+    },
+
+    async gitPush(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/push`, {
+            method: 'POST'
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Push failed");
+        }
+        return await response.json();
+    },
+
     async interruptChat(sessionId) {
         const response = await fetch(`${this.baseUrl}/chat/interrupt`, {
             method: 'POST',
