@@ -119,6 +119,35 @@ async def interrupt_chat(session_id: str = Body(..., embed=True)):
     gemini_service.interrupt_session(session_id)
     return {"message": "Interrupted"}
 
+class CloneRequest(BaseModel):
+    url: str
+    parent_path: str
+
+@app.post("/git/clone")
+async def api_git_clone(request: CloneRequest):
+    try:
+        from .git_manager import GitManager
+        # Determine repo name from URL
+        repo_name = request.url.split("/")[-1].replace(".git", "")
+        target_path = os.path.join(request.parent_path, repo_name)
+        
+        if os.path.exists(target_path):
+            raise HTTPException(status_code=400, detail=f"Directory already exists: {target_path}")
+        
+        git = GitManager() # No workspace yet
+        from .config import load_config
+        pat = load_config().get("GITHUB_PAT")
+        
+        result = git.clone_repo(request.url, target_path, pat=pat)
+        if "Error" in result:
+            raise HTTPException(status_code=500, detail=result)
+            
+        # Add as workspace
+        ws = storage.add_workspace(target_path)
+        return ws
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/history")
 async def list_chats():
     return get_all_chats()

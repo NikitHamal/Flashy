@@ -72,10 +72,28 @@ function setupEventListeners() {
         });
     }
 
-    // Add Workspace Button
+    // Add Workspace Button (Renamed to Connect Project)
     const addWsBtn = document.getElementById('btn-add-workspace');
-    if (addWsBtn) {
-        addWsBtn.addEventListener('click', async () => {
+    const connectModal = document.getElementById('modal-connect-project');
+    const closeConnectBtn = document.getElementById('btn-close-connect');
+    const choiceDevice = document.getElementById('choice-open-device');
+    const choiceGit = document.getElementById('choice-git-clone');
+
+    if (addWsBtn && connectModal) {
+        addWsBtn.addEventListener('click', () => {
+            connectModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeConnectBtn) {
+        closeConnectBtn.addEventListener('click', () => {
+            connectModal.classList.add('hidden');
+        });
+    }
+
+    if (choiceDevice) {
+        choiceDevice.addEventListener('click', async () => {
+            connectModal.classList.add('hidden');
             try {
                 const ws = await API.pickWorkspace();
                 if (ws && ws.id) {
@@ -84,6 +102,67 @@ function setupEventListeners() {
                 }
             } catch (e) {
                 console.error(e);
+            }
+        });
+    }
+
+    // Git Clone Modal Logic
+    const cloneModal = document.getElementById('modal-git-clone');
+    const closeCloneBtn = document.getElementById('btn-close-git-clone');
+    const pickCloneParentBtn = document.getElementById('btn-pick-clone-parent');
+    const startCloneBtn = document.getElementById('btn-start-clone');
+
+    if (choiceGit) {
+        choiceGit.addEventListener('click', () => {
+            connectModal.classList.add('hidden');
+            cloneModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeCloneBtn) {
+        closeCloneBtn.addEventListener('click', () => {
+            cloneModal.classList.add('hidden');
+        });
+    }
+
+    if (pickCloneParentBtn) {
+        pickCloneParentBtn.addEventListener('click', async () => {
+            try {
+                // Reuse pickWorkspace logic to get a parent folder
+                const ws = await API.pickWorkspace();
+                if (ws && ws.path) {
+                    document.getElementById('clone-parent-path').value = ws.path;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    if (startCloneBtn) {
+        startCloneBtn.addEventListener('click', async () => {
+            const url = document.getElementById('clone-url').value.trim();
+            const parentPath = document.getElementById('clone-parent-path').value.trim();
+
+            if (!url || !parentPath) {
+                alert("Please provide both URL and parent path.");
+                return;
+            }
+
+            try {
+                startCloneBtn.disabled = true;
+                startCloneBtn.textContent = 'Cloning...';
+                
+                const ws = await API.cloneRepo(url, parentPath);
+                
+                cloneModal.classList.add('hidden');
+                await refreshState();
+                openWorkspace(ws.id);
+            } catch (e) {
+                alert("Clone failed: " + e.message);
+            } finally {
+                startCloneBtn.disabled = false;
+                startCloneBtn.textContent = 'Clone Repository';
             }
         });
     }

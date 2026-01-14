@@ -46,7 +46,7 @@
 
             <div class="sidebar-footer">
                 <button id="btn-add-workspace" class="btn-secondary full-width">
-                    <span class="material-symbols-outlined">add</span> Connect Folder
+                    <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
             </div>
         </aside>
@@ -227,6 +227,66 @@
     </div>
 
     <!-- Modals -->
+    <div id="modal-connect-project" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Connect Project</h2>
+                <button class="btn-close-modal" id="btn-close-connect">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="choice-grid">
+                    <div class="choice-card" id="choice-open-device">
+                        <span class="material-symbols-outlined choice-icon">folder_open</span>
+                        <div class="choice-info">
+                            <div class="choice-title">Open from device</div>
+                            <div class="choice-desc">Select an existing folder from your local system.</div>
+                        </div>
+                    </div>
+                    <div class="choice-card" id="choice-git-clone">
+                        <span class="material-symbols-outlined choice-icon">cloud_download</span>
+                        <div class="choice-info">
+                            <div class="choice-title">Git Clone</div>
+                            <div class="choice-desc">Clone a remote repository using a URL.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-git-clone" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Git Clone</h2>
+                <button class="btn-close-modal" id="btn-close-git-clone">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <div class="settings-field">
+                        <label>Repository URL</label>
+                        <input type="text" id="clone-url" placeholder="https://github.com/user/repo.git">
+                    </div>
+                    <div class="settings-field">
+                        <label>Destination Parent Folder</label>
+                        <div class="input-with-action">
+                            <input type="text" id="clone-parent-path" placeholder="Select where to clone..." readonly>
+                            <button id="btn-pick-clone-parent" class="btn-icon">
+                                <span class="material-symbols-outlined">folder_open</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-start-clone" class="btn-primary">Clone Repository</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-settings" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">

@@ -140,5 +140,18 @@ const API = {
             body: JSON.stringify({ session_id: sessionId })
         });
         return await response.json();
+    },
+
+    async cloneRepo(url, parentPath) {
+        const response = await fetch(`${this.baseUrl}/git/clone`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, parent_path: parentPath })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Clone failed");
+        }
+        return await response.json();
     }
 };

@@ -1345,6 +1345,47 @@ code {
     margin-bottom: 8px;
 }
 
+/* ==================== CHOICE GRID ==================== */
+.choice-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.choice-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.choice-card:hover {
+    background: rgba(74, 222, 128, 0.05);
+    border-color: var(--accent);
+}
+
+.choice-icon {
+    font-size: 32px;
+    color: var(--accent);
+}
+
+.choice-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.choice-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
 /* ==================== WORKING INDICATOR ==================== */
 .working-indicator {
     position: fixed;
