@@ -29,6 +29,32 @@ class GeminiService:
         """Get current workspace path."""
         return self.workspace_path or ""
 
+    async def get_client(self):
+        if self.client is None:
+            self.config = load_config()
+            self.client = GeminiClient(
+                self.config["Secure_1PSID"], 
+                self.config["Secure_1PSIDTS"], 
+                proxy=None
+            )
+            await self.client.init(timeout=30, auto_close=False, close_delay=300, auto_refresh=True)
+        return self.client
+
+    def get_agent(self, session_id: str) -> Agent:
+        """Get or create an agent for a session."""
+        if session_id not in self.agents:
+            self.agents[session_id] = Agent(self.workspace_path)
+        return self.agents[session_id]
+
+    async def get_session(self, session_id, history=None):
+        client = await self.get_client()
+        if session_id not in self.sessions:
+            model_name = self.config.get("model", "G_2_5_FLASH")
+            model = getattr(Model, model_name, Model.G_2_5_FLASH)
+            chat = client.start_chat(model=model)
+            self.sessions[session_id] = chat
+        return self.sessions[session_id]
+
     def interrupt_session(self, session_id: str):
         """Interrupt a running session."""
         self.interrupted_sessions.add(session_id)
