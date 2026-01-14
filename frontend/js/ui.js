@@ -100,7 +100,7 @@ const UI = {
             chip.innerHTML = `
                 <span class="material-symbols-outlined">description</span>
                 <span>${file.name}</span>
-                <span class="material-symbols-outlined remove-btn" onclick="UI.removeTaggedFile('${file.path.replace(/\/g, '\\')}')">close</span>
+                <span class="material-symbols-outlined remove-btn" onclick="UI.removeTaggedFile('${file.path.replace(/\\/g, '\\\\')}')">close</span>
             `;
             this.elements.taggedFilesContainer.appendChild(chip);
         });
