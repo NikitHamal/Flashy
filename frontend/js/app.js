@@ -175,6 +175,7 @@ function setupEventListeners() {
         startCloneBtn.addEventListener('click', async () => {
             const url = document.getElementById('clone-url').value.trim();
             const parentPath = document.getElementById('clone-parent-path').value.trim();
+            const name = document.getElementById('clone-name').value.trim();
 
             if (!url || !parentPath) {
                 alert("Please provide both URL and parent path.");
@@ -185,7 +186,7 @@ function setupEventListeners() {
                 startCloneBtn.disabled = true;
                 startCloneBtn.textContent = 'Cloning...';
                 
-                const ws = await API.cloneRepo(url, parentPath);
+                const ws = await API.cloneRepo(url, parentPath, name || null);
                 
                 cloneModal.classList.add('hidden');
                 await refreshState();

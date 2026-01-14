@@ -158,11 +158,11 @@ const API = {
         return await response.json();
     },
 
-    async cloneRepo(url, parentPath) {
+    async cloneRepo(url, parentPath, name = null) {
         const response = await fetch(`${this.baseUrl}/git/clone`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, parent_path: parentPath })
+            body: JSON.stringify({ url, parent_path: parentPath, name })
         });
         if (!response.ok) {
             const err = await response.json();

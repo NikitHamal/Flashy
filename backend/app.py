@@ -122,17 +122,27 @@ async def interrupt_chat(session_id: str = Body(..., embed=True)):
 class CloneRequest(BaseModel):
     url: str
     parent_path: str
+    name: Optional[str] = None
 
 @app.post("/git/clone")
 async def api_git_clone(request: CloneRequest):
     try:
         from .git_manager import GitManager
-        # Determine repo name from URL
-        repo_name = request.url.split("/")[-1].replace(".git", "")
+        
+        if request.name:
+            repo_name = request.name
+        else:
+            # Determine repo name from URL robustly
+            clean_url = request.url.strip().rstrip("/")
+            repo_name = clean_url.split("/")[-1].replace(".git", "")
+        
+        if not repo_name:
+            raise HTTPException(status_code=400, detail="Could not determine repository name from URL")
+            
         target_path = os.path.join(request.parent_path, repo_name)
         
-        if os.path.exists(target_path):
-            raise HTTPException(status_code=400, detail=f"Directory already exists: {target_path}")
+        if os.path.exists(target_path) and os.listdir(target_path):
+            raise HTTPException(status_code=400, detail=f"Directory already exists and is not empty: {target_path}")
         
         git = GitManager() # No workspace yet
         from .config import load_config
@@ -145,7 +155,10 @@ async def api_git_clone(request: CloneRequest):
         # Add as workspace
         ws = storage.add_workspace(target_path)
         return ws
+    except HTTPException as e:
+        raise e
     except Exception as e:
+        print(f"Clone error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history")
