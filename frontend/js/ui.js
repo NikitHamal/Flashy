@@ -14,6 +14,16 @@ const UI = {
         mentionPopup: document.getElementById('mention-popup'),
         taggedFilesContainer: document.getElementById('tagged-files-container'),
         uploadPreviewsContainer: document.getElementById('upload-previews-container'),
+
+        // Terminal elements
+        terminalContainer: document.getElementById('terminal-container'),
+        terminalOutput: document.getElementById('terminal-output'),
+        terminalToggle: document.getElementById('btn-toggle-terminal'),
+        terminalToggleContainer: document.getElementById('terminal-toggle-container'),
+        terminalBadge: document.getElementById('terminal-badge'),
+        terminalStatus: document.getElementById('terminal-status'),
+        terminalClose: document.getElementById('btn-close-terminal'),
+        terminalClear: document.getElementById('btn-clear-terminal'),
     },
 
     taggedFiles: [], // Array of { name, path }
@@ -331,7 +341,7 @@ const UI = {
         }
 
         const bubble = lastMsg.querySelector('.message-bubble');
-        
+
         // Ensure dots are at the bottom
         let dots = bubble.querySelector('.loading-dots-container');
         if (!dots) {
@@ -415,8 +425,8 @@ const UI = {
     },
 
     // Remove old indicator methods
-    showWorkingIndicator() {},
-    hideWorkingIndicator() {},
+    showWorkingIndicator() { },
+    hideWorkingIndicator() { },
 
     _renderImages(container, images) {
         let imgContainer = container.querySelector('.generated-images');
@@ -583,7 +593,7 @@ const UI = {
         const container = document.getElementById('git-repo-status');
         const branchesList = document.getElementById('git-branches-list');
         const logList = document.getElementById('git-log-list');
-        
+
         if (!data.is_repo) {
             container.innerHTML = '<div class="git-empty">No git repository detected.</div>';
             branchesList.innerHTML = '';
@@ -692,6 +702,82 @@ const UI = {
             });
         } else {
             treeContainer.appendChild(renderNode(data));
+        }
+    },
+
+    // Terminal Methods
+    showTerminal() {
+        if (this.elements.terminalContainer) {
+            this.elements.terminalContainer.classList.remove('hidden');
+            this.elements.terminalBadge.textContent = '';
+            this.elements.terminalBadge.classList.remove('active');
+            this.elements.terminalToggleContainer.classList.remove('hidden');
+            this.scrollToTerminalBottom();
+        }
+    },
+
+    hideTerminal() {
+        if (this.elements.terminalContainer) {
+            this.elements.terminalContainer.classList.add('hidden');
+        }
+    },
+
+    toggleTerminal() {
+        if (this.elements.terminalContainer) {
+            const isHidden = this.elements.terminalContainer.classList.toggle('hidden');
+            if (!isHidden) {
+                this.elements.terminalBadge.textContent = '';
+                this.elements.terminalBadge.classList.remove('active');
+                this.scrollToTerminalBottom();
+            }
+        }
+    },
+
+    appendTerminalOutput(text, isError = false) {
+        if (!this.elements.terminalOutput) return;
+
+        // Remove welcome message on first output
+        const welcome = this.elements.terminalOutput.querySelector('.terminal-welcome');
+        if (welcome) welcome.remove();
+
+        // Show toggle container if it's hidden
+        this.elements.terminalToggleContainer.classList.remove('hidden');
+
+        const line = document.createElement('div');
+        line.className = `terminal-line ${isError ? 'error' : ''}`;
+        line.textContent = text;
+        this.elements.terminalOutput.appendChild(line);
+
+        // Update badge if terminal is hidden
+        if (this.elements.terminalContainer.classList.contains('hidden')) {
+            const count = parseInt(this.elements.terminalBadge.textContent || '0') + 1;
+            this.elements.terminalBadge.textContent = count > 99 ? '99+' : count;
+            this.elements.terminalBadge.classList.add('active');
+        }
+
+        this.scrollToTerminalBottom();
+
+        // Show active status
+        if (this.elements.terminalStatus) {
+            this.elements.terminalStatus.classList.add('active');
+            if (this.statusTimeout) clearTimeout(this.statusTimeout);
+            this.statusTimeout = setTimeout(() => {
+                this.elements.terminalStatus.classList.remove('active');
+            }, 2000);
+        }
+    },
+
+    scrollToTerminalBottom() {
+        if (this.elements.terminalOutput) {
+            this.elements.terminalOutput.scrollTop = this.elements.terminalOutput.scrollHeight;
+        }
+    },
+
+    clearTerminal() {
+        if (this.elements.terminalOutput) {
+            this.elements.terminalOutput.innerHTML = '<div class="terminal-welcome">Waiting for terminal activity...</div>';
+            this.elements.terminalBadge.textContent = '';
+            this.elements.terminalBadge.classList.remove('active');
         }
     },
 

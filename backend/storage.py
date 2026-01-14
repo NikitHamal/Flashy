@@ -20,8 +20,25 @@ def load_json(filepath):
             return {}
 
 def save_json(filepath, data):
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    """Save data to a JSON file atomically."""
+    import tempfile
+    
+    # Create a temporary file in the same directory as the target file
+    dir_name = os.path.dirname(filepath)
+    fd, temp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+    
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+        
+        # Atomically rename the temporary file to the target file
+        # This replaces the target file if it exists
+        os.replace(temp_path, filepath)
+    except Exception as e:
+        print(f"Error saving JSON to {filepath}: {e}")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise
 
 # --- Workspace Management ---
 

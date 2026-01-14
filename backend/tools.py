@@ -3,12 +3,14 @@ import subprocess
 import glob
 from typing import Optional, List
 from .git_manager import GitManager
+from .websocket_manager import ws_manager
 
 class Tools:
     """Collection of tools the agent can use to interact with the local system."""
     
-    def __init__(self, workspace_path: str = None):
+    def __init__(self, workspace_path: str = None, session_id: str = None):
         self.workspace_path = workspace_path or os.getcwd()
+        self.session_id = session_id
         self.git = GitManager(self.workspace_path)
     
     def set_workspace(self, path: str):
@@ -160,10 +162,24 @@ class Tools:
         except Exception as e:
             return f"Error during grep: {str(e)}"
 
-    def run_command(self, command: str, cwd: Optional[str] = None) -> str:
+    async def run_command(self, command: str, cwd: Optional[str] = None) -> str:
         """Execute a shell command in the workspace."""
         try:
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
+            
+            # If we have a session_id, stream the output via WebSocket
+            if self.session_id:
+                # Use ws_manager to run and stream
+                output, exit_code = await ws_manager.run_command_streamed(
+                    self.session_id, 
+                    command, 
+                    cwd=work_dir
+                )
+                
+                status = "✓ Success" if exit_code == 0 else f"✗ Exit code: {exit_code}"
+                return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{output.strip() or '(no output)'}\n```"
+            
+            # Fallback for non-session calls
             result = subprocess.run(
                 command,
                 shell=True,
@@ -396,9 +412,10 @@ class Tools:
             {"name": "git_init", "description": "Initialize a new git repo. No args."}
         ]
     
-    def execute(self, tool_name: str, **kwargs) -> str:
+    async def execute(self, tool_name: str, **kwargs) -> str:
         """Execute a tool by name with given arguments."""
         tool_map = {
+            # File System Tools
             "read_file": self.read_file,
             "write_file": self.write_file,
             "patch_file": self.patch_file,
@@ -408,13 +425,34 @@ class Tools:
             "search_files": self.search_files,
             "grep_search": self.grep_search,
             "run_command": self.run_command,
-            "delete_path": self.delete_path
+            "delete_path": self.delete_path,
+            # Analysis Tools
+            "get_dependencies": self.get_dependencies,
+            "get_symbol_info": self.get_symbol_info,
+            # Web Tools
+            "web_search": self.web_search,
+            "web_browse": self.web_browse,
+            # Git Tools
+            "git_status": self.git_status,
+            "git_commit": self.git_commit,
+            "git_push": self.git_push,
+            "git_pull": self.git_pull,
+            "git_branches": self.git_branches,
+            "git_checkout": self.git_checkout,
+            "git_log": self.git_log,
+            "git_clone": self.git_clone,
+            "git_init": self.git_init,
         }
         
         if tool_name not in tool_map:
             return f"Error: Unknown tool '{tool_name}'. Available: {list(tool_map.keys())}"
         
         try:
-            return tool_map[tool_name](**kwargs)
+            func = tool_map[tool_name]
+            import inspect
+            if inspect.iscoroutinefunction(func):
+                return await func(**kwargs)
+            else:
+                return func(**kwargs)
         except TypeError as e:
             return f"Error: Invalid arguments for '{tool_name}': {str(e)}"

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ from .gemini_service import GeminiService
 from .config import load_config, save_config
 from . import storage 
 from .storage import save_chat_message, get_chat_history, get_all_chats, delete_chat, get_workspace as get_workspace_data, add_workspace
+from .websocket_manager import ws_manager, MessageType
 import uvicorn
 import shutil
 import os
@@ -14,6 +15,7 @@ import time
 import httpx
 import uuid
 import json
+import asyncio
 from typing import List, Optional
 from fastapi.responses import StreamingResponse, Response, FileResponse, JSONResponse
 
@@ -177,10 +179,19 @@ async def get_workspace():
 
 @app.post("/workspace")
 async def set_workspace(data: WorkspaceUpdate):
-    result = gemini_service.set_workspace(data.path)
+    if not os.path.exists(data.path):
+        raise HTTPException(status_code=400, detail="Path does not exist")
+        
+    # Get or create workspace ID
+    ws = storage.add_workspace(data.path)
+    
+    # Set it in gemini service with the correct ID
+    result = gemini_service.set_workspace(ws['path'], workspace_id=ws['id'])
+    
     if "Error" in result:
         raise HTTPException(status_code=400, detail=result)
-    return {"message": result, "path": gemini_service.get_workspace()}
+        
+    return {"message": result, "path": gemini_service.get_workspace(), "id": ws['id']}
 
 @app.get("/workspaces")
 async def api_get_workspaces():
@@ -366,6 +377,191 @@ async def update_config(data: ConfigUpdate):
     save_config(current_config)
     await gemini_service.reset()
     return {"message": "Config updated and client reset"}
+
+
+# ============================================================================
+# WebSocket Endpoint
+# ============================================================================
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    """
+    WebSocket endpoint for real-time communication.
+    
+    Message Types (Client -> Server):
+    - chat_message: {type: "chat_message", message: str, workspace_id: str, files: []}
+    - interrupt: {type: "interrupt"}
+    - subscribe_terminal: {type: "subscribe_terminal", terminal_id: str}
+    - terminal_input: {type: "terminal_input", terminal_id: str, input: str}
+    - run_command: {type: "run_command", command: str, cwd: str}
+    
+    Message Types (Server -> Client):
+    - thought: {type: "thought", content: str}
+    - text: {type: "text", content: str, is_final: bool}
+    - tool_call: {type: "tool_call", name: str, args: {}}
+    - tool_result: {type: "tool_result", content: str}
+    - terminal_output: {type: "terminal_output", terminal_id: str, output: str}
+    - terminal_exit: {type: "terminal_exit", terminal_id: str, exit_code: int}
+    - error: {type: "error", message: str}
+    - stream_end: {type: "stream_end"}
+    """
+    # Get workspace_id from query params if provided
+    workspace_id = websocket.query_params.get("workspace_id")
+    
+    connection_id = await ws_manager.connect(websocket, session_id, workspace_id)
+    
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+            
+            if msg_type == "chat_message":
+                # Handle chat message
+                await handle_ws_chat(
+                    connection_id=connection_id,
+                    session_id=session_id,
+                    message=data.get("message", ""),
+                    workspace_id=data.get("workspace_id") or workspace_id,
+                    files=data.get("files", [])
+                )
+            
+            elif msg_type == "interrupt":
+                # Interrupt the current agent session
+                gemini_service.interrupt_session(session_id)
+                await ws_manager.send_to_connection(
+                    connection_id, 
+                    MessageType.TEXT, 
+                    {"content": "\n\n*Agent interrupted by user.*", "is_final": True}
+                )
+            
+            elif msg_type == "subscribe_terminal":
+                # Subscribe to terminal output
+                terminal_id = data.get("terminal_id")
+                if terminal_id:
+                    ws_manager.subscribe_to_terminal(connection_id, terminal_id)
+            
+            elif msg_type == "terminal_input":
+                # Send input to a running terminal
+                terminal_id = data.get("terminal_id")
+                input_text = data.get("input", "")
+                if terminal_id:
+                    await ws_manager.send_terminal_input(terminal_id, input_text)
+            
+            elif msg_type == "run_command":
+                # Run a command with streaming output
+                command = data.get("command", "")
+                cwd = data.get("cwd")
+                terminal_id = data.get("terminal_id") or f"term_{uuid.uuid4().hex[:8]}"
+                
+                # Auto-subscribe the requester
+                ws_manager.subscribe_to_terminal(connection_id, terminal_id)
+                
+                # Run command in background
+                asyncio.create_task(
+                    ws_manager.run_streaming_command(command, terminal_id, cwd)
+                )
+                
+                # Send back the terminal_id
+                await ws_manager.send_to_connection(
+                    connection_id,
+                    MessageType.TERMINAL_OUTPUT,
+                    {"terminal_id": terminal_id, "output": f"$ {command}\n", "is_error": False}
+                )
+            
+            elif msg_type == "kill_terminal":
+                terminal_id = data.get("terminal_id")
+                if terminal_id:
+                    await ws_manager.kill_terminal(terminal_id)
+            
+            else:
+                await ws_manager.send_to_connection(
+                    connection_id,
+                    MessageType.ERROR,
+                    {"message": f"Unknown message type: {msg_type}"}
+                )
+    
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(connection_id)
+    except Exception as e:
+        print(f"[WS] Error in connection {connection_id}: {e}")
+        await ws_manager.disconnect(connection_id)
+
+
+async def handle_ws_chat(connection_id: str, session_id: str, message: str, workspace_id: str = None, files: list = None):
+    """Handle a chat message received via WebSocket."""
+    try:
+        # Set workspace if provided
+        if workspace_id:
+            ws = get_workspace_data(workspace_id)
+            if ws:
+                gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
+        
+        # Save user message
+        save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
+        
+        # Process uploaded files if any (base64 encoded)
+        file_paths = []
+        if files:
+            for file_data in files:
+                if isinstance(file_data, dict) and 'content' in file_data:
+                    import base64
+                    filename = file_data.get('name', f'upload_{uuid.uuid4().hex[:8]}')
+                    file_path = os.path.join(UPLOAD_DIR, filename)
+                    with open(file_path, 'wb') as f:
+                        f.write(base64.b64decode(file_data['content']))
+                    file_paths.append(file_path)
+        
+        # Stream response via WebSocket
+        async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+            if "thought" in chunk:
+                await ws_manager.send_to_session(
+                    session_id,
+                    MessageType.THOUGHT,
+                    {"content": chunk["thought"]}
+                )
+            elif "tool_call" in chunk:
+                await ws_manager.send_to_session(
+                    session_id,
+                    MessageType.TOOL_CALL,
+                    {"name": chunk["tool_call"]["name"], "args": chunk["tool_call"]["args"]}
+                )
+            elif "tool_result" in chunk:
+                await ws_manager.send_to_session(
+                    session_id,
+                    MessageType.TOOL_RESULT,
+                    {"content": chunk["tool_result"]}
+                )
+            else:
+                # Text response
+                await ws_manager.send_to_session(
+                    session_id,
+                    MessageType.TEXT,
+                    {
+                        "content": chunk.get("text", ""),
+                        "images": chunk.get("images", []),
+                        "is_final": chunk.get("is_final", False)
+                    }
+                )
+        
+        # Signal end of stream
+        await ws_manager.send_to_session(session_id, MessageType.STREAM_END, {})
+        
+        # Cleanup files
+        for path in file_paths:
+            try:
+                os.remove(path)
+            except:
+                pass
+                
+    except Exception as e:
+        print(f"[WS] Chat error: {e}")
+        await ws_manager.send_to_session(
+            session_id,
+            MessageType.ERROR,
+            {"message": str(e)}
+        )
+
 
 # Serve static files from the frontend directory
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")

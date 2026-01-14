@@ -7,10 +7,11 @@ from .prompts import SYSTEM_PROMPT, TOOL_RESULT_TEMPLATE
 class Agent:
     """Manages the agent loop: Think -> Act -> Observe."""
     
-    def __init__(self, workspace_path: str = None):
-        self.tools = Tools(workspace_path)
+    def __init__(self, workspace_path: str = None, session_id: str = None):
+        self.tools = Tools(workspace_path, session_id=session_id)
         self.conversation_history = []
         self.max_iterations = 10  # Safety limit
+        self.session_id = session_id
     
     def set_workspace(self, path: str) -> str:
         """Set the agent's workspace."""
@@ -28,63 +29,117 @@ class Agent:
         return prompt
     
     def parse_tool_call(self, text: str) -> Optional[dict]:
-        """Parse a tool call from the model's output (Robust & Fast)."""
+        """
+        Parse a tool call from the model's output.
+        
+        IMPORTANT: This is designed to be strict to avoid false positives.
+        Only recognizes tool calls that:
+        1. Are in valid JSON format
+        2. Have a recognized tool name from our tool list
+        3. Prefer ```json code blocks over inline JSON
+        """
         if not text:
             return None
 
-        # 1. Primary: Standard Markdown Blocks
+        # Get list of valid tool names for validation
+        valid_tools = {t['name'] for t in self.tools.get_available_tools()}
+        valid_tools.add("delegate_task")  # Special tool not in the standard list
+
+        # 1. Primary: Standard Markdown Code Blocks (most reliable)
         if '```json' in text:
             blocks = text.split('```json')
             for block in blocks[1:]:
+                if '```' not in block:
+                    continue
                 content = block.split('```')[0].strip()
                 try:
                     data = json.loads(content)
-                    if self._is_valid_tool_data(data):
-                        return self._format_tool_match(data, f"```json{content}```")
-                except: continue
+                    result = self._validate_and_format_tool(data, valid_tools, f"```json\n{content}\n```")
+                    if result:
+                        return result
+                except json.JSONDecodeError:
+                    continue
 
-        # 2. Secondary: Aggressive Bracket Matching (Non-Recursive)
-        # Find all '{' indices
-        start_indices = [i for i, char in enumerate(text) if char == '{']
+        # 2. Secondary: Look for JSON objects with "action" key
+        # Use a more targeted approach - find { followed by "action"
+        action_pattern = r'\{\s*"action"\s*:\s*"([^"]+)"'
+        matches = list(re.finditer(action_pattern, text))
         
-        # Try to find matching '}' for each '{', starting from the largest possible blocks
-        for start_idx in start_indices:
-            # We look for the last '}' that could possibly close this JSON
-            end_idx = text.rfind('}', start_idx)
-            while end_idx != -1 and end_idx > start_idx:
-                potential_json = text[start_idx:end_idx+1]
+        for match in matches:
+            tool_name = match.group(1)
+            # Quick validation - is this a known tool?
+            if tool_name not in valid_tools:
+                continue
+            
+            # Find the complete JSON object
+            start_idx = match.start()
+            brace_count = 0
+            end_idx = start_idx
+            
+            for i, char in enumerate(text[start_idx:], start=start_idx):
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_idx = i + 1
+                        break
+            
+            if end_idx > start_idx:
+                potential_json = text[start_idx:end_idx]
                 try:
-                    # Quick check if it looks like our tool before expensive parse
-                    if '"action"' in potential_json or '"tool"' in potential_json or '"name"' in potential_json:
-                        data = json.loads(potential_json)
-                        if self._is_valid_tool_data(data):
-                            return self._format_tool_match(data, potential_json)
-                except:
-                    pass
-                # Try the next '}' coming backwards
-                end_idx = text.rfind('}', start_idx, end_idx)
+                    data = json.loads(potential_json)
+                    result = self._validate_and_format_tool(data, valid_tools, potential_json)
+                    if result:
+                        return result
+                except json.JSONDecodeError:
+                    continue
 
         return None
 
+    def _validate_and_format_tool(self, data: dict, valid_tools: set, raw: str) -> Optional[dict]:
+        """
+        Validate that parsed JSON is actually a valid tool call.
+        Returns formatted tool call dict or None if invalid.
+        """
+        if not isinstance(data, dict):
+            return None
+        
+        # Extract tool name (support multiple key names)
+        tool_name = data.get("action") or data.get("tool") or data.get("name")
+        
+        if not tool_name or tool_name not in valid_tools:
+            return None
+        
+        # Extract arguments
+        args = data.get("args") or data.get("arguments") or {}
+        
+        return {
+            "name": tool_name,
+            "args": args,
+            "raw_match": raw
+        }
+
     def _is_valid_tool_data(self, data: dict) -> bool:
-        """Verify if a JSON object is a valid tool call."""
-        if not isinstance(data, dict): return False
+        """Legacy validation - kept for compatibility."""
+        if not isinstance(data, dict):
+            return False
         action = data.get("action") or data.get("tool") or data.get("name")
         return bool(action)
 
     def _format_tool_match(self, data: dict, raw: str) -> dict:
-        """Format the parsed data into a standard tool call object."""
+        """Legacy formatting - kept for compatibility."""
         return {
             "name": data.get("action") or data.get("tool") or data.get("name"),
             "args": data.get("args") or data.get("arguments") or {},
             "raw_match": raw
         }
     
-    def execute_tool(self, tool_name: str, args: dict) -> str:
+    async def execute_tool(self, tool_name: str, args: dict) -> str:
         """Execute a tool and return formatted result."""
         if tool_name == "delegate_task":
-            return self.delegate_task(**args)
-        result = self.tools.execute(tool_name, **args)
+            return await self.delegate_task(**args)
+        result = await self.tools.execute(tool_name, **args)
         return TOOL_RESULT_TEMPLATE.format(tool_name=tool_name, output=result)
     
     def delegate_task(self, task: str, context: Optional[str] = None) -> str:

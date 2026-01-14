@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Event Listeners
     setupEventListeners();
+    setupWebSocketHandlers();
     initResizers();
 
     // Initial Routing
@@ -21,6 +22,63 @@ let globalData = {
     workspaces: {},
     sessions: []
 };
+
+// WebSocket configuration
+let useWebSocket = true; // Set to false to use HTTP fallback
+let wsConnected = false;
+
+// Setup WebSocket event handlers
+function setupWebSocketHandlers() {
+    flashyWS.on('connected', () => {
+        wsConnected = true;
+        console.log('[App] WebSocket connected');
+    });
+
+    flashyWS.on('disconnected', () => {
+        wsConnected = false;
+        console.log('[App] WebSocket disconnected');
+    });
+
+    flashyWS.on('thought', (content) => {
+        UI.handleStreamChunk({ thought: content });
+    });
+
+    flashyWS.on('text', (data) => {
+        UI.handleStreamChunk({
+            text: data.content,
+            images: data.images,
+            is_final: data.is_final
+        });
+    });
+
+    flashyWS.on('tool_call', (data) => {
+        UI.handleStreamChunk({ tool_call: data });
+    });
+
+    flashyWS.on('tool_result', (content) => {
+        UI.handleStreamChunk({ tool_result: content });
+    });
+
+    flashyWS.on('stream_end', () => {
+        UI.hideLoading();
+        UI.setAgentState('idle');
+        refreshState(false);
+    });
+
+    flashyWS.on('error', (message) => {
+        UI.hideLoading();
+        UI.setAgentState('idle');
+        UI.addMessage(`Error: ${message}`, 'ai');
+    });
+
+    flashyWS.on('terminal_output', (data) => {
+        UI.appendTerminalOutput(data.output, data.is_error);
+    });
+
+    flashyWS.on('terminal_exit', (data) => {
+        UI.appendTerminalOutput(`\n[Process exited with code ${data.exit_code}]\n`);
+    });
+}
 
 function setupEventListeners() {
     // Brand Logo Click - Return to Home
@@ -81,6 +139,32 @@ function setupEventListeners() {
         });
     }
 
+    // Terminal Listeners
+    const terminalToggle = document.getElementById('btn-toggle-terminal');
+    const terminalClose = document.getElementById('btn-close-terminal');
+    const terminalClear = document.getElementById('btn-clear-terminal');
+
+    if (terminalToggle) {
+        terminalToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            UI.toggleTerminal();
+        });
+    }
+
+    if (terminalClose) {
+        terminalClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            UI.hideTerminal();
+        });
+    }
+
+    if (terminalClear) {
+        terminalClear.addEventListener('click', (e) => {
+            e.stopPropagation();
+            UI.clearTerminal();
+        });
+    }
+
     // Add Workspace Button (Renamed to Connect Project)
     const addWsBtn = document.getElementById('btn-add-workspace');
     const connectModal = document.getElementById('modal-connect-project');
@@ -122,7 +206,7 @@ function setupEventListeners() {
         addManualBtn.addEventListener('click', async () => {
             const path = document.getElementById('manual-workspace-path').value.trim();
             if (!path) return;
-            
+
             try {
                 const ws = await API.setWorkspace(path);
                 if (ws && ws.id) {
@@ -185,9 +269,9 @@ function setupEventListeners() {
             try {
                 startCloneBtn.disabled = true;
                 startCloneBtn.textContent = 'Cloning...';
-                
+
                 const ws = await API.cloneRepo(url, parentPath, name || null);
-                
+
                 cloneModal.classList.add('hidden');
                 await refreshState();
                 openWorkspace(ws.id);
@@ -378,9 +462,13 @@ function setupEventListeners() {
 
     const handleSend = async () => {
         if (UI.isWorking) {
-            // Stop logic
+            // Stop logic - use WebSocket if connected
             try {
-                await API.interruptChat(currentSessionId);
+                if (useWebSocket && flashyWS.connected) {
+                    flashyWS.interrupt();
+                } else {
+                    await API.interruptChat(currentSessionId);
+                }
             } catch (e) {
                 console.error("Failed to stop agent", e);
             }
@@ -415,16 +503,48 @@ function setupEventListeners() {
         UI.setAgentState('working');
 
         try {
-            await API.sendMessage(finalText, currentSessionId, currentWorkspaceId, uploadedFiles, (chunk) => {
-                UI.handleStreamChunk(chunk);
-            });
-            await refreshState(false);
+            // Use WebSocket if enabled and connected
+            if (useWebSocket && flashyWS.connected) {
+                // Convert files to base64 for WebSocket transfer
+                const filesData = [];
+                for (const file of uploadedFiles) {
+                    const base64 = await fileToBase64(file);
+                    filesData.push({
+                        name: file.name,
+                        content: base64
+                    });
+                }
+
+                flashyWS.sendChatMessage(finalText, filesData);
+                // Note: stream_end handler will call hideLoading and refreshState
+            } else {
+                // Fallback to HTTP streaming
+                await API.sendMessage(finalText, currentSessionId, currentWorkspaceId, uploadedFiles, (chunk) => {
+                    UI.handleStreamChunk(chunk);
+                });
+                await refreshState(false);
+                UI.hideLoading();
+                UI.setAgentState('idle');
+            }
         } catch (e) {
             UI.hideLoading();
             UI.setAgentState('idle');
             UI.addMessage(`Error: ${e.message}`, 'ai');
         }
     };
+
+    // Helper function to convert File to base64
+    async function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1]; // Remove data:... prefix
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
 
     if (sendBtn) sendBtn.addEventListener('click', handleSend);
     if (input) {
@@ -757,6 +877,13 @@ function createNewSession(workspaceId, pushState = true) {
         }
     }
 
+    // Connect WebSocket for this session
+    if (useWebSocket) {
+        flashyWS.connect(currentSessionId, currentWorkspaceId).catch(err => {
+            console.warn('[App] WebSocket connection failed, using HTTP fallback', err);
+        });
+    }
+
     UI.addMessage("Ready to code in this workspace!", 'ai');
     refreshState();
 }
@@ -791,7 +918,7 @@ function loadSession(session, pushState = true) {
                 // Pass parts if available (new format), else pass text (old format)
                 const content = msg.parts || msg.text;
                 if (!content) return; // Skip empty messages
-                
+
                 // If parts is an empty array, it might be a corrupted message
                 if (Array.isArray(content) && content.length === 0) return;
 
@@ -799,6 +926,14 @@ function loadSession(session, pushState = true) {
             });
         }
     }
+
+    // Connect WebSocket for this session
+    if (useWebSocket) {
+        flashyWS.connect(currentSessionId, currentWorkspaceId).catch(err => {
+            console.warn('[App] WebSocket connection failed, using HTTP fallback', err);
+        });
+    }
+
     refreshState();
     refreshExplorer();
 }
