@@ -28,61 +28,69 @@ class Agent:
         return prompt
     
     def parse_tool_call(self, text: str) -> Optional[dict]:
-        """Parse a tool call from the model's output (Primary: JSON block)."""
-        # 1. Look for JSON or Markdown code blocks
-        # Pattern matches ```json ... ``` or ```markdown ... ``` or just ``` ... ```
-        block_pattern = r'```(?:json|markdown|)?\s*(\{\s*".*?"\s*:.*?\})\s*```'
-        matches = re.finditer(block_pattern, text, re.DOTALL)
-        
-        for match in matches:
-            try:
-                content = match.group(1).strip()
-                data = json.loads(content)
-                action = data.get("action") or data.get("tool") or data.get("name")
-                args = data.get("args") or data.get("arguments") or {}
-                
-                if action:
-                    return {"name": action, "args": args, "raw_match": match.group(0)}
-            except Exception:
-                continue
+        """Parse a tool call from the model's output (Extremely aggressive)."""
+        if not text:
+            return None
 
-        # 2. Look for raw JSON objects that have an "action", "tool", or "name" key
-        # We look for a { followed by one of our keywords
-        raw_json_pattern = r'(\{\s*"(?:action|tool|name)"\s*:\s*".*?"\s*,\s*"(?:args|arguments)"\s*:\s*\{.*?\s*\}\s*\})'
-        raw_matches = re.finditer(raw_json_pattern, text, re.DOTALL)
-        for match in raw_matches:
-            try:
-                data = json.loads(match.group(0))
-                action = data.get("action") or data.get("tool") or data.get("name")
-                args = data.get("args") or data.get("arguments") or {}
-                if action:
-                    return {"name": action, "args": args, "raw_match": match.group(0)}
-            except Exception:
-                continue
-                
-        # 3. Fallback for larger/complex JSON if the above simple regex missed it
-        # Try to find anything between { and } that looks like our tool call
-        try:
-            start_idx = text.find('{')
-            if start_idx != -1:
-                # Find the matching closing brace (simple version)
-                # This is risky but helpful as a last resort
-                depth = 0
-                for i in range(start_idx, len(text)):
-                    if text[i] == '{': depth += 1
-                    elif text[i] == '}': depth -= 1
-                    
-                    if depth == 0:
-                        potential_json = text[start_idx:i+1]
-                        data = json.loads(potential_json)
-                        action = data.get("action") or data.get("tool") or data.get("name")
-                        args = data.get("args") or data.get("arguments") or {}
-                        if action:
-                            return {"name": action, "args": args, "raw_match": potential_json}
-                        break
-        except: pass
+        # 1. Clean up common markdown artifact: sometimes models put JSON in a code block but don't close it
+        # or put text immediately after. We'll try to extract everything between ```json and the end
+        if '```json' in text:
+            blocks = text.split('```json')
+            for block in blocks[1:]: # Skip text before first block
+                # Find the closing ``` or assume end of string
+                content = block.split('```')[0].strip()
+                try:
+                    data = json.loads(content)
+                    if self._is_valid_tool_data(data):
+                        return self._format_tool_match(data, f"```json{content}")
+                except:
+                    # If it didn't parse, maybe it has trailing garbage?
+                    # Try to find the last }
+                    last_brace = content.rfind('}')
+                    if last_brace != -1:
+                        try:
+                            data = json.loads(content[:last_brace+1])
+                            if self._is_valid_tool_data(data):
+                                return self._format_tool_match(data, f"```json{content[:last_brace+1]}")
+                        except: pass
+
+        # 2. Look for any JSON-like structure { ... } using regex and try to parse it
+        # This is the "Aggressive" part - find everything that looks like a JSON object
+        potential_objects = re.finditer(r'\{(?:[^{}]|(?R))*\}', text, re.DOTALL) # Recursion not supported in standard re
+        # Alternative for Python's re: find all { and try to find matching }
+        
+        stack = []
+        for i, char in enumerate(text):
+            if char == '{':
+                stack.append(i)
+            elif char == '}' and stack:
+                start_idx = stack.pop()
+                # We only care if the stack is empty (top-level object) or if we want to try every level
+                # Let's try every potential object from largest to smallest
+                potential_json = text[start_idx:i+1]
+                try:
+                    data = json.loads(potential_json)
+                    if self._is_valid_tool_data(data):
+                        # Ensure this is the tool call the AI intended (contains action/name/tool)
+                        return self._format_tool_match(data, potential_json)
+                except:
+                    continue
 
         return None
+
+    def _is_valid_tool_data(self, data: dict) -> bool:
+        """Verify if a JSON object is a valid tool call."""
+        if not isinstance(data, dict): return False
+        action = data.get("action") or data.get("tool") or data.get("name")
+        return bool(action)
+
+    def _format_tool_match(self, data: dict, raw: str) -> dict:
+        """Format the parsed data into a standard tool call object."""
+        return {
+            "name": data.get("action") or data.get("tool") or data.get("name"),
+            "args": data.get("args") or data.get("arguments") or {},
+            "raw_match": raw
+        }
     
     def execute_tool(self, tool_name: str, args: dict) -> str:
         """Execute a tool and return formatted result."""

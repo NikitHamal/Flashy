@@ -556,7 +556,9 @@ function loadSession(session, pushState = true) {
         wrapper.innerHTML = '';
         if (session.messages) {
             session.messages.forEach(msg => {
-                UI.addMessage(msg.text, msg.role, msg.images, [], msg.tool_outputs || []);
+                // Pass parts if available (new format), else pass text (old format)
+                const content = msg.parts || msg.text;
+                UI.addMessage(content, msg.role, msg.images, [], msg.tool_outputs || []);
             });
         }
     }

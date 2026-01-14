@@ -73,8 +73,8 @@ async def chat(
             if ws:
                 gemini_service.set_workspace(ws['path'])
 
-        # Save user message
-        save_chat_message(session_id, "user", message, workspace_id=workspace_id)
+        # Save user message using parts format
+        save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
         
         async def response_generator():
             full_text = ""
@@ -113,6 +113,11 @@ async def chat(
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/interrupt")
+async def interrupt_chat(session_id: str = Body(..., embed=True)):
+    gemini_service.interrupt_session(session_id)
+    return {"message": "Interrupted"}
 
 @app.get("/history")
 async def list_chats():

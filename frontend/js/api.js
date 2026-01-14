@@ -125,5 +125,14 @@ const API = {
         const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/plan`);
         if (!response.ok) throw new Error('Failed to load plan');
         return await response.json();
+    },
+
+    async interruptChat(sessionId) {
+        const response = await fetch(`${this.baseUrl}/chat/interrupt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId })
+        });
+        return await response.json();
     }
 };

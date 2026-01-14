@@ -21,7 +21,6 @@ const UI = {
 
     addUploadedFiles(files) {
         Array.from(files).forEach(file => {
-            // Simple double-check for duplicates if needed
             this.uploadedFiles.push(file);
         });
         this.renderUploadedFiles();
@@ -39,38 +38,29 @@ const UI = {
 
     renderUploadedFiles() {
         if (!this.elements.uploadPreviewsContainer) return;
-
         if (this.uploadedFiles.length === 0) {
             this.elements.uploadPreviewsContainer.classList.add('hidden');
             return;
         }
-
         this.elements.uploadPreviewsContainer.classList.remove('hidden');
         this.elements.uploadPreviewsContainer.innerHTML = '';
-
         this.uploadedFiles.forEach((file, index) => {
             const previewItem = document.createElement('div');
             previewItem.className = 'preview-item';
-
             const isImage = file.type.startsWith('image/');
-
             if (isImage) {
                 const img = document.createElement('img');
                 img.src = URL.createObjectURL(file); // Note: Should ideally revoke this later
                 previewItem.appendChild(img);
             } else {
-                previewItem.innerHTML = `
-                    <span class="material-symbols-outlined file-icon">description</span>
-                `;
+                previewItem.innerHTML = `<span class="material-symbols-outlined file-icon">description</span>`;
             }
-
             previewItem.innerHTML += `
                 <div class="remove-btn" onclick="UI.removeUploadedFile(${index})">
                     <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
                 </div>
                 <div class="file-name">${file.name}</div>
             `;
-
             this.elements.uploadPreviewsContainer.appendChild(previewItem);
         });
     },
@@ -110,7 +100,7 @@ const UI = {
             chip.innerHTML = `
                 <span class="material-symbols-outlined">description</span>
                 <span>${file.name}</span>
-                <span class="material-symbols-outlined remove-btn" onclick="UI.removeTaggedFile('${file.path.replace(/\\/g, '\\\\')}')">close</span>
+                <span class="material-symbols-outlined remove-btn" onclick="UI.removeTaggedFile('${file.path.replace(/\/g, '\\')}')">close</span>
             `;
             this.elements.taggedFilesContainer.appendChild(chip);
         });
@@ -189,351 +179,238 @@ const UI = {
         });
     },
 
-    addMessage(text, role, images = [], attachedFiles = [], toolOutputs = []) {
+    addMessage(textOrParts, role, images = [], attachedFiles = [], legacyToolOutputs = []) {
         if (!this.elements.chatHistory) return;
-
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
-
         const bubbleDiv = document.createElement('div');
         bubbleDiv.className = 'message-bubble';
-
-        // Render attached files if any
-        if (attachedFiles && attachedFiles.length > 0) {
-            const fileContainer = document.createElement('div');
-            fileContainer.className = 'file-previews-container';
-            attachedFiles.forEach(file => {
-                const isFileObj = file instanceof File;
-                const isImage = isFileObj && file.type.startsWith('image/');
-                const fileName = isFileObj ? file.name : (file.name || 'document');
-
-                const chip = document.createElement('div');
-                chip.className = 'file-chip';
-
-                if (isImage) {
-                    const img = document.createElement('img');
-                    img.src = URL.createObjectURL(file);
-                    img.style.width = '24px';
-                    img.style.height = '24px';
-                    img.style.objectFit = 'cover';
-                    img.style.borderRadius = '4px';
-                    img.style.marginRight = '6px';
-                    chip.appendChild(img);
-                    const span = document.createElement('span');
-                    span.textContent = fileName;
-                    chip.appendChild(span);
-                } else {
-                    chip.innerHTML = `
-                        <span class="material-symbols-outlined">description</span>
-                        <span>${fileName}</span>
-                    `;
-                }
-                fileContainer.appendChild(chip);
-            });
-            bubbleDiv.appendChild(fileContainer);
-        }
-
-        // Render text
-        const textDiv = document.createElement('div');
-        textDiv.className = 'message-text';
-
-        if (role === 'user') {
-            // User messages: No formatting, simple text with "Show More" if too long
-            const escaped = this.escapeHtml(text);
-            textDiv.innerHTML = `<span class="user-text-content">${escaped}</span>`;
-
-            // Wait for a tick to check overflow
-            setTimeout(() => {
-                if (textDiv.scrollHeight > 120) {
-                    textDiv.classList.add('collapsible');
-                    const expandBtn = document.createElement('button');
-                    expandBtn.className = 'btn-expand-message';
-                    expandBtn.innerHTML = 'Show More <span class="material-symbols-outlined">expand_more</span>';
-                    expandBtn.onclick = () => {
-                        textDiv.classList.toggle('expanded');
-                        expandBtn.innerHTML = textDiv.classList.contains('expanded')
-                            ? 'Show Less <span class="material-symbols-outlined">expand_less</span>'
-                            : 'Show More <span class="material-symbols-outlined">expand_more</span>';
-                    };
-                    textDiv.after(expandBtn);
-                }
-            }, 0);
-        } else {
-            // AI messages: Full Markdown
-            textDiv.innerHTML = marked.parse(text);
-        }
-        bubbleDiv.appendChild(textDiv);
-
-        // Render tool outputs if any (for AI messages)
-        if (toolOutputs && toolOutputs.length > 0) {
-            toolOutputs.forEach(output => {
-                const toolPill = document.createElement('div');
-                toolPill.className = 'tool-pill';
-
-                const toolConfig = {
-                    'read_file': { icon: 'visibility', label: 'Read' },
-                    'write_file': { icon: 'edit', label: 'Write' },
-                    'patch_file': { icon: 'build', label: 'Patch' },
-                    'list_dir': { icon: 'folder', label: 'List' },
-                    'get_file_tree': { icon: 'account_tree', label: 'Tree' },
-                    'search_files': { icon: 'search', label: 'Search' },
-                    'grep_search': { icon: 'manage_search', label: 'Grep' },
-                    'run_command': { icon: 'terminal', label: 'Run' },
-                    'delete_path': { icon: 'delete', label: 'Delete' }
-                };
-
-                const config = toolConfig[output.tool] || { icon: 'terminal', label: output.tool };
-
-                let argsSummary = '';
-                if (output.args) {
-                    if (output.args.path) argsSummary = output.args.path;
-                    else if (output.args.query) argsSummary = `query="${output.args.query}"`;
-                    else if (output.args.pattern) argsSummary = `pattern="${output.args.pattern}"`;
-                    else if (output.args.command) argsSummary = output.args.command;
-                    else argsSummary = Object.values(output.args).join(', ');
-                }
-
-                toolPill.innerHTML = `
-                    <div class="tool-pill-header">
-                        <span class="material-symbols-outlined tool-pill-icon">${config.icon}</span>
-                        <span class="tool-pill-name">${config.label}</span>
-                        <span class="tool-pill-args">${argsSummary}</span>
-                        <span class="material-symbols-outlined tool-pill-chevron">expand_more</span>
-                    </div>
-                    <div class="tool-pill-result">
-                        <pre>${this.escapeHtml(output.result)}</pre>
-                    </div>
-                `;
-
-                const header = toolPill.querySelector('.tool-pill-header');
-                header.addEventListener('click', () => {
-                    toolPill.classList.toggle('expanded');
-                });
-
-                bubbleDiv.appendChild(toolPill);
-            });
-        }
-
-        // Apply code highlighting for AI messages
-        if (role === 'ai') {
-            bubbleDiv.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
-        }
-
-        // Add generated images if any
-        if (images && images.length > 0) {
-            const imgContainer = document.createElement('div');
-            imgContainer.className = 'generated-images';
-            images.forEach(url => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.onclick = () => this.openImageModal(url);
-                imgContainer.appendChild(img);
-            });
-            bubbleDiv.appendChild(imgContainer);
-        }
-
         messageDiv.appendChild(bubbleDiv);
+
+        let parts = [];
+        if (Array.isArray(textOrParts)) {
+            parts = textOrParts;
+        } else {
+            if (role === 'user') {
+                parts.push({ type: 'text', content: textOrParts });
+            } else {
+                parts.push({ type: 'text', content: textOrParts });
+                if (legacyToolOutputs && legacyToolOutputs.length > 0) {
+                    legacyToolOutputs.forEach(out => {
+                        parts.push({ type: 'tool_call', content: { name: out.tool, args: out.args } });
+                        parts.push({ type: 'tool_result', content: out.result });
+                    });
+                }
+            }
+        }
+
+        if (attachedFiles && attachedFiles.length > 0) {
+            this._renderAttachedFiles(bubbleDiv, attachedFiles);
+        }
+
+        parts.forEach(part => {
+            this._renderPart(bubbleDiv, part, role);
+        });
+
+        if (images && images.length > 0) {
+            this._renderImages(bubbleDiv, images);
+        }
+
         this.elements.chatHistoryWrapper.appendChild(messageDiv);
         this.scrollToBottom();
+        return messageDiv;
+    },
+
+    _renderPart(container, part, role) {
+        if (part.type === 'text') {
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            if (role === 'user') {
+                textDiv.innerHTML = `<span class="user-text-content">${this.escapeHtml(part.content)}</span>`;
+            } else {
+                textDiv.innerHTML = marked.parse(part.content);
+                textDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+            }
+            container.appendChild(textDiv);
+        } else if (part.type === 'thought') {
+            const thoughtDiv = document.createElement('div');
+            thoughtDiv.className = 'thought-block';
+            thoughtDiv.innerHTML = `
+                <div class="thought-header">
+                    <span class="material-symbols-outlined">psychology</span>
+                    <span>Thought Process</span>
+                    <span class="material-symbols-outlined chevron">expand_more</span>
+                </div>
+                <div class="thought-content">${marked.parse(part.content)}</div>
+            `;
+            thoughtDiv.querySelector('.thought-header').onclick = () => thoughtDiv.classList.toggle('expanded');
+            container.appendChild(thoughtDiv);
+        } else if (part.type === 'tool_call') {
+            const toolPill = this._createToolPill(part.content);
+            toolPill.classList.add('completed');
+            toolPill.querySelector('.tool-pill-icon').textContent = 'check_circle';
+            toolPill.querySelector('.tool-pill-label').textContent = 'Called';
+            container.appendChild(toolPill);
+        } else if (part.type === 'tool_result') {
+            const lastPill = container.querySelector('.tool-pill:last-of-type');
+            if (lastPill) {
+                const resultDiv = lastPill.querySelector('.tool-pill-result');
+                resultDiv.innerHTML = `<pre>${this.escapeHtml(part.content)}</pre>`;
+            }
+        }
+    },
+
+    _createToolPill(toolCall) {
+        const toolPill = document.createElement('div');
+        toolPill.className = 'tool-pill';
+        const toolConfig = {
+            'read_file': { icon: 'visibility', label: 'Reading', verb: 'Read' },
+            'write_file': { icon: 'edit', label: 'Writing', verb: 'Wrote' },
+            'patch_file': { icon: 'build', label: 'Patching', verb: 'Patched' },
+            'list_dir': { icon: 'folder', label: 'Listing', verb: 'Listed' },
+            'get_file_tree': { icon: 'account_tree', label: 'Exploring', verb: 'Explored' },
+            'search_files': { icon: 'search', label: 'Searching', verb: 'Searched' },
+            'grep_search': { icon: 'manage_search', label: 'Searching', verb: 'Searched' },
+            'run_command': { icon: 'terminal', label: 'Running', verb: 'Ran' },
+            'delete_path': { icon: 'delete', label: 'Deleting', verb: 'Deleted' },
+            'web_search': { icon: 'search', label: 'Searching', verb: 'Searched' },
+            'web_browse': { icon: 'language', label: 'Browsing', verb: 'Browsed' },
+            'delegate_task': { icon: 'groups', label: 'Delegating', verb: 'Delegated' },
+            'get_symbol_info': { icon: 'info', label: 'Informing', verb: 'Informed' }
+        };
+        const config = toolConfig[toolCall.name] || { icon: 'code', label: toolCall.name, verb: 'Called' };
+        let argsSummary = '';
+        if (toolCall.args) {
+            argsSummary = toolCall.args.path || toolCall.args.command || toolCall.args.query || toolCall.args.task || JSON.stringify(toolCall.args).slice(0, 50);
+        }
+        toolPill.innerHTML = `
+            <div class="tool-pill-header">
+                <div class="tool-pill-status">
+                    <span class="material-symbols-outlined tool-pill-icon rotating">${config.icon}</span>
+                    <span class="tool-pill-label">${config.label}</span>
+                </div>
+                <span class="tool-pill-target">${this.escapeHtml(argsSummary)}</span>
+                <span class="material-symbols-outlined tool-pill-chevron">expand_more</span>
+            </div>
+            <div class="tool-pill-result">
+                <div class="tool-result-loading"><div class="loading-dots"><span></span><span></span><span></span></div></div>
+            </div>
+        `;
+        toolPill.querySelector('.tool-pill-header').onclick = () => toolPill.classList.toggle('expanded');
+        return toolPill;
     },
 
     handleStreamChunk(chunk) {
         this.hideLoading();
-
+        this.showWorkingIndicator();
         let lastMsg = this.elements.chatHistoryWrapper.lastElementChild;
-
-        // Ensure we have an AI message to append to
         if (!lastMsg || !lastMsg.classList.contains('ai')) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message ai streaming';
-            const bubbleDiv = document.createElement('div');
-            bubbleDiv.className = 'message-bubble';
-            messageDiv.appendChild(bubbleDiv);
-            this.elements.chatHistoryWrapper.appendChild(messageDiv);
-            lastMsg = messageDiv;
+            lastMsg = this.addMessage([], 'ai');
         }
-
         const bubble = lastMsg.querySelector('.message-bubble');
 
         if (chunk.thought) {
-            let thoughtDiv = bubble.querySelector('.thought-block');
-            if (!thoughtDiv) {
-                thoughtDiv = document.createElement('div');
-                thoughtDiv.className = 'thought-block';
-                thoughtDiv.innerHTML = `
-                    <div class="thought-header">
-                        <span class="material-symbols-outlined">psychology</span>
-                        <span>Thought Process</span>
-                        <span class="material-symbols-outlined chevron">expand_more</span>
-                    </div>
-                    <div class="thought-content"></div>
-                `;
-                bubble.prepend(thoughtDiv);
-                
-                thoughtDiv.querySelector('.thought-header').onclick = () => {
-                    thoughtDiv.classList.toggle('expanded');
-                };
-            }
-            const content = thoughtDiv.querySelector('.thought-content');
-            content.innerHTML = marked.parse(chunk.thought);
+            this._renderPart(bubble, { type: 'thought', content: chunk.thought }, 'ai');
         }
-
-        // Get or create the current text segment
-        let currentTextDiv = bubble.querySelector('.text-segment.active');
-        if (!currentTextDiv) {
-            currentTextDiv = document.createElement('div');
-            currentTextDiv.className = 'message-text text-segment active';
-            currentTextDiv.dataset.rawText = '';
-            bubble.appendChild(currentTextDiv);
-        }
-
         if (chunk.text) {
-            // Append text to current segment
-            const newText = (currentTextDiv.dataset.rawText || '') + chunk.text;
-            currentTextDiv.dataset.rawText = newText;
-            currentTextDiv.innerHTML = marked.parse(newText);
-
-            // Re-highlight codes
-            currentTextDiv.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
+            let activeText = bubble.querySelector('.message-text.active');
+            if (!activeText) {
+                activeText = document.createElement('div');
+                activeText.className = 'message-text active';
+                activeText.dataset.raw = '';
+                bubble.appendChild(activeText);
+            }
+            activeText.dataset.raw += chunk.text;
+            activeText.innerHTML = marked.parse(activeText.dataset.raw);
+            activeText.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         }
-
         if (chunk.tool_call) {
-            // Finalize the current text segment
-            if (currentTextDiv) {
-                currentTextDiv.classList.remove('active');
-            }
-
-            // Create tool pill
-            const toolPill = document.createElement('div');
-            toolPill.className = 'tool-pill executing';
+            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
+            const toolPill = this._createToolPill(chunk.tool_call);
+            toolPill.classList.add('executing');
             toolPill.id = `tool-${Date.now()}`;
-
-            const toolConfig = {
-                'read_file': { icon: 'visibility', label: 'Reading', verb: 'Read' },
-                'write_file': { icon: 'edit', label: 'Writing', verb: 'Wrote' },
-                'patch_file': { icon: 'build', label: 'Patching', verb: 'Patched' },
-                'list_dir': { icon: 'folder', label: 'Listing', verb: 'Listed' },
-                'get_file_tree': { icon: 'account_tree', label: 'Exploring', verb: 'Explored' },
-                'search_files': { icon: 'search', label: 'Searching', verb: 'Searched' },
-                'grep_search': { icon: 'manage_search', label: 'Searching', verb: 'Searched' },
-                'run_command': { icon: 'terminal', label: 'Running', verb: 'Ran' },
-                'delete_path': { icon: 'delete', label: 'Deleting', verb: 'Deleted' }
-            };
-
-            const config = toolConfig[chunk.tool_call.name] || { icon: 'code', label: chunk.tool_call.name, verb: 'Called' };
-
-            let argsSummary = '';
-            if (chunk.tool_call.args) {
-                if (chunk.tool_call.args.path) argsSummary = chunk.tool_call.args.path;
-                else if (chunk.tool_call.args.command) argsSummary = chunk.tool_call.args.command;
-                else if (chunk.tool_call.args.query) argsSummary = `"${chunk.tool_call.args.query}"`;
-                else if (chunk.tool_call.args.pattern) argsSummary = chunk.tool_call.args.pattern;
-                else argsSummary = JSON.stringify(chunk.tool_call.args).slice(0, 50);
-            }
-
-            toolPill.innerHTML = `
-                <div class="tool-pill-header">
-                    <div class="tool-pill-status">
-                        <span class="material-symbols-outlined tool-pill-icon rotating">${config.icon}</span>
-                        <span class="tool-pill-label">${config.label}</span>
-                    </div>
-                    <span class="tool-pill-target">${this.escapeHtml(argsSummary)}</span>
-                    <span class="material-symbols-outlined tool-pill-chevron">expand_more</span>
-                </div>
-                <div class="tool-pill-result">
-                    <div class="tool-result-loading">
-                        <div class="loading-dots"><span></span><span></span><span></span></div>
-                    </div>
-                </div>
-            `;
-
             bubble.appendChild(toolPill);
             lastMsg.dataset.currentToolId = toolPill.id;
-            lastMsg.dataset.currentToolConfig = JSON.stringify(config);
-
-            // Attach expand listener
-            toolPill.querySelector('.tool-pill-header').addEventListener('click', () => {
-                toolPill.classList.toggle('expanded');
-            });
         }
-
         if (chunk.tool_result) {
-            const toolId = lastMsg.dataset.currentToolId;
-            const toolPill = document.getElementById(toolId);
-            const config = JSON.parse(lastMsg.dataset.currentToolConfig || '{}');
-
+            const toolPill = document.getElementById(lastMsg.dataset.currentToolId);
             if (toolPill) {
                 toolPill.classList.remove('executing');
                 toolPill.classList.add('completed');
-
-                // Update icon and label
-                const iconEl = toolPill.querySelector('.tool-pill-icon');
-                iconEl.classList.remove('rotating');
-                iconEl.textContent = 'check_circle';
-
-                const labelEl = toolPill.querySelector('.tool-pill-label');
-                labelEl.textContent = config.verb || 'Done';
-
-                // Populate result
-                const resultDiv = toolPill.querySelector('.tool-pill-result');
-                resultDiv.innerHTML = `<pre>${this.escapeHtml(chunk.tool_result)}</pre>`;
-                
-                // If it was a write or patch to plan.md, refresh the plan UI
-                if (typeof refreshPlan === 'function') {
-                    refreshPlan();
-                }
+                toolPill.querySelector('.tool-pill-icon').classList.remove('rotating');
+                toolPill.querySelector('.tool-pill-icon').textContent = 'check_circle';
+                toolPill.querySelector('.tool-pill-label').textContent = 'Done';
+                toolPill.querySelector('.tool-pill-result').innerHTML = `<pre>${this.escapeHtml(chunk.tool_result)}</pre>`;
             }
-
-            // Create a new text segment for content after tool call
-            const newTextDiv = document.createElement('div');
-            newTextDiv.className = 'message-text text-segment active';
-            newTextDiv.dataset.rawText = '';
-            bubble.appendChild(newTextDiv);
+            if (typeof refreshPlan === 'function') refreshPlan();
         }
-
-        if (chunk.images && chunk.images.length > 0) {
-            let imgContainer = bubble.querySelector('.generated-images');
-            if (!imgContainer) {
-                imgContainer = document.createElement('div');
-                imgContainer.className = 'generated-images';
-                bubble.appendChild(imgContainer);
-            }
-            chunk.images.forEach(url => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.onclick = () => this.openImageModal(url);
-                imgContainer.appendChild(img);
-            });
+        if (chunk.images) {
+            this._renderImages(bubble, chunk.images);
         }
-
         if (chunk.is_final) {
-            lastMsg.classList.remove('streaming');
+            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
+            this.hideWorkingIndicator();
         }
-
         this.scrollToBottom();
     },
 
-    updateStatus(text, type) {
-        const loadingDiv = document.getElementById('ai-loading');
-        if (!loadingDiv) return;
-
-        const bubble = loadingDiv.querySelector('.message-bubble');
-        if (text) {
-            bubble.innerHTML = `
-                <div class="status-indicator ${type}">
-                    <span class="material-symbols-outlined ${type === 'tool' ? 'rotating' : 'pulse'}">
-                        ${type === 'tool' ? 'settings' : 'brain'}
-                    </span>
-                    <span>${text}</span>
+    showWorkingIndicator() {
+        let indicator = document.getElementById('working-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'working-indicator';
+            indicator.className = 'working-indicator';
+            indicator.innerHTML = `
+                <div class="working-content">
+                    <span class="material-symbols-outlined rotating">sync</span>
+                    <span>Agent is working...</span>
+                    <button id="btn-stop-agent" class="btn-stop">
+                        <span class="material-symbols-outlined">stop_circle</span> Stop
+                    </button>
                 </div>
             `;
-        } else {
-            bubble.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div>`;
+            document.body.appendChild(indicator);
+            document.getElementById('btn-stop-agent').onclick = () => {
+                if (typeof currentSessionId !== 'undefined') {
+                    API.interruptChat(currentSessionId);
+                }
+            };
         }
+        indicator.classList.remove('hidden');
+    },
+
+    hideWorkingIndicator() {
+        const indicator = document.getElementById('working-indicator');
+        if (indicator) indicator.classList.add('hidden');
+    },
+
+    _renderImages(container, images) {
+        let imgContainer = container.querySelector('.generated-images');
+        if (!imgContainer) {
+            imgContainer = document.createElement('div');
+            imgContainer.className = 'generated-images';
+            container.appendChild(imgContainer);
+        }
+        images.forEach(url => {
+            const img = document.createElement('img');
+            img.src = url;
+            img.onclick = () => this.openImageModal(url);
+            imgContainer.appendChild(img);
+        });
+    },
+
+    _renderAttachedFiles(container, files) {
+        const fileContainer = document.createElement('div');
+        fileContainer.className = 'file-previews-container';
+        files.forEach(file => {
+            const isFileObj = file instanceof File;
+            const fileName = isFileObj ? file.name : (file.name || 'document');
+            const chip = document.createElement('div');
+            chip.className = 'file-chip';
+            chip.innerHTML = `<span class="material-symbols-outlined">description</span><span>${fileName}</span>`;
+            fileContainer.appendChild(chip);
+        });
+        container.appendChild(fileContainer);
     },
 
     scrollToBottom() {
@@ -546,11 +423,7 @@ const UI = {
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'message ai loading';
         loadingDiv.id = 'ai-loading';
-        loadingDiv.innerHTML = `
-            <div class="message-bubble">
-                <div class="loading-dots"><span></span><span></span><span></span></div>
-            </div>
-        `;
+        loadingDiv.innerHTML = `<div class="message-bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div>`;
         this.elements.chatHistoryWrapper.appendChild(loadingDiv);
         this.scrollToBottom();
     },
@@ -564,35 +437,22 @@ const UI = {
         const list = document.getElementById('sidebar-sessions-list');
         if (!list) return;
         list.innerHTML = '';
-
         const grouped = {};
         allSessions.forEach(s => {
             if (!grouped[s.workspace_id]) grouped[s.workspace_id] = [];
             grouped[s.workspace_id].push(s);
         });
-
         Object.entries(workspaces).forEach(([wsId, ws]) => {
             const sessions = grouped[wsId] || [];
             if (sessions.length === 0) return;
-
             const groupDiv = document.createElement('div');
-            groupDiv.innerHTML = `
-                <div class="sidebar-group-title">
-                    <span class="material-symbols-outlined icon">folder</span>
-                    <span>${ws.name}</span>
-                </div>
-            `;
-
+            groupDiv.innerHTML = `<div class="sidebar-group-title"><span class="material-symbols-outlined icon">folder</span><span>${ws.name}</span></div>`;
             sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = `nav-item sidebar-session-item ${s.id === currentSessionId ? 'active' : ''}`;
                 item.innerHTML = `
                     <span class="name">${s.title || 'Untitled'}</span>
-                    <div class="nav-actions">
-                        <button class="btn-item-action delete-session" title="Delete session">
-                            <span class="material-symbols-outlined">delete</span>
-                        </button>
-                    </div>
+                    <div class="nav-actions"><button class="btn-item-action delete-session" title="Delete session"><span class="material-symbols-outlined">delete</span></button></div>
                 `;
                 item.onclick = (e) => {
                     if (e.target.closest('.delete-session')) {
@@ -612,25 +472,15 @@ const UI = {
         const menu = document.getElementById('session-dropdown-menu');
         if (!menu) return;
         menu.innerHTML = '';
-
         const newSessItem = document.createElement('div');
         newSessItem.className = 'dropdown-item';
-        newSessItem.innerHTML = `
-            <div class="item-info"><div class="item-title">New Session</div></div>
-            <span class="material-symbols-outlined">add</span>
-        `;
+        newSessItem.innerHTML = `<div class="item-info"><div class="item-title">New Session</div></div><span class="material-symbols-outlined">add</span>`;
         newSessItem.onclick = () => { onNew(currentWorkspaceId); menu.classList.add('hidden'); };
         menu.appendChild(newSessItem);
-
         sessions.forEach(s => {
             const item = document.createElement('div');
             item.className = `dropdown-item ${s.id === currentSessionId ? 'active' : ''}`;
-            item.innerHTML = `
-                <div class="item-info">
-                    <div class="item-title">${s.title || 'Untitled'}</div>
-                    <div class="item-meta">${new Date(s.created_at * 1000).toLocaleString()}</div>
-                </div>
-            `;
+            item.innerHTML = `<div class="item-info"><div class="item-title">${s.title || 'Untitled'}</div><div class="item-meta">${new Date(s.created_at * 1000).toLocaleString()}</div></div>`;
             item.onclick = () => { onSelect(s); menu.classList.add('hidden'); };
             menu.appendChild(item);
         });
@@ -641,7 +491,7 @@ const UI = {
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) {
             const isHidden = sidebar.classList.toggle('hidden');
-            if (!isHidden) this.hidePlan(); // Hide plan if explorer is shown
+            if (!isHidden) this.hidePlan();
             if (resizer) {
                 if (isHidden) resizer.classList.add('hidden');
                 else resizer.classList.remove('hidden');
@@ -667,7 +517,7 @@ const UI = {
         const sidebar = document.getElementById('plan-sidebar');
         if (sidebar) {
             const isHidden = sidebar.classList.toggle('hidden');
-            if (!isHidden) this.hideExplorer(); // Hide explorer if plan is shown
+            if (!isHidden) this.hideExplorer();
         }
     },
 
@@ -679,12 +529,10 @@ const UI = {
     renderPlan(content) {
         const container = document.getElementById('plan-content');
         if (!container) return;
-
         if (!content) {
             container.innerHTML = '<div class="plan-empty">No active plan found (plan.md)</div>';
             return;
         }
-
         container.innerHTML = marked.parse(content);
     },
 
@@ -692,12 +540,10 @@ const UI = {
         const treeContainer = document.getElementById('explorer-tree');
         if (!treeContainer) return;
         treeContainer.innerHTML = '';
-
         if (data.error) {
             treeContainer.innerHTML = `<div class="explorer-error">${this.escapeHtml(data.error)}</div>`;
             return;
         }
-
         const getFileIcon = (fileName) => {
             const ext = fileName.split('.').pop().toLowerCase();
             const MAP = {
@@ -708,35 +554,22 @@ const UI = {
             };
             return MAP[ext] || 'description';
         };
-
         const renderNode = (node) => {
             const container = document.createElement('div');
             container.className = 'tree-node';
-
             const item = document.createElement('div');
             item.className = `tree-item ${node.type}`;
-
             const icon = node.type === 'directory' ? 'folder' : getFileIcon(node.name);
             const arrow = node.type === 'directory' ? '<span class="material-symbols-outlined directory-icon">expand_more</span>' : '';
-
-            item.innerHTML = `
-                ${arrow}
-                <span class="material-symbols-outlined icon">${icon}</span>
-                <span class="name">${node.name}</span>
-            `;
-
+            item.innerHTML = `${arrow}<span class="material-symbols-outlined icon">${icon}</span><span class="name">${node.name}</span>`;
             container.appendChild(item);
-
             if (node.type === 'directory' && node.children) {
                 const childrenContainer = document.createElement('div');
                 childrenContainer.className = 'tree-item-children';
-
                 node.children.forEach(child => {
                     childrenContainer.appendChild(renderNode(child));
                 });
-
                 container.appendChild(childrenContainer);
-
                 item.onclick = (e) => {
                     e.stopPropagation();
                     container.classList.toggle('collapsed');
@@ -747,11 +580,8 @@ const UI = {
                     if (onFileSelect) onFileSelect(node.path);
                 };
             }
-
             return container;
         };
-
-        // If root is directory and has children, render its children instead of the root itself for better view
         if (data.type === 'directory' && data.children) {
             data.children.forEach(child => {
                 treeContainer.appendChild(renderNode(child));

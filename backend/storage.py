@@ -73,22 +73,51 @@ def get_workspace_sessions(workspace_id):
     sessions.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return sessions
 
-def save_chat_message(session_id, role, text, title=None, images=None, tool_outputs=None, workspace_id=None):
+def save_chat_message(session_id, role, parts=None, title=None, workspace_id=None, **legacy_kwargs):
+    """
+    Save a chat message. 
+    New format: parts is a list of {type: 'text'|'thought'|'tool_call'|'tool_result', content: ...}
+    """
     chats = load_chats()
     if session_id not in chats:
+        # Generate a title if not provided, from the first text part
+        initial_text = ""
+        if parts:
+            for p in parts:
+                if p['type'] == 'text':
+                    initial_text = p['content']
+                    break
+        
         chats[session_id] = {
             "id": session_id,
             "workspace_id": workspace_id,
-            "title": title or (text[:50] + "..." if len(text) > 50 else text),
+            "title": title or (initial_text[:50] + "..." if initial_text else "New Chat"),
             "created_at": time.time(),
             "messages": []
         }
     
+    # Handle legacy format if called the old way
+    if parts is None:
+        parts = []
+        if 'text' in legacy_kwargs or legacy_kwargs.get('text'):
+            parts.append({"type": "text", "content": legacy_kwargs.get('text')})
+        if 'thoughts' in legacy_kwargs and legacy_kwargs.get('thoughts'):
+            parts.append({"type": "thought", "content": legacy_kwargs.get('thoughts')})
+        if 'tool_outputs' in legacy_kwargs and legacy_kwargs.get('tool_outputs'):
+            for out in legacy_kwargs.get('tool_outputs'):
+                parts.append({
+                    "type": "tool_call", 
+                    "content": {"name": out['tool'], "args": out['args']}
+                })
+                parts.append({
+                    "type": "tool_result",
+                    "content": out['result']
+                })
+
     chats[session_id]["messages"].append({
         "role": role,
-        "text": text,
-        "images": images or [],
-        "tool_outputs": tool_outputs or [],
+        "parts": parts,
+        "images": legacy_kwargs.get('images', []),
         "timestamp": time.time()
     })
     
