@@ -725,6 +725,104 @@ body {
     gap: 16px;
 }
 
+/* Staging Area */
+.git-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.git-section-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.git-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.git-file-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.git-file-item:hover {
+    background: #2d2d2d;
+}
+
+.git-file-status {
+    font-size: 10px;
+    font-weight: bold;
+    width: 14px;
+    text-align: center;
+}
+.git-file-status.modified { color: #cca700; }
+.git-file-status.added { color: #4ec9b0; }
+.git-file-status.deleted { color: #f48771; }
+.git-file-status.untracked { color: #569cd6; }
+
+.git-file-path {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+
+.git-action-btn {
+    opacity: 0;
+    padding: 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+.git-file-item:hover .git-action-btn { opacity: 1; }
+.git-action-btn:hover { background: #333333; color: var(--text-primary); }
+
+.commit-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+
+.commit-input {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: 8px;
+    resize: none;
+    font-family: inherit;
+    font-size: 12px;
+}
+.commit-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+.btn-commit {
+    background: #007acc;
+    color: white;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.btn-commit:hover { opacity: 0.9; }
+
 .git-section-title {
     font-size: 10px;
     font-weight: 600;
@@ -1636,107 +1734,108 @@ code {
     margin: 8px 0;
 }
 
-/* ==================== TOOL PILLS ==================== */
+/* ==================== TOOL PILLS - Professional ==================== */
 .tool-pill {
-    margin: 12px 0;
-    background: linear-gradient(135deg, #141414 0%, #1a1a1a 100%);
+    background: #252526;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 6px;
+    margin: 8px 0;
     overflow: hidden;
     transition: all 0.2s ease;
 }
 
-.tool-pill.executing {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.1);
-}
-
-.tool-pill.completed {
-    border-color: var(--border);
-}
-
-.tool-pill:hover {
-    border-color: #3a3a3a;
-}
-
 .tool-pill-header {
-    padding: 10px 14px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    padding: 8px 12px;
     cursor: pointer;
+    background: #252526;
     user-select: none;
+    gap: 8px;
 }
 
-.tool-pill-status {
+.tool-pill-header:hover {
+    background: #333333;
+}
+
+.tool-icon-box {
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
 }
 
-.tool-pill-icon {
-    font-size: 16px;
-    color: var(--accent);
+.tool-icon-box.write_file, .tool-icon-box.write_file_content { color: #4ec9b0; background: rgba(78, 201, 176, 0.1); }
+.tool-icon-box.patch_file { color: #dcdcaa; background: rgba(220, 220, 170, 0.1); }
+.tool-icon-box.run_shell_command, .tool-icon-box.run_command { color: #ce9178; background: rgba(206, 145, 120, 0.1); }
+.tool-icon-box.search_file_content, .tool-icon-box.search_files { color: #569cd6; background: rgba(86, 156, 214, 0.1); }
+
+.tool-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.tool-pill.completed .tool-pill-icon {
-    color: #22c55e;
-}
-
-.tool-pill-label {
+.tool-name {
     font-weight: 600;
     font-size: 12px;
     color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
 }
 
-.tool-pill-target {
-    font-size: 12px;
+.tool-args {
+    font-size: 11px;
     color: var(--text-secondary);
-    font-family: var(--font-mono);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
+    font-family: var(--font-mono);
 }
 
-.tool-pill-chevron {
-    font-size: 18px;
-    color: var(--text-secondary);
-    transition: transform 0.2s ease;
-    flex-shrink: 0;
+.tool-stats {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
 }
 
-.expanded .tool-pill-chevron {
-    transform: rotate(180deg);
-}
+.stat-added { color: #4ec9b0; }
+.stat-removed { color: #f48771; }
 
 .tool-pill-result {
     display: none;
-    padding: 12px 14px;
     border-top: 1px solid var(--border);
-    background: #0a0a0a;
+    background: #1e1e1e;
     font-family: var(--font-mono);
-    max-height: 300px;
-    overflow-y: auto;
+    font-size: 12px;
+    overflow-x: auto;
 }
 
-.expanded .tool-pill-result {
+.tool-pill.expanded .tool-pill-result {
     display: block;
 }
 
-.tool-pill-result pre {
-    margin: 0;
-    padding: 0 !important;
-    background: transparent !important;
-    border: none;
-    font-size: 11px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: var(--text-secondary);
+/* Diff Styling */
+.diff-view {
+    padding: 8px 0;
+}
+.diff-line {
+    padding: 0 12px;
+    white-space: pre;
+    line-height: 1.5;
+}
+.diff-line.added { background: rgba(78, 201, 176, 0.15); color: #e2fdf5; }
+.diff-line.removed { background: rgba(244, 135, 113, 0.15); color: #ffdbd4; }
+.diff-line.header { color: var(--text-secondary); padding-top: 4px; padding-bottom: 4px; }
+
+.tool-result-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
 }
 
 .tool-result-loading {
@@ -2236,4 +2335,26 @@ code {
 .terminal-line:last-child::after {
     content: '_';
     animation: blink 1s step-end infinite;
+}
+/* Generated Content */
+.generated-image {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 8px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.generated-image:hover {
+    transform: scale(1.02);
+}
+
+.media-embed {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 12px 0;
+    background: #000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }

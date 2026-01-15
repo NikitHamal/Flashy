@@ -58,6 +58,46 @@ class GitManager:
         res = self._run_git(['status', '--short'])
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
+    def get_status_full(self) -> Dict[str, List[Dict]]:
+        """Get structured git status separating staged and unstaged changes."""
+        res = self._run_git(['status', '--porcelain'])
+        if not res["success"]:
+            return {"staged": [], "unstaged": []}
+        
+        staged = []
+        unstaged = []
+        
+        for line in res["stdout"].split('\n'):
+            if not line or len(line) < 3: continue
+            
+            x = line[0] # Index status
+            y = line[1] # Work tree status
+            path = line[3:].strip()
+            
+            # Map status codes to human readable
+            status_map = {'M': 'modified', 'A': 'added', 'D': 'deleted', 'R': 'renamed', '?': 'untracked'}
+            
+            if x in status_map:
+                staged.append({"path": path, "status": status_map[x]})
+            
+            if y in status_map:
+                unstaged.append({"path": path, "status": status_map[y]})
+                
+        return {"staged": staged, "unstaged": unstaged}
+
+    def stage_file(self, path: str) -> str:
+        """Stage a specific file."""
+        res = self._run_git(['add', path])
+        return "Success" if res["success"] else f"Error: {res['stderr']}"
+        
+    def unstage_file(self, path: str) -> str:
+        """Unstage a specific file (reset)."""
+        res = self._run_git(['restore', '--staged', path])
+        if not res["success"]:
+            # Fallback for older git versions
+            res = self._run_git(['reset', 'HEAD', path])
+        return "Success" if res["success"] else f"Error: {res['stderr']}"
+
     def get_branches(self) -> List[Dict]:
         """Get list of branches."""
         res = self._run_git(['branch', '-a'])
@@ -79,9 +119,10 @@ class GitManager:
         res = self._run_git(args)
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
-    def commit(self, message: str) -> str:
-        """Stage all and commit."""
-        self._run_git(['add', '.'])
+    def commit(self, message: str, stage_all: bool = False) -> str:
+        """Commit changes."""
+        if stage_all:
+            self._run_git(['add', '.'])
         res = self._run_git(['commit', '-m', message])
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 

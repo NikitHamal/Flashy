@@ -184,6 +184,33 @@ const API = {
         return await response.json();
     },
 
+    async gitStage(workspaceId, path) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/stage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        return await response.json();
+    },
+
+    async gitUnstage(workspaceId, path) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/unstage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        return await response.json();
+    },
+
+    async gitCommit(workspaceId, message) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/commit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        return await response.json();
+    },
+
     async interruptChat(sessionId) {
         const response = await fetch(`${this.baseUrl}/chat/interrupt`, {
             method: 'POST',

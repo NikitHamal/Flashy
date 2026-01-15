@@ -19,6 +19,7 @@ Flashy is built with a decoupled architecture:
 ### Backend (Python/FastAPI)
 - **FastAPI**: Provides the REST API and WebSocket communication.
 - **Gemini Service**: Handles interaction with Google's Gemini models.
+- **Modular Routers**: API endpoints are organized into specialized routers for Chat, Git, Workspaces, and Configuration for better scalability.
 - **Tools System**: A robust suite of local operations (File I/O, Git, Terminal).
 - **WebSocket Manager**: Facilitates real-time, bi-directional communication for thoughts, tool outputs, and terminal streams.
 

@@ -124,6 +124,11 @@ class GeminiService:
         # Be careful not to remove legitimate JSON in explanations
         standalone_json_pattern = r'(?<![`\w])\{\s*"(?:action|tool)"\s*:\s*"[^"]+"\s*,\s*"args"\s*:\s*\{[^}]*\}\s*\}(?![`\w])'
         cleaned = re.sub(standalone_json_pattern, '', cleaned).strip()
+
+        # Remove internal Google content links (artifacts from Gemini Web API)
+        # e.g. http://googleusercontent.com/youtube_content/0
+        google_content_pattern = r'https?://googleusercontent\.com/youtube_content/\d+'
+        cleaned = re.sub(google_content_pattern, '', cleaned).strip()
         
         return cleaned
 
