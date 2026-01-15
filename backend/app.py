@@ -361,6 +361,7 @@ async def proxy_image(url: str):
 class ConfigUpdate(BaseModel):
     Secure_1PSID: str
     Secure_1PSIDTS: str
+    Secure_1PSIDCC: Optional[str] = None
     GITHUB_PAT: Optional[str] = None
     model: Optional[str] = None
 
@@ -417,22 +418,45 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             msg_type = data.get("type")
             
             if msg_type == "chat_message":
-                # Handle chat message
-                await handle_ws_chat(
-                    connection_id=connection_id,
-                    session_id=session_id,
-                    message=data.get("message", ""),
-                    workspace_id=data.get("workspace_id") or workspace_id,
-                    files=data.get("files", [])
+                # Check if an agent is already working for this session
+                # If so, we'll try to acquire the lock. If locked, we inform the user.
+                lock = ws_manager.get_session_lock(session_id)
+                if lock.locked():
+                    await ws_manager.send_to_connection(
+                        connection_id,
+                        MessageType.ERROR,
+                        {"message": "Agent is already busy with another request in this session. Please wait."}
+                    )
+                    continue
+
+                # Run chat handler in a dedicated task so we can track and cancel it
+                chat_task = asyncio.create_task(
+                    handle_ws_chat(
+                        connection_id=connection_id,
+                        session_id=session_id,
+                        message=data.get("message", ""),
+                        workspace_id=data.get("workspace_id") or workspace_id,
+                        files=data.get("files", [])
+                    )
                 )
+                ws_manager.register_session_task(session_id, chat_task)
             
             elif msg_type == "interrupt":
                 # Interrupt the current agent session
                 gemini_service.interrupt_session(session_id)
+                ws_manager.cancel_session_task(session_id)
                 await ws_manager.send_to_connection(
                     connection_id, 
                     MessageType.TEXT, 
                     {"content": "\n\n*Agent interrupted by user.*", "is_final": True}
+                )
+            
+            elif msg_type == "ping":
+                # Heartbeat
+                await ws_manager.send_to_connection(
+                    connection_id,
+                    MessageType.PONG,
+                    {"timestamp": time.time()}
                 )
             
             elif msg_type == "subscribe_terminal":
@@ -490,77 +514,98 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 async def handle_ws_chat(connection_id: str, session_id: str, message: str, workspace_id: str = None, files: list = None):
     """Handle a chat message received via WebSocket."""
-    try:
-        # Set workspace if provided
-        if workspace_id:
-            ws = get_workspace_data(workspace_id)
-            if ws:
-                gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
-        
-        # Save user message
-        save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
-        
-        # Process uploaded files if any (base64 encoded)
+    # Acquire session lock to prevent concurrent runs
+    lock = ws_manager.get_session_lock(session_id)
+    
+    async with lock:
         file_paths = []
-        if files:
-            for file_data in files:
-                if isinstance(file_data, dict) and 'content' in file_data:
-                    import base64
-                    filename = file_data.get('name', f'upload_{uuid.uuid4().hex[:8]}')
-                    file_path = os.path.join(UPLOAD_DIR, filename)
-                    with open(file_path, 'wb') as f:
-                        f.write(base64.b64decode(file_data['content']))
-                    file_paths.append(file_path)
-        
-        # Stream response via WebSocket
-        async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
-            if "thought" in chunk:
-                await ws_manager.send_to_session(
-                    session_id,
-                    MessageType.THOUGHT,
-                    {"content": chunk["thought"]}
-                )
-            elif "tool_call" in chunk:
-                await ws_manager.send_to_session(
-                    session_id,
-                    MessageType.TOOL_CALL,
-                    {"name": chunk["tool_call"]["name"], "args": chunk["tool_call"]["args"]}
-                )
-            elif "tool_result" in chunk:
-                await ws_manager.send_to_session(
-                    session_id,
-                    MessageType.TOOL_RESULT,
-                    {"content": chunk["tool_result"]}
-                )
-            else:
-                # Text response
-                await ws_manager.send_to_session(
-                    session_id,
-                    MessageType.TEXT,
-                    {
-                        "content": chunk.get("text", ""),
-                        "images": chunk.get("images", []),
-                        "is_final": chunk.get("is_final", False)
-                    }
-                )
-        
-        # Signal end of stream
-        await ws_manager.send_to_session(session_id, MessageType.STREAM_END, {})
-        
-        # Cleanup files
-        for path in file_paths:
+        try:
+            # Set workspace if provided
+            if workspace_id:
+                ws = get_workspace_data(workspace_id)
+                if ws:
+                    gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
+            
+            # Save user message
+            save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
+            
+            # Process uploaded files if any (base64 encoded)
+            if files:
+                for file_data in files:
+                    if isinstance(file_data, dict) and 'content' in file_data:
+                        import base64
+                        filename = file_data.get('name', f'upload_{uuid.uuid4().hex[:8]}')
+                        file_path = os.path.join(UPLOAD_DIR, filename)
+                        with open(file_path, 'wb') as f:
+                            f.write(base64.b64decode(file_data['content']))
+                        file_paths.append(file_path)
+            
+            # Stream response via WebSocket
+            async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+                # Check for task cancellation (standard asyncio way)
+                # if asyncio.current_task().cancelled():
+                #     break
+                    
+                if "thought" in chunk:
+                    await ws_manager.send_to_session(
+                        session_id,
+                        MessageType.THOUGHT,
+                        {"content": chunk["thought"]}
+                    )
+                elif "tool_call" in chunk:
+                    await ws_manager.send_to_session(
+                        session_id,
+                        MessageType.TOOL_CALL,
+                        {"name": chunk["tool_call"]["name"], "args": chunk["tool_call"]["args"]}
+                    )
+                elif "tool_result" in chunk:
+                    await ws_manager.send_to_session(
+                        session_id,
+                        MessageType.TOOL_RESULT,
+                        {"content": chunk["tool_result"]}
+                    )
+                else:
+                    # Text response
+                    await ws_manager.send_to_session(
+                        session_id,
+                        MessageType.TEXT,
+                        {
+                            "content": chunk.get("text", ""),
+                            "images": chunk.get("images", []),
+                            "is_final": chunk.get("is_final", False)
+                        }
+                    )
+                    
+        except asyncio.CancelledError:
+            print(f"[WS] Chat task explicitly cancelled for session {session_id}")
+            await ws_manager.send_to_session(
+                session_id,
+                MessageType.TEXT,
+                {"content": "\n\n*Agent task cancelled (connection lost or interrupted).*", "is_final": True}
+            )
+        except Exception as e:
+            print(f"[WS] Chat error: {e}")
+            await ws_manager.send_to_session(
+                session_id,
+                MessageType.ERROR,
+                {"message": str(e)}
+            )
+        finally:
+            # Always unregister task
+            ws_manager.unregister_session_task(session_id)
+            
+            # Signal end of stream
             try:
-                os.remove(path)
+                await ws_manager.send_to_session(session_id, MessageType.STREAM_END, {})
             except:
                 pass
-                
-    except Exception as e:
-        print(f"[WS] Chat error: {e}")
-        await ws_manager.send_to_session(
-            session_id,
-            MessageType.ERROR,
-            {"message": str(e)}
-        )
+            
+            # Cleanup files
+            for path in file_paths:
+                try:
+                    os.remove(path)
+                except:
+                    pass
 
 
 # Serve static files from the frontend directory

@@ -6,6 +6,7 @@ CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
     "Secure_1PSID": "",
     "Secure_1PSIDTS": "",
+    "Secure_1PSIDCC": "",
     "model": "G_2_0_PRO",
     "GITHUB_PAT": ""
 }

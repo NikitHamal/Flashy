@@ -5,7 +5,8 @@ Handles real-time bidirectional communication between frontend and backend.
 
 import asyncio
 import json
-from typing import Dict, Set, Optional, Callable
+import time
+from typing import Dict, Set, Optional, Callable, Any
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, field
 from enum import Enum
@@ -18,6 +19,7 @@ class MessageType(str, Enum):
     INTERRUPT = "interrupt"
     SUBSCRIBE_TERMINAL = "subscribe_terminal"
     TERMINAL_INPUT = "terminal_input"
+    PING = "ping"
     
     # Server -> Client
     THOUGHT = "thought"
@@ -28,6 +30,7 @@ class MessageType(str, Enum):
     TERMINAL_EXIT = "terminal_exit"
     ERROR = "error"
     STREAM_END = "stream_end"
+    PONG = "pong"
 
 
 @dataclass
@@ -37,6 +40,7 @@ class Connection:
     session_id: Optional[str] = None
     workspace_id: Optional[str] = None
     subscribed_terminals: Set[str] = field(default_factory=set)
+    last_seen: float = field(default_factory=time.time)
 
 
 class WebSocketManager:
@@ -47,6 +51,8 @@ class WebSocketManager:
     - Multiple concurrent connections per session
     - Terminal output broadcasting
     - Graceful disconnection handling
+    - Session-based locking for agent tasks
+    - Heartbeat/Ping support
     """
 
     def __init__(self):
@@ -58,11 +64,21 @@ class WebSocketManager:
         self.terminal_subscribers: Dict[str, Set[str]] = {}
         # Running terminals: terminal_id -> asyncio.subprocess.Process
         self.terminals: Dict[str, asyncio.subprocess.Process] = {}
+        # session_id -> asyncio.Task (running agent task)
+        self.active_agent_tasks: Dict[str, asyncio.Task] = {}
+        # session_id -> asyncio.Lock (ensure one task at a time)
+        self.session_locks: Dict[str, asyncio.Lock] = {}
         self._connection_counter = 0
 
     def _generate_connection_id(self) -> str:
         self._connection_counter += 1
         return f"conn_{self._connection_counter}"
+
+    def get_session_lock(self, session_id: str) -> asyncio.Lock:
+        """Get or create a lock for a session."""
+        if session_id not in self.session_locks:
+            self.session_locks[session_id] = asyncio.Lock()
+        return self.session_locks[session_id]
 
     async def connect(self, websocket: WebSocket, session_id: str = None, workspace_id: str = None) -> str:
         """Accept a new WebSocket connection."""
@@ -89,12 +105,18 @@ class WebSocketManager:
             return
         
         conn = self.connections[connection_id]
+        session_id = conn.session_id
         
         # Remove from session tracking
-        if conn.session_id and conn.session_id in self.session_connections:
-            self.session_connections[conn.session_id].discard(connection_id)
-            if not self.session_connections[conn.session_id]:
-                del self.session_connections[conn.session_id]
+        if session_id and session_id in self.session_connections:
+            self.session_connections[session_id].discard(connection_id)
+            
+            # If this was the last connection for this session, 
+            # we might want to stop the agent task after a short grace period
+            if not self.session_connections[session_id]:
+                del self.session_connections[session_id]
+                # Trigger a delayed check to see if we should kill the task
+                asyncio.create_task(self._check_cleanup_session_task(session_id))
         
         # Remove from terminal subscriptions
         for terminal_id in conn.subscribed_terminals:
@@ -103,6 +125,20 @@ class WebSocketManager:
         
         del self.connections[connection_id]
         print(f"[WS] Connection {connection_id} closed")
+
+    async def _check_cleanup_session_task(self, session_id: str):
+        """
+        Wait a bit, and if no new connections arrived for this session, 
+        cancel the running agent task.
+        """
+        await asyncio.sleep(10)  # 10s grace period for refresh/reconnect
+        if session_id not in self.session_connections:
+            if session_id in self.active_agent_tasks:
+                task = self.active_agent_tasks[session_id]
+                if not task.done():
+                    task.cancel()
+                    print(f"[WS] Cancelled abandoned task for session {session_id}")
+                del self.active_agent_tasks[session_id]
 
     async def send_to_connection(self, connection_id: str, message_type: MessageType, data: dict):
         """Send a message to a specific connection."""
@@ -163,9 +199,6 @@ class WebSocketManager:
         Run a command with real-time output streaming via WebSocket.
         Returns the exit code.
         """
-        import subprocess
-        import sys
-        
         try:
             # Create subprocess with pipes
             process = await asyncio.create_subprocess_shell(
@@ -173,7 +206,6 @@ class WebSocketManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
-                # On Windows, we need shell=True which is default for create_subprocess_shell
             )
             
             self.terminals[terminal_id] = process
@@ -182,7 +214,7 @@ class WebSocketManager:
                 """Read from stream and broadcast output."""
                 while True:
                     # Read in chunks for responsiveness
-                    chunk = await stream.read(256)
+                    chunk = await stream.read(512)
                     if not chunk:
                         break
                     
@@ -240,6 +272,24 @@ class WebSocketManager:
         process = self.terminals[terminal_id]
         process.terminate()
         return True
+
+    def register_session_task(self, session_id: str, task: asyncio.Task):
+        """Register a running agent task for a session."""
+        self.active_agent_tasks[session_id] = task
+
+    def unregister_session_task(self, session_id: str):
+        """Unregister a completed task."""
+        if session_id in self.active_agent_tasks:
+            del self.active_agent_tasks[session_id]
+
+    def cancel_session_task(self, session_id: str):
+        """Cancel the running task for a session."""
+        if session_id in self.active_agent_tasks:
+            task = self.active_agent_tasks[session_id]
+            if not task.done():
+                task.cancel()
+                return True
+        return False
 
 
 # Global instance

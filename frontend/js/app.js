@@ -68,7 +68,11 @@ function setupWebSocketHandlers() {
     flashyWS.on('error', (message) => {
         UI.hideLoading();
         UI.setAgentState('idle');
-        UI.addMessage(`Error: ${message}`, 'ai');
+        // Display error in the current message stream context
+        UI.handleStreamChunk({
+            text: `\n\n**Error:** ${message}`,
+            is_final: true
+        });
     });
 
     flashyWS.on('terminal_output', (data) => {
@@ -390,6 +394,7 @@ function setupEventListeners() {
                 const config = await API.getConfig();
                 document.getElementById('settings-psid').value = config.Secure_1PSID || '';
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
+                document.getElementById('settings-psidcc').value = config.Secure_1PSIDCC || '';
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
             } catch (e) {
                 console.error("Failed to load settings", e);
@@ -424,6 +429,7 @@ function setupEventListeners() {
             const config = {
                 Secure_1PSID: document.getElementById('settings-psid').value,
                 Secure_1PSIDTS: document.getElementById('settings-psidts').value,
+                Secure_1PSIDCC: document.getElementById('settings-psidcc').value,
                 GITHUB_PAT: document.getElementById('settings-github-pat').value
             };
             try {

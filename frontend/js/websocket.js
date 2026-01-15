@@ -12,6 +12,8 @@ class FlashyWebSocket {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
+        this.pingInterval = null;
+        this.lastPong = Date.now();
 
         // Event handlers
         this.handlers = {
@@ -24,7 +26,8 @@ class FlashyWebSocket {
             error: [],
             stream_end: [],
             connected: [],
-            disconnected: []
+            disconnected: [],
+            pong: []
         };
 
         // Pending messages queue (for when reconnecting)
@@ -35,12 +38,13 @@ class FlashyWebSocket {
      * Connect to WebSocket server
      */
     connect(sessionId, workspaceId = null) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // Already connected to same session
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+            // Already connected/connecting to same session
             if (this.sessionId === sessionId) {
                 return Promise.resolve();
             }
             // Different session, close old connection
+            this._stopPing();
             this.ws.close();
         }
 
@@ -63,6 +67,8 @@ class FlashyWebSocket {
                 console.log('[WS] Connected');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
+                this.lastPong = Date.now();
+                this._startPing();
                 this._emit('connected', { sessionId, workspaceId });
 
                 // Send any pending messages
@@ -85,12 +91,14 @@ class FlashyWebSocket {
 
             this.ws.onerror = (error) => {
                 console.error('[WS] Error:', error);
+                this._stopPing();
                 reject(error);
             };
 
             this.ws.onclose = (event) => {
                 console.log('[WS] Disconnected:', event.code, event.reason);
                 this.isConnected = false;
+                this._stopPing();
                 this._emit('disconnected', { code: event.code, reason: event.reason });
 
                 // Attempt reconnection if not intentional close
@@ -99,6 +107,34 @@ class FlashyWebSocket {
                 }
             };
         });
+    }
+
+    /**
+     * Start sending periodic pings to keep connection alive
+     */
+    _startPing() {
+        this._stopPing();
+        this.pingInterval = setInterval(() => {
+            if (this.connected) {
+                this.send({ type: 'ping' });
+
+                // If no pong for 45 seconds, reconnect
+                if (Date.now() - this.lastPong > 45000) {
+                    console.warn('[WS] No pong received for 45s, reconnecting...');
+                    this.ws.close();
+                }
+            }
+        }, 30000); // Ping every 30s
+    }
+
+    /**
+     * Stop sending pings
+     */
+    _stopPing() {
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+        }
     }
 
     /**
@@ -123,6 +159,10 @@ class FlashyWebSocket {
         const type = data.type;
 
         switch (type) {
+            case 'pong':
+                this.lastPong = Date.now();
+                this._emit('pong', data);
+                break;
             case 'thought':
                 this._emit('thought', data.content);
                 break;
@@ -171,7 +211,13 @@ class FlashyWebSocket {
      */
     _emit(event, data) {
         if (this.handlers[event]) {
-            this.handlers[event].forEach(handler => handler(data));
+            this.handlers[event].forEach(handler => {
+                try {
+                    handler(data);
+                } catch (e) {
+                    console.error(`[WS] Error in handler for ${event}:`, e);
+                }
+            });
         }
     }
 
@@ -199,12 +245,20 @@ class FlashyWebSocket {
      * Send a message to the server
      */
     send(message) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify(message));
-            return true;
+        if (this.connected) {
+            try {
+                this.ws.send(JSON.stringify(message));
+                return true;
+            } catch (e) {
+                console.error('[WS] Error sending message:', e);
+                this.pendingMessages.push(message);
+                return false;
+            }
         } else {
-            // Queue message for when we reconnect
-            this.pendingMessages.push(message);
+            // Queue message for when we reconnect (except for pings)
+            if (message.type !== 'ping') {
+                this.pendingMessages.push(message);
+            }
             return false;
         }
     }
@@ -279,6 +333,7 @@ class FlashyWebSocket {
      * Close the WebSocket connection
      */
     disconnect() {
+        this._stopPing();
         if (this.ws) {
             this.ws.close(1000, 'Client disconnected');
             this.ws = null;

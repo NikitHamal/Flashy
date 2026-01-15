@@ -179,3 +179,15 @@ def get_all_chats():
      # Fallback for generic history if needed
     chats = load_chats()
     return list(chats.values())
+
+def save_chat_metadata(session_id, metadata):
+    """Save Gemini session metadata (cid, rid, rcid) to the chat."""
+    chats = load_chats()
+    if session_id in chats:
+        chats[session_id]["metadata"] = metadata
+        save_json(CHATS_FILE, chats)
+
+def get_chat_metadata(session_id):
+    """Retrieve Gemini session metadata."""
+    chats = load_chats()
+    return chats.get(session_id, {}).get("metadata", {})

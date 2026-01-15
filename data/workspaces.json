@@ -1,23 +1,9 @@
 {
-    "dd8aab06-291c-4849-b899-a64d90998b67": {
-        "id": "dd8aab06-291c-4849-b899-a64d90998b67",
-        "path": "F:/Flashy Works/Test",
-        "name": "Test",
-        "created_at": 1768351127.6958168,
-        "last_accessed": 1768363722.7458093
-    },
-    "55ab828c-468a-46ac-b307-d19320b662d5": {
-        "id": "55ab828c-468a-46ac-b307-d19320b662d5",
-        "path": "F:\\Flashy Works\\Astro",
-        "name": "Astro",
-        "created_at": 1768366688.041035,
-        "last_accessed": 1768369295.1753252
-    },
-    "cbb2a1c2-3166-4f3b-9b63-79754438b341": {
-        "id": "cbb2a1c2-3166-4f3b-9b63-79754438b341",
+    "0a664839-2583-400c-9840-3a451bfa12bd": {
+        "id": "0a664839-2583-400c-9840-3a451bfa12bd",
         "path": "F:\\Flashy",
         "name": "Flashy",
-        "created_at": 1768396076.8256998,
-        "last_accessed": 1768400498.8609369
+        "created_at": 1768406922.7344122,
+        "last_accessed": 1768510659.6200309
     }
 }

@@ -1,113 +1,73 @@
-# Flashy | Autonomous AI Coding Agent ⚡
+# Flashy: Autonomous AI Coding Assistant
 
-Flashy is a high-performance, autonomous AI coding agent designed to live within your local development environment. Built for speed, precision, and deep integration, Flashy doesn't just suggest code—it executes tasks, manages repositories, and explores complex codebases on its own.
+Flashy is a powerful, local-first AI coding assistant designed to help developers explore, modify, and manage their codebases with ease. It leverages the Gemini API to provide intelligent reasoning while maintaining direct access to your local file system and Git tools.
 
-## 🚀 Key Features
+## 🚀 Features
 
-- **Autonomous Agent Loop**: Uses the Think -> Act -> Observe cycle to solve complex programming tasks independently.
-- **Rich Toolset**: Equipped with a variety of local tools including:
-    - **FileSystem**: Read, write, and surgically patch files.
-    - **Shell Access**: Execute terminal commands to run builds, tests, or search.
-    - **Git Integration**: Clone, commit, push, pull, and branch management directly from the UI.
-    - **Intelligent Search**: Deep `grep` search and symbol discovery.
-    - **Web Search**: DuckDuckGo integration for real-time documentation and research.
-- **Real-time WebSocket Communication**: Bidirectional streaming for instant responses and live terminal output.
-- **Modern Dashboard**: A premium, minimalist UI/UX for managing multiple workspaces and chat sessions.
-- **Dynamic Context**: Sidebars for real-time File Explorer, Git status, and Agent Planning (`plan.md`).
-- **File Tagging**: Support for `@` mentions in chat to provide specific file context to the agent.
-- **Local Persistence**: All chat history and workspace configurations are stored locally in the `data/` directory.
+- **Autonomous Agent**: Capable of planning and executing multi-step tasks independently.
+- **Full File System Access**: Read, write, and surgically patch files within your workspace.
+- **Integrated Terminal**: Execute shell commands and view real-time streaming output.
+- **Git Management**: Seamlessly handle clones, branches, commits, and pushes directly from the interface.
+- **Web Capabilities**: Search the web and browse documentation to stay up to date.
+- **Local History**: Automatically saves chat history and workspace configurations locally.
+- **Interactive UI**: Modern SPA (Single Page Application) frontend for a smooth user experience.
 
-## 🛠️ Technology Stack
+## 🏗️ Architecture
 
-- **Backend**: Python with [FastAPI](https://fastapi.tiangolo.com/) + WebSockets.
-- **AI Engine**: [Google Gemini](https://ai.google.dev/) (via `gemini-webapi`).
-- **Frontend**: Vanilla HTML5, Modern CSS (system-level variables), and Interactive JavaScript.
-- **Design**: Material Symbols, Poppins/Inter typography, and Atom One Dark syntax highlighting.
+Flashy is built with a decoupled architecture:
+
+### Backend (Python/FastAPI)
+- **FastAPI**: Provides the REST API and WebSocket communication.
+- **Gemini Service**: Handles interaction with Google's Gemini models.
+- **Tools System**: A robust suite of local operations (File I/O, Git, Terminal).
+- **WebSocket Manager**: Facilitates real-time, bi-directional communication for thoughts, tool outputs, and terminal streams.
+
+### Frontend (HTML/JS/CSS)
+- **Vanilla JS SPA**: A lightweight, responsive interface.
+- **WebSocket Client**: Listens for agent thoughts, tool calls, and execution results.
+- **Modular Structure**: Logic is separated into `api.js`, `websocket.js`, `ui.js`, and `app.js`.
+
+## 🛠️ Getting Started
+
+### Prerequisites
+- Python 3.8+
+- A Google Gemini API Key (configured via the UI or `config.json`)
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd flashy
+   ```
+2. Install dependencies:
+   ```bash
+   pip install fastapi uvicorn requests-html httpx pydantic
+   ```
+
+### Running Flashy
+Start the application using the provided entry point:
+```bash
+python run.py
+```
+The application will be available at `http://localhost:8000`.
 
 ## 📂 Project Structure
 
 ```text
-Flashy/
-├── backend/                # Python FastAPI app and Agent logic
-│   ├── agent.py            # Core Reasoning Engine
-│   ├── app.py              # API + WebSocket Endpoints
-│   ├── gemini_service.py   # Gemini API Integration
-│   ├── git_manager.py      # Git Operations
-│   ├── prompts.py          # System Prompts & Tool Definitions
-│   ├── storage.py          # Local JSON Persistence
-│   ├── tools.py            # Local system tools (FS, Shell, Search)
-│   └── websocket_manager.py # WebSocket connection & terminal streaming
-├── frontend/               # Web-based UI
-│   ├── css/                # Modern CSS Layouts
-│   ├── js/
-│   │   ├── api.js          # HTTP API client
-│   │   ├── websocket.js    # WebSocket client with auto-reconnect
-│   │   ├── ui.js           # UI rendering & interactions
-│   │   └── app.js          # App state & routing
-│   └── index.html          # Main SPA Entry point
-├── data/                   # Local persistence (Chats & Workspaces)
-├── run.py                  # Application Entry Point
-└── config.json             # API Keys & Configuration
+.
+├── backend/            # FastAPI server and agent logic
+│   ├── agent.py        # Core agent reasoning loop
+│   ├── app.py          # API endpoints and static file serving
+│   ├── tools.py        # File system, Git, and Web tools
+│   └── ...
+├── frontend/           # SPA frontend files
+│   ├── index.html      # Main entry point
+│   ├── js/             # Frontend logic (API, WS, UI)
+│   └── css/            # Styling
+├── data/               # Local storage for chats and settings
+├── run.py              # Main startup script
+└── config.json         # User configuration (API keys, etc.)
 ```
 
-## 🚦 Getting Started
-
-### Prerequisites
-
-- Python 3.9+
-- Chrome/Edge browser for Gemini authentication cookies.
-
-### Installation
-
-1. Clone or download the Flashy repository.
-2. Install dependencies:
-   ```bash
-   pip install fastapi uvicorn requests-html gemini-webapi pydantic httpx
-   ```
-3. Copy `config-example.json` to `config.json` and provide your Gemini session cookies (`__Secure-1PSID` and `__Secure-1PSIDTS`).
-4. Optionally add your `GITHUB_PAT` for git operations.
-
-### Running Flashy
-
-```bash
-python run.py
-```
-Open [http://localhost:8000](http://localhost:8000) in your browser.
-
-## 🧠 How it Works
-
-Flashy operates on a **Chain of Thought** basis. When you give it a task:
-1. It **Analyzes** the objective and **Explores** your workspace using `list_dir`.
-2. It **Creates a Plan** (`plan.md`) to track progress.
-3. It **Executes** tool calls (JSON-based) to modify files, run commands, or search the web.
-4. It **Updates** the UI in real-time so you can watch its progress through the Plan sidebar.
-
-## 🐛 Known Issues Fixed
-
-- **Tool Mapping Bug (Jan 2026)**: The `execute()` function in `tools.py` only mapped 10 of the 22 advertised tools. Git, web search, and symbol lookup tools were promised in the system prompt but returned "Unknown tool" errors. This has been fixed.
-
-- **Thoughts Display Bug (Jan 2026)**: AI thoughts (internal reasoning) were only displayed on the first iteration. On subsequent tool call loops, thoughts were incorrectly shown as regular AI answers. Now thoughts are properly yielded on EVERY iteration.
-
-- **Raw JSON Leakage (Jan 2026)**: Sometimes raw JSON tool call blocks would appear in the chat output. Added `_clean_response_text()` to strip JSON artifacts before displaying.
-
-- **Tool Call False Positives (Jan 2026)**: The tool parser was too aggressive, sometimes parsing JSON from thoughts or explanations as tool calls. Now validates against known tool names before executing.
-
-## 🏗️ Future Roadmap
-
-### High Priority
-- [ ] **Official API Support**: Add support for Gemini API Key, OpenAI, and Anthropic APIs to eliminate cookie dependency.
-- [x] **Async Terminal Streaming**: ~~Use WebSockets to stream `run_command` output in real-time.~~ ✅ Implemented!
-- [ ] **Error Recovery**: Detect build/test failures and automatically attempt fixes.
-
-### Medium Priority
-- [ ] **LSP Integration**: Connect to Language Servers for Go-to-Definition and type checking.
-- [ ] **Semantic Search (RAG)**: Index the codebase with embeddings for smarter file discovery.
-- [ ] **Multi-Agent Orchestration**: Specialized sub-agents for UI, backend, and testing.
-
-### Low Priority / Ideas
-- [ ] **Voice Input**: Use Web Speech API for hands-free coding.
-- [ ] **Browser Automation**: Add Playwright/Puppeteer tool for UI testing.
-- [ ] **Code Review Mode**: Compare branches and summarize changes.
-
----
-*Built with ❤️ for the future of agentic coding.*
+## 🛡️ Safety & Security
+Flashy operates strictly within the workspace you define. It uses a local configuration file for sensitive keys and never uploads your code to external servers, except for the prompts sent to the Gemini API for processing.
