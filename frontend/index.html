@@ -6,10 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flashy | AI Coding Agent</title>
     <link rel="stylesheet" href="/css/main.css">
+    
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 </head>
@@ -46,7 +49,7 @@
 
             <div class="sidebar-footer">
                 <button id="btn-add-workspace" class="btn-secondary full-width">
-                    <span class="material-symbols-outlined">add</span> Connect Folder
+                    <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
             </div>
         </aside>
@@ -92,6 +95,12 @@
                         </div>
                     </div>
                     <div class="top-actions">
+                        <button id="btn-toggle-git" class="btn-ghost" title="Git Status">
+                            <span class="material-symbols-outlined">account_tree</span>
+                        </button>
+                        <button id="btn-toggle-plan" class="btn-ghost" title="View Plan">
+                            <span class="material-symbols-outlined">assignment</span>
+                        </button>
                         <button id="btn-toggle-explorer" class="btn-ghost" title="Toggle Explorer">
                             <span class="material-symbols-outlined">side_navigation</span>
                         </button>
@@ -126,7 +135,37 @@
                             </div>
                         </div>
 
+                        <!-- Terminal Overlay (Flashes up from bottom) -->
+                        <div id="terminal-container" class="terminal-container hidden">
+                            <div class="terminal-header">
+                                <div class="terminal-title">
+                                    <span class="material-symbols-outlined">terminal</span>
+                                    <span>Live Terminal</span>
+                                    <span id="terminal-status" class="status-dot"></span>
+                                </div>
+                                <div class="terminal-actions">
+                                    <button id="btn-clear-terminal" class="btn-icon" title="Clear Terminal">
+                                        <span class="material-symbols-outlined">delete_sweep</span>
+                                    </button>
+                                    <button id="btn-close-terminal" class="btn-icon" title="Minimize">
+                                        <span class="material-symbols-outlined">expand_more</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="terminal-output" class="terminal-output scrollbar-hide">
+                                <div class="terminal-welcome">Waiting for terminal activity...</div>
+                            </div>
+                        </div>
+
                         <div class="input-area-wrapper">
+                            <!-- Terminal Toggle Button -->
+                            <div id="terminal-toggle-container" class="terminal-toggle-container hidden">
+                                <button id="btn-toggle-terminal" class="btn-terminal-toggle">
+                                    <span class="material-symbols-outlined">terminal</span>
+                                    <span>Terminal</span>
+                                    <span id="terminal-badge" class="badge"></span>
+                                </button>
+                            </div>
                             <div class="input-area">
                                 <div id="mention-popup" class="mention-popup hidden">
                                     <!-- Mentions injected here -->
@@ -164,6 +203,46 @@
 
                     <div id="explorer-resizer" class="resizer-h hidden"></div>
 
+                    <!-- Right Sidebar: Plan (New) -->
+                    <aside id="plan-sidebar" class="plan-sidebar hidden">
+                        <div class="explorer-header">
+                            <span>CURRENT PLAN</span>
+                            <button id="btn-refresh-plan" class="btn-icon-xs" title="Refresh Plan">
+                                <span class="material-symbols-outlined">refresh</span>
+                            </button>
+                        </div>
+                        <div id="plan-content" class="plan-content">
+                            <!-- Plan content injected here -->
+                            <div class="plan-empty">No active plan found (plan.md)</div>
+                        </div>
+                    </aside>
+
+                    <!-- Right Sidebar: Git (New) -->
+                    <aside id="git-sidebar" class="git-sidebar hidden">
+                        <div class="explorer-header">
+                            <span>GIT REPOSITORY</span>
+                            <button id="btn-refresh-git" class="btn-icon-xs" title="Refresh Git">
+                                <span class="material-symbols-outlined">refresh</span>
+                            </button>
+                        </div>
+                        <div id="git-content" class="git-content">
+                            <div id="git-repo-status">
+                                <!-- Git status info here -->
+                                <div class="git-empty">Detecting repository...</div>
+                            </div>
+                            <div class="git-actions-grid">
+                                <button id="btn-git-pull" class="btn-secondary btn-sm"><span
+                                        class="material-symbols-outlined">download</span> Pull</button>
+                                <button id="btn-git-push" class="btn-secondary btn-sm"><span
+                                        class="material-symbols-outlined">upload</span> Push</button>
+                            </div>
+                            <div class="git-section-title">BRANCHES</div>
+                            <div id="git-branches-list" class="git-branches-list"></div>
+                            <div class="git-section-title">RECENT COMMITS</div>
+                            <div id="git-log-list" class="git-log-list"></div>
+                        </div>
+                    </aside>
+
                     <!-- Right Sidebar: Explorer -->
                     <aside id="explorer-sidebar" class="explorer-sidebar hidden">
                         <div class="explorer-header">
@@ -183,6 +262,80 @@
     </div>
 
     <!-- Modals -->
+    <div id="modal-connect-project" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Connect Project</h2>
+                <button class="btn-close-modal" id="btn-close-connect">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="choice-grid">
+                    <div class="choice-card" id="choice-open-device">
+                        <span class="material-symbols-outlined choice-icon">folder_open</span>
+                        <div class="choice-info">
+                            <div class="choice-title">Open from device</div>
+                            <div class="choice-desc">Select an existing folder from your local system.</div>
+                        </div>
+                    </div>
+                    <div class="choice-card" id="choice-git-clone">
+                        <span class="material-symbols-outlined choice-icon">cloud_download</span>
+                        <div class="choice-info">
+                            <div class="choice-title">Git Clone</div>
+                            <div class="choice-desc">Clone a remote repository using a URL.</div>
+                        </div>
+                    </div>
+                    <div class="choice-divider"><span>OR</span></div>
+                    <div class="manual-path-entry">
+                        <label>Enter path manually</label>
+                        <div class="input-with-action">
+                            <input type="text" id="manual-workspace-path" placeholder="C:\Projects\MyProject">
+                            <button id="btn-add-manual-path" class="btn-icon">
+                                <span class="material-symbols-outlined">add_circle</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-git-clone" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Git Clone</h2>
+                <button class="btn-close-modal" id="btn-close-git-clone">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <div class="settings-field">
+                        <label>Repository URL</label>
+                        <input type="text" id="clone-url" placeholder="https://github.com/user/repo.git">
+                    </div>
+                    <div class="settings-field">
+                        <label>Project Name (Folder Name)</label>
+                        <input type="text" id="clone-name" placeholder="my-awesome-project">
+                    </div>
+                    <div class="settings-field">
+                        <label>Destination Parent Folder</label>
+                        <div class="input-with-action">
+                            <input type="text" id="clone-parent-path" placeholder="Select where to clone..." readonly>
+                            <button id="btn-pick-clone-parent" class="btn-icon">
+                                <span class="material-symbols-outlined">folder_open</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-start-clone" class="btn-primary">Clone Repository</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-settings" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -213,6 +366,24 @@
                             </button>
                         </div>
                     </div>
+                    <div class="settings-field">
+                        <label>__Secure-1PSIDCC</label>
+                        <div class="input-with-action">
+                            <input type="password" id="settings-psidcc" placeholder="Enter __Secure-1PSIDCC">
+                            <button class="btn-toggle-visibility" data-target="settings-psidcc">
+                                <span class="material-symbols-outlined">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-field">
+                        <label>GitHub Personal Access Token (PAT)</label>
+                        <div class="input-with-action">
+                            <input type="password" id="settings-github-pat" placeholder="ghp_xxxxxxxxxxxx">
+                            <button class="btn-toggle-visibility" data-target="settings-github-pat">
+                                <span class="material-symbols-outlined">visibility</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -225,7 +396,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="/js/api.js"></script>
-    <script src="/js/ui.js"></script>
+    <script src="/js/websocket.js"></script>
+    
+    <!-- UI Modules -->
+    <script src="/js/ui/core.js"></script>
+    <script src="/js/ui/chat.js"></script>
+    <script src="/js/ui/git.js"></script>
+    <script src="/js/ui/files.js"></script>
+    <script src="/js/ui/terminal.js"></script>
+    
     <script src="/js/app.js"></script>
 </body>
 

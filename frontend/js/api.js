@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = window.location.origin;
 
 const API = {
     baseUrl: API_BASE,
@@ -91,6 +91,14 @@ const API = {
         return response.json();
     },
 
+    async deleteWorkspace(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspaces/${workspaceId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete workspace');
+        return response.json();
+    },
+
     async getWorkspaceSessions(workspaceId) {
         const response = await fetch(`${this.baseUrl}/workspaces/${workspaceId}/sessions`);
         if (!response.ok) throw new Error('Failed to load sessions');
@@ -115,9 +123,113 @@ const API = {
         return response.json();
     },
 
+    async pickPath() {
+        const response = await fetch(`${this.baseUrl}/path/pick`, {
+            method: 'POST'
+        });
+        if (!response.ok) throw new Error('Failed to pick path');
+        return response.json();
+    },
+
     async getExplorer(workspaceId) {
         const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/explorer`);
         if (!response.ok) throw new Error('Failed to load explorer');
+        return await response.json();
+    },
+
+    async getPlan(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/plan`);
+        if (!response.ok) throw new Error('Failed to load plan');
+        return await response.json();
+    },
+
+    async getGitInfo(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git`);
+        if (!response.ok) throw new Error('Failed to load git info');
+        return await response.json();
+    },
+
+    async switchBranch(workspaceId, branch) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ branch })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Checkout failed");
+        }
+        return await response.json();
+    },
+
+    async gitPull(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/pull`, {
+            method: 'POST'
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Pull failed");
+        }
+        return await response.json();
+    },
+
+    async gitPush(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/push`, {
+            method: 'POST'
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Push failed");
+        }
+        return await response.json();
+    },
+
+    async gitStage(workspaceId, path) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/stage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        return await response.json();
+    },
+
+    async gitUnstage(workspaceId, path) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/unstage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+        return await response.json();
+    },
+
+    async gitCommit(workspaceId, message) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/commit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        return await response.json();
+    },
+
+    async interruptChat(sessionId) {
+        const response = await fetch(`${this.baseUrl}/chat/interrupt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId })
+        });
+        return await response.json();
+    },
+
+    async cloneRepo(url, parentPath, name = null) {
+        const response = await fetch(`${this.baseUrl}/git/clone`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, parent_path: parentPath, name })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Clone failed");
+        }
         return await response.json();
     }
 };

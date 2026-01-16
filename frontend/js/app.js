@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Event Listeners
     setupEventListeners();
+    setupWebSocketHandlers();
     initResizers();
 
     // Initial Routing
@@ -22,7 +23,77 @@ let globalData = {
     sessions: []
 };
 
+// WebSocket configuration
+let useWebSocket = true; // Set to false to use HTTP fallback
+let wsConnected = false;
+
+// Setup WebSocket event handlers
+function setupWebSocketHandlers() {
+    flashyWS.on('connected', () => {
+        wsConnected = true;
+        console.log('[App] WebSocket connected');
+    });
+
+    flashyWS.on('disconnected', () => {
+        wsConnected = false;
+        console.log('[App] WebSocket disconnected');
+    });
+
+    flashyWS.on('thought', (content) => {
+        UI.handleStreamChunk({ thought: content });
+    });
+
+    flashyWS.on('text', (data) => {
+        UI.handleStreamChunk({
+            text: data.content,
+            images: data.images,
+            is_final: data.is_final
+        });
+    });
+
+    flashyWS.on('tool_call', (data) => {
+        UI.handleStreamChunk({ tool_call: data });
+    });
+
+    flashyWS.on('tool_result', (content) => {
+        UI.handleStreamChunk({ tool_result: content });
+    });
+
+    flashyWS.on('stream_end', () => {
+        UI.hideLoading();
+        UI.setAgentState('idle');
+        refreshState(false);
+    });
+
+    flashyWS.on('error', (message) => {
+        UI.hideLoading();
+        UI.setAgentState('idle');
+        // Display error in the current message stream context
+        UI.handleStreamChunk({
+            text: `\n\n**Error:** ${message}`,
+            is_final: true
+        });
+    });
+
+    flashyWS.on('terminal_output', (data) => {
+        UI.appendTerminalOutput(data.output, data.is_error);
+    });
+
+    flashyWS.on('terminal_exit', (data) => {
+        UI.appendTerminalOutput(`\n[Process exited with code ${data.exit_code}]\n`);
+    });
+}
+
 function setupEventListeners() {
+    // Brand Logo Click - Return to Home
+    const brand = document.querySelector('.brand');
+    if (brand) {
+        brand.style.cursor = 'pointer';
+        brand.addEventListener('click', () => {
+            showDashboard();
+        });
+    }
+
     // Top-bar Dropdown
     const sessSelector = document.getElementById('session-selector');
     const sessMenu = document.getElementById('session-dropdown-menu');
@@ -72,10 +143,54 @@ function setupEventListeners() {
         });
     }
 
-    // Add Workspace Button
+    // Terminal Listeners
+    const terminalToggle = document.getElementById('btn-toggle-terminal');
+    const terminalClose = document.getElementById('btn-close-terminal');
+    const terminalClear = document.getElementById('btn-clear-terminal');
+
+    if (terminalToggle) {
+        terminalToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            UI.toggleTerminal();
+        });
+    }
+
+    if (terminalClose) {
+        terminalClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            UI.hideTerminal();
+        });
+    }
+
+    if (terminalClear) {
+        terminalClear.addEventListener('click', (e) => {
+            e.stopPropagation();
+            UI.clearTerminal();
+        });
+    }
+
+    // Add Workspace Button (Renamed to Connect Project)
     const addWsBtn = document.getElementById('btn-add-workspace');
-    if (addWsBtn) {
-        addWsBtn.addEventListener('click', async () => {
+    const connectModal = document.getElementById('modal-connect-project');
+    const closeConnectBtn = document.getElementById('btn-close-connect');
+    const choiceDevice = document.getElementById('choice-open-device');
+    const choiceGit = document.getElementById('choice-git-clone');
+
+    if (addWsBtn && connectModal) {
+        addWsBtn.addEventListener('click', () => {
+            connectModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeConnectBtn) {
+        closeConnectBtn.addEventListener('click', () => {
+            connectModal.classList.add('hidden');
+        });
+    }
+
+    if (choiceDevice) {
+        choiceDevice.addEventListener('click', async () => {
+            connectModal.classList.add('hidden');
             try {
                 const ws = await API.pickWorkspace();
                 if (ws && ws.id) {
@@ -83,7 +198,92 @@ function setupEventListeners() {
                     openWorkspace(ws.id);
                 }
             } catch (e) {
+                alert("Failed to open dialog. Please try entering the path manually below.");
+                connectModal.classList.remove('hidden');
                 console.error(e);
+            }
+        });
+    }
+
+    const addManualBtn = document.getElementById('btn-add-manual-path');
+    if (addManualBtn) {
+        addManualBtn.addEventListener('click', async () => {
+            const path = document.getElementById('manual-workspace-path').value.trim();
+            if (!path) return;
+
+            try {
+                const ws = await API.setWorkspace(path);
+                if (ws && ws.id) {
+                    document.getElementById('manual-workspace-path').value = '';
+                    connectModal.classList.add('hidden');
+                    await refreshState();
+                    openWorkspace(ws.id);
+                }
+            } catch (e) {
+                alert("Error connecting path: " + e.message);
+            }
+        });
+    }
+
+    // Git Clone Modal Logic
+    const cloneModal = document.getElementById('modal-git-clone');
+    const closeCloneBtn = document.getElementById('btn-close-git-clone');
+    const pickCloneParentBtn = document.getElementById('btn-pick-clone-parent');
+    const startCloneBtn = document.getElementById('btn-start-clone');
+
+    if (choiceGit) {
+        choiceGit.addEventListener('click', () => {
+            connectModal.classList.add('hidden');
+            cloneModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeCloneBtn) {
+        closeCloneBtn.addEventListener('click', () => {
+            cloneModal.classList.add('hidden');
+        });
+    }
+
+    if (pickCloneParentBtn) {
+        pickCloneParentBtn.addEventListener('click', async () => {
+            try {
+                // Use the new path-only picker
+                const res = await API.pickPath();
+                if (res && res.path) {
+                    document.getElementById('clone-parent-path').value = res.path;
+                }
+            } catch (e) {
+                alert("Failed to open dialog. You can enter the path manually.");
+                console.error(e);
+            }
+        });
+    }
+
+    if (startCloneBtn) {
+        startCloneBtn.addEventListener('click', async () => {
+            const url = document.getElementById('clone-url').value.trim();
+            const parentPath = document.getElementById('clone-parent-path').value.trim();
+            const name = document.getElementById('clone-name').value.trim();
+
+            if (!url || !parentPath) {
+                alert("Please provide both URL and parent path.");
+                return;
+            }
+
+            try {
+                startCloneBtn.disabled = true;
+                startCloneBtn.textContent = 'Cloning...';
+
+                const ws = await API.cloneRepo(url, parentPath, name || null);
+
+                cloneModal.classList.add('hidden');
+                await refreshState();
+                openWorkspace(ws.id);
+            } catch (e) {
+                alert("Clone failed: " + e.message);
+            } finally {
+                startCloneBtn.disabled = false;
+                startCloneBtn.textContent = 'Clone Repository';
             }
         });
     }
@@ -100,6 +300,76 @@ function setupEventListeners() {
     if (refreshExplorerBtn) {
         refreshExplorerBtn.addEventListener('click', () => {
             if (currentWorkspaceId) refreshExplorer();
+        });
+    }
+
+    // Plan Toggle
+    const togglePlanBtn = document.getElementById('btn-toggle-plan');
+    if (togglePlanBtn) {
+        togglePlanBtn.addEventListener('click', () => {
+            UI.togglePlan();
+            if (!document.getElementById('plan-sidebar').classList.contains('hidden')) {
+                refreshPlan();
+            }
+        });
+    }
+
+    const refreshPlanBtn = document.getElementById('btn-refresh-plan');
+    if (refreshPlanBtn) {
+        refreshPlanBtn.addEventListener('click', () => {
+            if (currentWorkspaceId) refreshPlan();
+        });
+    }
+
+    // Git Toggle
+    const toggleGitBtn = document.getElementById('btn-toggle-git');
+    if (toggleGitBtn) {
+        toggleGitBtn.addEventListener('click', () => {
+            UI.toggleGit();
+            if (!document.getElementById('git-sidebar').classList.contains('hidden')) {
+                refreshGit();
+            }
+        });
+    }
+
+    const refreshGitBtn = document.getElementById('btn-refresh-git');
+    if (refreshGitBtn) {
+        refreshGitBtn.addEventListener('click', () => {
+            if (currentWorkspaceId) refreshGit();
+        });
+    }
+
+    const pullBtn = document.getElementById('btn-git-pull');
+    if (pullBtn) {
+        pullBtn.addEventListener('click', async () => {
+            if (!currentWorkspaceId) return;
+            try {
+                UI.showWorkingIndicator();
+                const res = await API.gitPull(currentWorkspaceId);
+                await refreshGit();
+                UI.hideWorkingIndicator();
+                alert(res.message);
+            } catch (e) {
+                UI.hideWorkingIndicator();
+                alert("Pull failed: " + e.message);
+            }
+        });
+    }
+
+    const pushBtn = document.getElementById('btn-git-push');
+    if (pushBtn) {
+        pushBtn.addEventListener('click', async () => {
+            if (!currentWorkspaceId) return;
+            try {
+                UI.showWorkingIndicator();
+                const res = await API.gitPush(currentWorkspaceId);
+                await refreshGit();
+                UI.hideWorkingIndicator();
+                alert(res.message);
+            } catch (e) {
+                UI.hideWorkingIndicator();
+                alert("Push failed: " + e.message);
+            }
         });
     }
 
@@ -124,6 +394,8 @@ function setupEventListeners() {
                 const config = await API.getConfig();
                 document.getElementById('settings-psid').value = config.Secure_1PSID || '';
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
+                document.getElementById('settings-psidcc').value = config.Secure_1PSIDCC || '';
+                document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
             } catch (e) {
                 console.error("Failed to load settings", e);
             }
@@ -156,7 +428,9 @@ function setupEventListeners() {
         saveSettingsBtn.addEventListener('click', async () => {
             const config = {
                 Secure_1PSID: document.getElementById('settings-psid').value,
-                Secure_1PSIDTS: document.getElementById('settings-psidts').value
+                Secure_1PSIDTS: document.getElementById('settings-psidts').value,
+                Secure_1PSIDCC: document.getElementById('settings-psidcc').value,
+                GITHUB_PAT: document.getElementById('settings-github-pat').value
             };
             try {
                 saveSettingsBtn.disabled = true;
@@ -193,6 +467,20 @@ function setupEventListeners() {
     }
 
     const handleSend = async () => {
+        if (UI.isWorking) {
+            // Stop logic - use WebSocket if connected
+            try {
+                if (useWebSocket && flashyWS.connected) {
+                    flashyWS.interrupt();
+                } else {
+                    await API.interruptChat(currentSessionId);
+                }
+            } catch (e) {
+                console.error("Failed to stop agent", e);
+            }
+            return;
+        }
+
         const text = input.value.trim();
         const uploadedFiles = UI.uploadedFiles;
         const taggedFiles = UI.taggedFiles;
@@ -218,17 +506,51 @@ function setupEventListeners() {
         UI.clearTaggedFiles();
         UI.clearUploadedFiles();
         UI.showLoading();
+        UI.setAgentState('working');
 
         try {
-            await API.sendMessage(finalText, currentSessionId, currentWorkspaceId, uploadedFiles, (chunk) => {
-                UI.handleStreamChunk(chunk);
-            });
-            await refreshState(false);
+            // Use WebSocket if enabled and connected
+            if (useWebSocket && flashyWS.connected) {
+                // Convert files to base64 for WebSocket transfer
+                const filesData = [];
+                for (const file of uploadedFiles) {
+                    const base64 = await fileToBase64(file);
+                    filesData.push({
+                        name: file.name,
+                        content: base64
+                    });
+                }
+
+                flashyWS.sendChatMessage(finalText, filesData);
+                // Note: stream_end handler will call hideLoading and refreshState
+            } else {
+                // Fallback to HTTP streaming
+                await API.sendMessage(finalText, currentSessionId, currentWorkspaceId, uploadedFiles, (chunk) => {
+                    UI.handleStreamChunk(chunk);
+                });
+                await refreshState(false);
+                UI.hideLoading();
+                UI.setAgentState('idle');
+            }
         } catch (e) {
             UI.hideLoading();
+            UI.setAgentState('idle');
             UI.addMessage(`Error: ${e.message}`, 'ai');
         }
     };
+
+    // Helper function to convert File to base64
+    async function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1]; // Remove data:... prefix
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
 
     if (sendBtn) sendBtn.addEventListener('click', handleSend);
     if (input) {
@@ -272,6 +594,8 @@ function setupEventListeners() {
         input.addEventListener('input', function (e) {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
+
+            if (UI.isWorking) return; // Don't change button state while working
 
             const value = this.value;
             const cursorCoords = this.selectionStart;
@@ -351,10 +675,40 @@ function renderSidebarWorkspaces(workspaces) {
     Object.values(workspaces).forEach(ws => {
         const item = document.createElement('div');
         item.className = `nav-item ${ws.id === currentWorkspaceId ? 'active' : ''}`;
-        item.innerHTML = `<span class="material-symbols-outlined icon">folder</span><span class="name">${ws.name}</span>`;
-        item.onclick = () => openWorkspace(ws.id);
+        item.innerHTML = `
+            <span class="material-symbols-outlined icon">folder</span>
+            <span class="name">${ws.name}</span>
+            <div class="nav-actions">
+                <button class="btn-item-action close-workspace" title="Close project">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        `;
+        item.onclick = (e) => {
+            if (e.target.closest('.close-workspace')) {
+                e.stopPropagation();
+                closeWorkspace(ws.id);
+                return;
+            }
+            openWorkspace(ws.id);
+        };
         list.appendChild(item);
     });
+}
+
+async function closeWorkspace(workspaceId) {
+    if (confirm("Are you sure you want to disconnect this project? All associated chat sessions will also be removed.")) {
+        try {
+            await API.deleteWorkspace(workspaceId);
+            if (currentWorkspaceId === workspaceId) {
+                showDashboard();
+            } else {
+                refreshState();
+            }
+        } catch (e) {
+            alert("Failed to close workspace");
+        }
+    }
 }
 
 function renderRecentProjects(workspaces) {
@@ -405,6 +759,37 @@ async function refreshExplorer() {
     }
 }
 
+async function refreshPlan() {
+    if (!currentWorkspaceId) return;
+    try {
+        const data = await API.getPlan(currentWorkspaceId);
+        UI.renderPlan(data.content);
+    } catch (e) {
+        console.error("Failed to refresh plan", e);
+    }
+}
+
+async function refreshGit() {
+    if (!currentWorkspaceId) return;
+    try {
+        const data = await API.getGitInfo(currentWorkspaceId);
+        UI.renderGit(data, async (branchName) => {
+            try {
+                UI.showWorkingIndicator();
+                await API.switchBranch(currentWorkspaceId, branchName);
+                await refreshGit();
+                await refreshExplorer();
+                UI.hideWorkingIndicator();
+            } catch (e) {
+                UI.hideWorkingIndicator();
+                alert("Failed to switch branch: " + e.message);
+            }
+        });
+    } catch (e) {
+        console.error("Failed to refresh git", e);
+    }
+}
+
 async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession = false) {
     currentWorkspaceId = workspaceId;
     localStorage.setItem('lastWorkspaceId', workspaceId);
@@ -431,6 +816,8 @@ async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession 
     UI.renderSidebarSessions(globalData.workspaces, globalData.sessions, currentSessionId, loadSession, deleteSession);
     UI.renderSessionDropdown(workspaceId, workspaceSessions, currentSessionId, loadSession, createNewSession);
     refreshExplorer();
+    refreshPlan();
+    refreshGit();
 
     if (autoLoadLastSession && workspaceSessions.length > 0) {
         loadSession(workspaceSessions[0], pushState);
@@ -496,6 +883,13 @@ function createNewSession(workspaceId, pushState = true) {
         }
     }
 
+    // Connect WebSocket for this session
+    if (useWebSocket) {
+        flashyWS.connect(currentSessionId, currentWorkspaceId).catch(err => {
+            console.warn('[App] WebSocket connection failed, using HTTP fallback', err);
+        });
+    }
+
     UI.addMessage("Ready to code in this workspace!", 'ai');
     refreshState();
 }
@@ -527,10 +921,25 @@ function loadSession(session, pushState = true) {
         wrapper.innerHTML = '';
         if (session.messages) {
             session.messages.forEach(msg => {
-                UI.addMessage(msg.text, msg.role, msg.images, [], msg.tool_outputs || []);
+                // Pass parts if available (new format), else pass text (old format)
+                const content = msg.parts || msg.text;
+                if (!content) return; // Skip empty messages
+
+                // If parts is an empty array, it might be a corrupted message
+                if (Array.isArray(content) && content.length === 0) return;
+
+                UI.addMessage(content, msg.role, msg.images, [], msg.tool_outputs || []);
             });
         }
     }
+
+    // Connect WebSocket for this session
+    if (useWebSocket) {
+        flashyWS.connect(currentSessionId, currentWorkspaceId).catch(err => {
+            console.warn('[App] WebSocket connection failed, using HTTP fallback', err);
+        });
+    }
+
     refreshState();
     refreshExplorer();
 }

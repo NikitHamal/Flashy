@@ -1,23 +1,9 @@
 {
-    "dd8aab06-291c-4849-b899-a64d90998b67": {
-        "id": "dd8aab06-291c-4849-b899-a64d90998b67",
-        "path": "F:/Flashy Works/Test",
-        "name": "Test",
-        "created_at": 1768351127.6958168,
-        "last_accessed": 1768361619.5480103
-    },
-    "aa516945-6ede-4831-9fd3-957b448c7adc": {
-        "id": "aa516945-6ede-4831-9fd3-957b448c7adc",
-        "path": "F:/AstroWeb",
-        "name": "AstroWeb",
-        "created_at": 1768355394.8798442,
-        "last_accessed": 1768355399.0126429
-    },
-    "22a435e3-49e7-4758-b563-9f40a1fc8680": {
-        "id": "22a435e3-49e7-4758-b563-9f40a1fc8680",
-        "path": "F:/Github/Astro",
-        "name": "Astro",
-        "created_at": 1768355422.25943,
-        "last_accessed": 1768357424.954591
+    "0a664839-2583-400c-9840-3a451bfa12bd": {
+        "id": "0a664839-2583-400c-9840-3a451bfa12bd",
+        "path": "F:\\Flashy",
+        "name": "Flashy",
+        "created_at": 1768406922.7344122,
+        "last_accessed": 1768515816.2709138
     }
 }

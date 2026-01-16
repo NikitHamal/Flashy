@@ -1,44 +1,46 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body, Request
+from fastapi import FastAPI, UploadFile, File, Form, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from .gemini_service import GeminiService
-from .config import load_config, save_config
-from . import storage 
-from .storage import save_chat_message, get_chat_history, get_all_chats, delete_chat, get_workspace as get_workspace_data, add_workspace
-import uvicorn
-import shutil
+from fastapi.responses import StreamingResponse, Response, FileResponse, JSONResponse
 import os
-import tempfile
+import shutil
 import time
+import json
+import asyncio
 import httpx
 import uuid
-import json
 from typing import List, Optional
-from fastapi.responses import StreamingResponse, Response, FileResponse, JSONResponse
+
+from .gemini_service import GeminiService
+from .storage import save_chat_message, get_workspace as get_workspace_data, add_workspace
+from .websocket_manager import ws_manager, MessageType
+from .routers import git_routes, workspace, chat, config
 
 app = FastAPI()
 
+# Share service instance
+gemini_service = GeminiService()
+app.state.gemini_service = gemini_service
+
+app.include_router(git_routes.router)
+app.include_router(workspace.router)
+app.include_router(chat.router)
+app.include_router(config.router)
+
+# Exception Handlers
 @app.exception_handler(404)
 async def spa_fallback_handler(request: Request, __):
-    # If the request is for an API route or looks like a static file (has extension), return 404
-    api_prefixes = ("/chat", "/history", "/workspace", "/workspaces", "/proxy_image", "/config")
+    api_prefixes = ("/chat", "/history", "/workspace", "/workspaces", "/proxy_image", "/config", "/git")
     path = request.url.path
-    
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
-        
-    # Otherwise, return index.html for SPA support
     return FileResponse("frontend/index.html")
 
-# Use system temp directory to avoid triggering uvicorn reload
-UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "flashy_uploads")
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
+UPLOAD_DIR = os.path.join(os.getenv("TEMP", "/tmp"), "flashy_uploads")
+if not os.path.exists(UPLOAD_DIR): os.makedirs(UPLOAD_DIR)
 
 @app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    return Response(content="", media_type="image/x-icon")
+async def favicon(): return Response(content="", media_type="image/x-icon")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,10 +49,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-gemini_service = GeminiService()
+# --- Core Routes that need heavy logic or service integration ---
+
+@app.get("/workspace")
+async def get_current_workspace():
+    return {"path": gemini_service.get_workspace()}
+
+@app.post("/workspace")
+async def set_workspace_route(data: workspace.WorkspaceUpdate):
+    if not os.path.exists(data.path):
+        raise HTTPException(status_code=400, detail="Path does not exist")
+    ws = add_workspace(data.path)
+    result = gemini_service.set_workspace(ws['path'], workspace_id=ws['id'])
+    if "Error" in result:
+        raise HTTPException(status_code=400, detail=result)
+    return {"message": result, "path": gemini_service.get_workspace(), "id": ws['id']}
+
+@app.post("/workspace/pick")
+def pick_workspace_route():
+    # Override router implementation to hook into service
+    path = workspace._run_isolated_picker()
+    if path:
+        ws = add_workspace(path)
+        gemini_service.set_workspace(path, workspace_id=ws['id'])
+        return ws
+    return {"message": "Cancelled"}
 
 @app.post("/chat")
-async def chat(
+async def chat_endpoint(
     message: str = Form(...),
     session_id: Optional[str] = Form(None),
     workspace_id: Optional[str] = Form(None),
@@ -71,128 +97,32 @@ async def chat(
         if workspace_id:
             ws = get_workspace_data(workspace_id)
             if ws:
-                gemini_service.set_workspace(ws['path'])
+                gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
 
-        # Save user message
-        save_chat_message(session_id, "user", message, workspace_id=workspace_id)
+        save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
         
         async def response_generator():
-            full_text = ""
-            tool_outputs = []
-            last_tool_call = None
-            
-            async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
-                if "tool_call" in chunk:
-                    last_tool_call = chunk["tool_call"]
-                    yield json.dumps(chunk) + "\n"
-                elif "tool_result" in chunk:
-                    tool_outputs.append({
-                        "tool": last_tool_call["name"],
-                        "args": last_tool_call["args"],
-                        "result": chunk["tool_result"]
-                    })
-                    yield json.dumps(chunk) + "\n"
-                else:
-                    text = chunk.get("text", "")
-                    full_text += text
-                    # Rewrite image URLs if present in the final chunk
-                    if chunk.get("images"):
-                        chunk["images"] = [f"/proxy_image?url={url}" for url in chunk["images"]]
-                    
-                    yield json.dumps(chunk) + "\n"
-                
-            # Save AI message when done
-            save_chat_message(session_id, "ai", full_text, tool_outputs=tool_outputs, workspace_id=workspace_id)
-            
-            # Cleanup files after sending
-            for path in file_paths:
-                try: os.remove(path)
-                except: pass
+            try:
+                async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+                    if "tool_call" in chunk:
+                        yield json.dumps(chunk) + "\n"
+                    elif "tool_result" in chunk:
+                        yield json.dumps(chunk) + "\n"
+                    else:
+                        if chunk.get("images"):
+                            chunk["images"] = [f"/proxy_image?url={url}" for url in chunk["images"]]
+                        yield json.dumps(chunk) + "\n"
+            except Exception as e:
+                print(f"Error in streaming: {e}")
+                yield json.dumps({"text": f"\n\n**STREAM ERROR:** {str(e)}", "is_final": True}) + "\n"
+            finally:
+                for path in file_paths:
+                    try: os.remove(path)
+                    except: pass
 
         return StreamingResponse(response_generator(), media_type="application/x-ndjson")
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/history")
-async def list_chats():
-    return get_all_chats()
-
-@app.get("/history/{session_id}")
-async def get_chat(session_id: str):
-    history = get_chat_history(session_id)
-    if not history:
-        raise HTTPException(status_code=404, detail="Chat not found")
-    return history
-
-@app.delete("/history/{session_id}")
-async def remove_chat(session_id: str):
-    if delete_chat(session_id):
-        return {"message": "Chat deleted"}
-    raise HTTPException(status_code=404, detail="Chat not found")
-
-class WorkspaceUpdate(BaseModel):
-    path: str
-
-@app.get("/workspace")
-async def get_workspace():
-    return {"path": gemini_service.get_workspace()}
-
-@app.post("/workspace")
-async def set_workspace(data: WorkspaceUpdate):
-    result = gemini_service.set_workspace(data.path)
-    if "Error" in result:
-        raise HTTPException(status_code=400, detail=result)
-    return {"message": result, "path": gemini_service.get_workspace()}
-
-@app.get("/workspaces")
-async def api_get_workspaces():
-    return storage.get_workspaces()
-
-@app.post("/workspaces")
-async def api_add_workspace(path: str = Body(..., embed=True)):
-    if not os.path.exists(path):
-        raise HTTPException(status_code=400, detail="Path does not exist")
-    return storage.add_workspace(path)
-
-@app.get("/workspaces/{workspace_id}/sessions")
-async def api_get_workspace_sessions(workspace_id: str):
-    return storage.get_workspace_sessions(workspace_id)
-
-@app.post("/workspace/pick")
-async def pick_workspace():
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        path = filedialog.askdirectory()
-        root.destroy()
-        
-        if path:
-            # Register workspace and return it
-            ws = storage.add_workspace(path)
-            # Update agent workspace path
-            gemini_service.set_workspace(path)
-            return ws
-        return {"message": "Cancelled"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/workspace/{workspace_id}/explorer")
-async def get_explorer(workspace_id: str):
-    try:
-        ws = get_workspace_data(workspace_id)
-        if not ws:
-            raise HTTPException(status_code=404, detail="Workspace not found")
-        
-        # We need to use the tools directly to get explorer data
-        from .tools import Tools
-        tools = Tools(ws['path'])
-        return tools.get_explorer_data()
-    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/proxy_image")
@@ -203,30 +133,103 @@ async def proxy_image(url: str):
             return Response(content=resp.content, media_type=resp.headers.get("Content-Type"))
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+# --- WebSocket ---
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    workspace_id = websocket.query_params.get("workspace_id")
+    connection_id = await ws_manager.connect(websocket, session_id, workspace_id)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
             
-class ConfigUpdate(BaseModel):
-    Secure_1PSID: str
-    Secure_1PSIDTS: str
-    model: Optional[str] = None
+            if msg_type == "chat_message":
+                lock = ws_manager.get_session_lock(session_id)
+                if lock.locked():
+                    await ws_manager.send_to_connection(connection_id, MessageType.ERROR, {"message": "Agent is busy."})
+                    continue
 
-@app.get("/config")
-async def get_config():
-    return load_config()
+                chat_task = asyncio.create_task(
+                    handle_ws_chat(connection_id, session_id, data.get("message", ""), data.get("workspace_id") or workspace_id, data.get("files", []))
+                )
+                ws_manager.register_session_task(session_id, chat_task)
+            
+            elif msg_type == "interrupt":
+                gemini_service.interrupt_session(session_id)
+                ws_manager.cancel_session_task(session_id)
+                await ws_manager.send_to_connection(connection_id, MessageType.TEXT, {"content": "\n\n*Interrupted.*", "is_final": True})
+            
+            elif msg_type == "ping":
+                await ws_manager.send_to_connection(connection_id, MessageType.PONG, {"timestamp": time.time()})
+            
+            elif msg_type == "subscribe_terminal":
+                if data.get("terminal_id"): ws_manager.subscribe_to_terminal(connection_id, data.get("terminal_id"))
+            
+            elif msg_type == "terminal_input":
+                if data.get("terminal_id"): await ws_manager.send_terminal_input(data.get("terminal_id"), data.get("input", ""))
+            
+            elif msg_type == "run_command":
+                terminal_id = data.get("terminal_id") or f"term_{uuid.uuid4().hex[:8]}"
+                ws_manager.subscribe_to_terminal(connection_id, terminal_id)
+                asyncio.create_task(ws_manager.run_streaming_command(data.get("command", ""), terminal_id, data.get("cwd")))
+                await ws_manager.send_to_connection(connection_id, MessageType.TERMINAL_OUTPUT, {"terminal_id": terminal_id, "output": f"$ {data.get('command')}\n", "is_error": False})
+            
+            elif msg_type == "kill_terminal":
+                if data.get("terminal_id"): await ws_manager.kill_terminal(data.get("terminal_id"))
 
-@app.post("/config")
-async def update_config(data: ConfigUpdate):
-    current_config = load_config()
-    # Update only the fields provided which are not None
-    new_data = {k: v for k, v in data.dict().items() if v is not None}
-    current_config.update(new_data)
-    save_config(current_config)
-    await gemini_service.reset()
-    return {"message": "Config updated and client reset"}
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(connection_id)
+    except Exception as e:
+        print(f"[WS] Error: {e}")
+        await ws_manager.disconnect(connection_id)
 
-# Serve static files from the frontend directory
+async def handle_ws_chat(connection_id: str, session_id: str, message: str, workspace_id: str = None, files: list = None):
+    lock = ws_manager.get_session_lock(session_id)
+    async with lock:
+        file_paths = []
+        try:
+            if workspace_id:
+                ws = get_workspace_data(workspace_id)
+                if ws: gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
+            
+            save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
+            
+            if files:
+                import base64
+                for f in files:
+                    if 'content' in f:
+                        fname = f.get('name', f'upload_{uuid.uuid4().hex[:8]}')
+                        fpath = os.path.join(UPLOAD_DIR, fname)
+                        with open(fpath, 'wb') as fo:
+                            fo.write(base64.b64decode(f['content']))
+                        file_paths.append(fpath)
+            
+            async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+                if "thought" in chunk:
+                    await ws_manager.send_to_session(session_id, MessageType.THOUGHT, {"content": chunk["thought"]})
+                elif "tool_call" in chunk:
+                    await ws_manager.send_to_session(session_id, MessageType.TOOL_CALL, {"name": chunk["tool_call"]["name"], "args": chunk["tool_call"]["args"]})
+                elif "tool_result" in chunk:
+                    await ws_manager.send_to_session(session_id, MessageType.TOOL_RESULT, {"content": chunk["tool_result"]})
+                else:
+                    await ws_manager.send_to_session(session_id, MessageType.TEXT, {"content": chunk.get("text", ""), "images": chunk.get("images", []), "is_final": chunk.get("is_final", False)})
+                    
+        except asyncio.CancelledError:
+            await ws_manager.send_to_session(session_id, MessageType.TEXT, {"content": "\n\n*Cancelled.*", "is_final": True})
+        except Exception as e:
+            await ws_manager.send_to_session(session_id, MessageType.ERROR, {"message": str(e)})
+        finally:
+            ws_manager.unregister_session_task(session_id)
+            try: await ws_manager.send_to_session(session_id, MessageType.STREAM_END, {})
+            except: pass
+            for p in file_paths: 
+                try: os.remove(p) 
+                except: pass
+
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # Disable reload to ensure absolute stability during file uploads in this local tool
     uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=True)

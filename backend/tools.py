@@ -2,17 +2,22 @@ import os
 import subprocess
 import glob
 from typing import Optional, List
+from .git_manager import GitManager
+from .websocket_manager import ws_manager
 
 class Tools:
     """Collection of tools the agent can use to interact with the local system."""
     
-    def __init__(self, workspace_path: str = None):
+    def __init__(self, workspace_path: str = None, session_id: str = None):
         self.workspace_path = workspace_path or os.getcwd()
+        self.session_id = session_id
+        self.git = GitManager(self.workspace_path)
     
     def set_workspace(self, path: str):
         """Set the workspace root path."""
         if os.path.isdir(path):
             self.workspace_path = os.path.abspath(path)
+            self.git.workspace_path = self.workspace_path
             return f"Workspace set to: {self.workspace_path}"
         else:
             return f"Error: '{path}' is not a valid directory."
@@ -157,10 +162,24 @@ class Tools:
         except Exception as e:
             return f"Error during grep: {str(e)}"
 
-    def run_command(self, command: str, cwd: Optional[str] = None) -> str:
+    async def run_command(self, command: str, cwd: Optional[str] = None) -> str:
         """Execute a shell command in the workspace."""
         try:
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
+            
+            # If we have a session_id, stream the output via WebSocket
+            if self.session_id:
+                # Use ws_manager to run and stream
+                output, exit_code = await ws_manager.run_command_streamed(
+                    self.session_id, 
+                    command, 
+                    cwd=work_dir
+                )
+                
+                status = "✓ Success" if exit_code == 0 else f"✗ Exit code: {exit_code}"
+                return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{output.strip() or '(no output)'}\n```"
+            
+            # Fallback for non-session calls
             result = subprocess.run(
                 command,
                 shell=True,
@@ -229,6 +248,142 @@ class Tools:
         except Exception as e:
             return {"error": str(e)}
 
+    def get_dependencies(self) -> str:
+        """Analyze project dependencies (package.json, requirements.txt, etc.)."""
+        results = []
+        files_to_check = ["package.json", "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"]
+        
+        for file in files_to_check:
+            full_path = self._resolve_path(file)
+            if os.path.exists(full_path):
+                try:
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    results.append(f"--- {file} ---\n{content}")
+                except: pass
+        
+        if results:
+            return "\n\n".join(results)
+        return "No dependency files found in root."
+
+    def web_search(self, query: str) -> str:
+        """Search the web using DuckDuckGo."""
+        try:
+            from requests_html import HTMLSession
+            session = HTMLSession()
+            # DuckDuckGo HTML version (simpler to parse)
+            url = f"https://html.duckduckgo.com/html/?q={query}"
+            resp = session.get(url)
+            results = []
+            for item in resp.html.find('.result'):
+                title_node = item.find('.result__a', first=True)
+                snippet_node = item.find('.result__snippet', first=True)
+                if title_node and snippet_node:
+                    results.append(f"Title: {title_node.text}\nLink: {title_node.attrs['href']}\nSnippet: {snippet_node.text}\n")
+            
+            if results:
+                return "\n".join(results[:8])
+            return "No web results found."
+        except Exception as e:
+            return f"Error during web search: {str(e)}"
+
+    def web_browse(self, url: str) -> str:
+        """Browse a website and return its text content."""
+        try:
+            from requests_html import HTMLSession
+            session = HTMLSession()
+            resp = session.get(url)
+            # Basic text extraction
+            text = resp.html.text
+            # Clean up excessive whitespace
+            import re
+            text = re.sub(r'\n\s*\n', '\n\n', text)
+            return f"Content of {url}:\n\n{text[:10000]}..." # Cap at 10k chars
+        except Exception as e:
+            return f"Error browsing {url}: {str(e)}"
+
+    def get_symbol_info(self, symbol_name: str) -> str:
+        """Find where a specific symbol (class/function/variable) is defined using grep."""
+        # Search for definitions like "def symbol", "class symbol", "symbol =", "export const symbol"
+        patterns = [
+            f"def {symbol_name}",
+            f"class {symbol_name}",
+            f"{symbol_name} =",
+            f"const {symbol_name}",
+            f"function {symbol_name}"
+        ]
+        results = []
+        for pattern in patterns:
+            res = self.grep_search(pattern)
+            if "Search results" in res:
+                results.append(res)
+        
+        if results:
+            return "\n\n".join(results)
+        return f"Could not find any clear definitions for '{symbol_name}'."
+
+    # --- Git Tools ---
+
+    def git_status(self) -> str:
+        """Check the status of the current git repository."""
+        if not self.git.is_repo():
+            return "Current workspace is not a git repository."
+        return self.git.get_status()
+
+    def git_commit(self, message: str) -> str:
+        """Stage all changes and commit with a message."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.commit(message)
+
+    def git_push(self, remote: str = "origin", branch: str = None) -> str:
+        """Push changes to a remote repository."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        # Note: We'll try to use the PAT from config if not already set in remote
+        from .config import load_config
+        config = load_config()
+        pat = config.get("GITHUB_PAT")
+        return self.git.push(remote, branch, pat=pat)
+
+    def git_pull(self, remote: str = "origin", branch: str = None) -> str:
+        """Pull changes from a remote repository."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.pull(remote, branch)
+
+    def git_branches(self) -> str:
+        """List all branches in the current repository."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        branches = self.git.get_branches()
+        return "\n".join([f"{'* ' if b['current'] else '  '}{b['name']}" for b in branches])
+
+    def git_checkout(self, branch: str, create: bool = False) -> str:
+        """Switch to a branch or create a new one."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.checkout(branch, create)
+
+    def git_log(self, limit: int = 10) -> str:
+        """Show git commit history."""
+        if not self.git.is_repo():
+            return "Error: Not a git repository."
+        return self.git.get_log(limit)
+
+    def git_clone(self, url: str, path: str = ".") -> str:
+        """Clone a git repository from a URL."""
+        from .config import load_config
+        config = load_config()
+        pat = config.get("GITHUB_PAT")
+        # Ensure path is absolute or relative to workspace
+        full_target_path = self._resolve_path(path)
+        return self.git.clone_repo(url, full_target_path, pat=pat)
+
+    def git_init(self) -> str:
+        """Initialize a new git repository in the current workspace."""
+        return self.git.init_repo()
+
     def get_available_tools(self) -> list:
         """Return list of available tools with descriptions."""
         return [
@@ -241,12 +396,26 @@ class Tools:
             {"name": "search_files", "description": "Search for files by name pattern. Args: pattern (str), path (str, optional)"},
             {"name": "grep_search", "description": "Search for text inside files. Args: query (str), path (str, optional), extensions (list, optional)"},
             {"name": "run_command", "description": "Execute shell command. Args: command (str), cwd (str, optional)"},
-            {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"}
+            {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"},
+            {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
+            {"name": "web_search", "description": "Search the web. Args: query (str)"},
+            {"name": "web_browse", "description": "Browse a website. Args: url (str)"},
+            {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"},
+            {"name": "git_status", "description": "Get git status. No args."},
+            {"name": "git_commit", "description": "Commit all changes. Args: message (str)"},
+            {"name": "git_push", "description": "Push changes. Args: remote (str, optional), branch (str, optional)"},
+            {"name": "git_pull", "description": "Pull changes. Args: remote (str, optional), branch (str, optional)"},
+            {"name": "git_branches", "description": "List all branches. No args."},
+            {"name": "git_checkout", "description": "Switch/create branch. Args: branch (str), create (bool, optional)"},
+            {"name": "git_log", "description": "Show commit history. Args: limit (int, optional)"},
+            {"name": "git_clone", "description": "Clone a repo. Args: url (str), path (str, optional)"},
+            {"name": "git_init", "description": "Initialize a new git repo. No args."}
         ]
     
-    def execute(self, tool_name: str, **kwargs) -> str:
+    async def execute(self, tool_name: str, **kwargs) -> str:
         """Execute a tool by name with given arguments."""
         tool_map = {
+            # File System Tools
             "read_file": self.read_file,
             "write_file": self.write_file,
             "patch_file": self.patch_file,
@@ -256,13 +425,34 @@ class Tools:
             "search_files": self.search_files,
             "grep_search": self.grep_search,
             "run_command": self.run_command,
-            "delete_path": self.delete_path
+            "delete_path": self.delete_path,
+            # Analysis Tools
+            "get_dependencies": self.get_dependencies,
+            "get_symbol_info": self.get_symbol_info,
+            # Web Tools
+            "web_search": self.web_search,
+            "web_browse": self.web_browse,
+            # Git Tools
+            "git_status": self.git_status,
+            "git_commit": self.git_commit,
+            "git_push": self.git_push,
+            "git_pull": self.git_pull,
+            "git_branches": self.git_branches,
+            "git_checkout": self.git_checkout,
+            "git_log": self.git_log,
+            "git_clone": self.git_clone,
+            "git_init": self.git_init,
         }
         
         if tool_name not in tool_map:
             return f"Error: Unknown tool '{tool_name}'. Available: {list(tool_map.keys())}"
         
         try:
-            return tool_map[tool_name](**kwargs)
+            func = tool_map[tool_name]
+            import inspect
+            if inspect.iscoroutinefunction(func):
+                return await func(**kwargs)
+            else:
+                return func(**kwargs)
         except TypeError as e:
             return f"Error: Invalid arguments for '{tool_name}': {str(e)}"
