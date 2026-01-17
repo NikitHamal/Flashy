@@ -7,7 +7,12 @@
     <title>Flashy Designs | AI Design Agent</title>
     <link rel="stylesheet" href="/css/flashy-designs.css">
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="icon"
@@ -86,9 +91,6 @@
         <main class="designs-main">
             <header class="designs-topbar">
                 <div class="topbar-left">
-                    <button class="btn-ghost mobile-only" id="btn-sidebar-toggle" title="Toggle Sidebar">
-                        <span class="material-symbols-outlined">menu</span>
-                    </button>
                     <div class="project-title">
                         <span>Flashy Canvas</span>
                         <input id="project-name" value="Untitled Design" aria-label="Project name">
@@ -122,9 +124,6 @@
                     <button class="btn-ghost" id="btn-fit" title="Fit to screen">
                         <span class="material-symbols-outlined">fit_screen</span>
                     </button>
-                    <button class="btn-ghost mobile-only" id="btn-right-sidebar-toggle" title="Toggle Properties">
-                        <span class="material-symbols-outlined">settings</span>
-                    </button>
                 </div>
             </header>
 
@@ -146,6 +145,7 @@
             </section>
         </main>
 
+        <div id="rightbar-resizer" class="resizer-h"></div>
         <aside class="designs-rightbar">
             <div class="panel-tabs">
                 <button class="tab-btn active" data-tab="properties">Properties</button>
@@ -180,7 +180,6 @@
                     <div class="field-group">
                         <label>Font</label>
                         <select id="prop-font">
-                            <option value="Poppins" selected>Poppins</option>
                             <option value="Space Grotesk">Space Grotesk</option>
                             <option value="Fraunces">Fraunces</option>
                             <option value="JetBrains Mono">JetBrains Mono</option>

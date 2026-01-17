@@ -3,6 +3,7 @@
     const utils = window.DesignUtils;
 
     function initUI() {
+        bindResizer();
         bindToolButtons();
         bindTopbar();
         bindPanels();
@@ -11,44 +12,40 @@
         bindPages();
         bindExport();
         bindChat();
-        bindMobile();
         updateZoom();
         updateStatus();
     }
 
-    function bindMobile() {
-        const sidebar = document.querySelector('.designs-sidebar');
+    function bindResizer() {
+        const resizer = document.getElementById('rightbar-resizer');
         const rightbar = document.querySelector('.designs-rightbar');
-        const btnLeft = document.getElementById('btn-sidebar-toggle');
-        const btnRight = document.getElementById('btn-right-sidebar-toggle');
+        if (!resizer || !rightbar) return;
 
-        // Create overlay if not exists
-        let overlay = document.querySelector('.sidebar-overlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.className = 'sidebar-overlay';
-            document.body.appendChild(overlay);
-        }
+        let isResizing = false;
 
-        const closeSidebars = () => {
-            sidebar.classList.remove('show');
-            rightbar.classList.remove('show');
-            overlay.classList.remove('active');
-        };
-
-        btnLeft.addEventListener('click', () => {
-            sidebar.classList.toggle('show');
-            rightbar.classList.remove('show');
-            overlay.classList.toggle('active', sidebar.classList.contains('show'));
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            resizer.classList.add('active');
+            e.preventDefault();
         });
 
-        btnRight.addEventListener('click', () => {
-            rightbar.classList.toggle('show');
-            sidebar.classList.remove('show');
-            overlay.classList.toggle('active', rightbar.classList.contains('show'));
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const width = window.innerWidth - e.clientX;
+            if (width > 280 && width < 600) {
+                rightbar.style.width = `${width}px`;
+                if (window.DesignCanvas) window.DesignCanvas.fitToScreen();
+            }
         });
 
-        overlay.addEventListener('click', closeSidebars);
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                resizer.classList.remove('active');
+            }
+        });
     }
 
     function bindToolButtons() {
@@ -351,7 +348,7 @@
 
         if (obj.type === 'i-text') {
             document.getElementById('prop-text').value = obj.text || '';
-            document.getElementById('prop-font').value = obj.fontFamily || 'Poppins';
+            document.getElementById('prop-font').value = obj.fontFamily || 'Space Grotesk';
             document.getElementById('prop-font-size').value = obj.fontSize || 42;
         }
         refreshLayers();

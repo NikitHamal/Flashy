@@ -227,73 +227,117 @@
 
     function applyDesignSpec(spec) {
         if (!spec || !state.canvas) return;
-        if (spec.canvas) {
-            if (spec.canvas.background) {
-                state.canvas.setBackgroundColor(spec.canvas.background, state.canvas.renderAll.bind(state.canvas));
+
+        // Reset canvas for a full design update
+        state.canvas.clear();
+        state.canvas.setBackgroundColor('#ffffff', state.canvas.renderAll.bind(state.canvas));
+
+        let elements = [];
+        let canvasSpec = null;
+
+        if (Array.isArray(spec)) {
+            elements = spec;
+        } else if (spec.elements && Array.isArray(spec.elements)) {
+            elements = spec.elements;
+            canvasSpec = spec.canvas;
+        } else if (spec.flashy_design && Array.isArray(spec.flashy_design)) {
+            elements = spec.flashy_design;
+        }
+
+        if (canvasSpec) {
+            if (canvasSpec.background) {
+                state.canvas.setBackgroundColor(canvasSpec.background, state.canvas.renderAll.bind(state.canvas));
             }
-            if (spec.canvas.width && spec.canvas.height) {
-                setCanvasSize(spec.canvas.width, spec.canvas.height);
+            if (canvasSpec.width && canvasSpec.height) {
+                setCanvasSize(canvasSpec.width, canvasSpec.height);
             }
         }
-        if (Array.isArray(spec.elements)) {
-            spec.elements.forEach(el => {
-                if (el.type === 'rect') {
-                    const rect = new fabric.Rect({
-                        left: el.x || 100,
-                        top: el.y || 100,
-                        width: el.width || 200,
-                        height: el.height || 120,
-                        fill: el.fill || '#ffffff',
-                        stroke: el.stroke || '#111111',
-                        strokeWidth: el.strokeWidth || 0,
-                        rx: el.radius || 0,
-                        ry: el.radius || 0,
-                        opacity: el.opacity ?? 1
-                    });
-                    state.canvas.add(rect);
+
+        elements.forEach(el => {
+            if (el.type === 'rect') {
+                const rect = new fabric.Rect({
+                    left: el.x ?? 100,
+                    top: el.y ?? 100,
+                    width: el.width ?? 200,
+                    height: el.height ?? 120,
+                    fill: el.fill || '#ffffff',
+                    stroke: el.stroke || '#111111',
+                    strokeWidth: el.strokeWidth ?? 0,
+                    rx: el.rx ?? el.radius ?? 0,
+                    ry: el.ry ?? el.radius ?? 0,
+                    opacity: el.opacity ?? 1,
+                    angle: el.angle ?? 0
+                });
+                state.canvas.add(rect);
+            }
+
+            if (el.type === 'circle') {
+                const isCircle = el.r !== undefined || el.radius !== undefined;
+                const rx = el.rx ?? el.r ?? el.radius ?? (el.width ? el.width / 2 : 80);
+                const ry = el.ry ?? el.r ?? el.radius ?? (el.height ? el.height / 2 : 80);
+                const left = el.cx !== undefined ? el.cx - rx : (el.x ?? 100);
+                const top = el.cy !== undefined ? el.cy - ry : (el.y ?? 100);
+
+                const circle = new fabric.Ellipse({
+                    left,
+                    top,
+                    rx,
+                    ry,
+                    fill: el.fill || '#ffffff',
+                    stroke: el.stroke || '#111111',
+                    strokeWidth: el.strokeWidth ?? 0,
+                    opacity: el.opacity ?? 1,
+                    angle: el.angle ?? 0
+                });
+                state.canvas.add(circle);
+            }
+
+            if (el.type === 'text') {
+                const text = new fabric.IText(el.text || 'Headline', {
+                    left: el.x ?? 120,
+                    top: el.y ?? 120,
+                    fontFamily: el.fontFamily || 'Space Grotesk',
+                    fontSize: el.fontSize ?? 48,
+                    fill: el.fill || '#111111',
+                    fontWeight: el.fontWeight || '600',
+                    textAlign: el.textAlign || el.textAnchor || 'left',
+                    opacity: el.opacity ?? 1,
+                    angle: el.angle ?? 0
+                });
+                // Handle 'middle' to 'center' mapping common in agents
+                if (text.textAlign === 'middle') text.textAlign = 'center';
+                // Adjust left if centered
+                if (text.textAlign === 'center') text.originX = 'center';
+                if (text.textAlign === 'right') text.originX = 'right';
+
+                state.canvas.add(text);
+            }
+
+            if (el.type === 'line') {
+                let coords = [];
+                if (el.x1 !== undefined && el.y1 !== undefined) {
+                    coords = [el.x1, el.y1, el.x2 ?? el.x1, el.y2 ?? el.y1];
+                } else {
+                    coords = [
+                        el.x ?? 80,
+                        el.y ?? 80,
+                        (el.x ?? 80) + (el.width ?? 160),
+                        (el.y ?? 80) + (el.height ?? 0)
+                    ];
                 }
-                if (el.type === 'circle') {
-                    const circle = new fabric.Ellipse({
-                        left: el.x || 100,
-                        top: el.y || 100,
-                        rx: (el.width || 160) / 2,
-                        ry: (el.height || 160) / 2,
-                        fill: el.fill || '#ffffff',
-                        stroke: el.stroke || '#111111',
-                        strokeWidth: el.strokeWidth || 0,
-                        opacity: el.opacity ?? 1
-                    });
-                    state.canvas.add(circle);
-                }
-                if (el.type === 'text') {
-                    const text = new fabric.IText(el.text || 'Headline', {
-                        left: el.x || 120,
-                        top: el.y || 120,
-                        fontFamily: el.fontFamily || 'Space Grotesk',
-                        fontSize: el.fontSize || 48,
-                        fill: el.fill || '#111111',
-                        fontWeight: el.fontWeight || '600',
-                        textAlign: el.textAlign || 'left'
-                    });
-                    state.canvas.add(text);
-                }
-                if (el.type === 'line') {
-                    const line = new fabric.Line([
-                        el.x || 80,
-                        el.y || 80,
-                        (el.x || 80) + (el.width || 160),
-                        (el.y || 80) + (el.height || 0)
-                    ], {
-                        stroke: el.stroke || '#111111',
-                        strokeWidth: el.strokeWidth || 2,
-                        opacity: el.opacity ?? 1
-                    });
-                    state.canvas.add(line);
-                }
-            });
-            state.canvas.renderAll();
-            window.DesignHistory.capture();
-        }
+
+                const line = new fabric.Line(coords, {
+                    stroke: el.stroke || '#111111',
+                    strokeWidth: el.strokeWidth ?? 2,
+                    opacity: el.opacity ?? 1,
+                    angle: el.angle ?? 0
+                });
+                state.canvas.add(line);
+            }
+        });
+
+        state.canvas.renderAll();
+        window.DesignHistory.capture();
     }
 
     window.DesignCanvas = {
