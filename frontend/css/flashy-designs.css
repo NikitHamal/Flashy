@@ -9,8 +9,8 @@
     --accent-2: #ffb347;
     --accent-3: #5b7cfa;
     --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-    --font-sans: 'Space Grotesk', 'Segoe UI', sans-serif;
-    --font-display: 'Fraunces', 'Times New Roman', serif;
+    --font-sans: 'Poppins', 'Space Grotesk', 'Segoe UI', sans-serif;
+    --font-display: 'Poppins', 'Fraunces', 'Times New Roman', serif;
     --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -34,6 +34,11 @@ body.designs-body {
     display: grid;
     grid-template-columns: 240px 1fr 360px;
     height: 100vh;
+    transition: all 0.3s ease;
+}
+
+.mobile-only {
+    display: none !important;
 }
 
 .designs-sidebar,
@@ -756,14 +761,107 @@ body.designs-body {
 @media (max-width: 980px) {
     .designs-app {
         grid-template-columns: 1fr;
+        position: relative;
     }
 
-    .designs-sidebar,
+    .mobile-only {
+        display: inline-flex !important;
+    }
+
+    .designs-sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+    }
+
+    .designs-sidebar.show {
+        left: 0;
+    }
+
     .designs-rightbar {
-        display: none;
+        position: fixed;
+        right: -360px;
+        top: 0;
+        bottom: 0;
+        width: 360px;
+        z-index: 1000;
+        transition: right 0.3s ease;
+        box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+    }
+
+    .designs-rightbar.show {
+        right: 0;
     }
 
     .designs-main {
         grid-column: 1 / -1;
     }
+
+    .topbar-left .project-title span {
+        display: none;
+    }
+
+    .preset-picker label {
+        display: none;
+    }
+
+    .zoom-pill {
+        display: none;
+    }
+
+    #btn-zoom-in, #btn-zoom-out, #btn-fit {
+        padding: 8px;
+    }
+    
+    .designs-workspace {
+        padding: 12px;
+    }
+
+    .panel-pane {
+        max-height: none;
+        flex: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    .designs-rightbar {
+        width: 100%;
+        right: -100%;
+    }
+    
+    .designs-sidebar {
+        width: 80%;
+        left: -80%;
+    }
+
+    .topbar-right {
+        gap: 4px;
+    }
+
+    .btn-ghost {
+        padding: 6px;
+    }
+
+    #project-name {
+        width: 100px;
+    }
+}
+
+/* Overlay for mobile */
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    display: none;
+}
+
+.sidebar-overlay.active {
+    display: block;
 }

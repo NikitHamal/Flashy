@@ -11,8 +11,44 @@
         bindPages();
         bindExport();
         bindChat();
+        bindMobile();
         updateZoom();
         updateStatus();
+    }
+
+    function bindMobile() {
+        const sidebar = document.querySelector('.designs-sidebar');
+        const rightbar = document.querySelector('.designs-rightbar');
+        const btnLeft = document.getElementById('btn-sidebar-toggle');
+        const btnRight = document.getElementById('btn-right-sidebar-toggle');
+
+        // Create overlay if not exists
+        let overlay = document.querySelector('.sidebar-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        const closeSidebars = () => {
+            sidebar.classList.remove('show');
+            rightbar.classList.remove('show');
+            overlay.classList.remove('active');
+        };
+
+        btnLeft.addEventListener('click', () => {
+            sidebar.classList.toggle('show');
+            rightbar.classList.remove('show');
+            overlay.classList.toggle('active', sidebar.classList.contains('show'));
+        });
+
+        btnRight.addEventListener('click', () => {
+            rightbar.classList.toggle('show');
+            sidebar.classList.remove('show');
+            overlay.classList.toggle('active', rightbar.classList.contains('show'));
+        });
+
+        overlay.addEventListener('click', closeSidebars);
     }
 
     function bindToolButtons() {
@@ -315,7 +351,7 @@
 
         if (obj.type === 'i-text') {
             document.getElementById('prop-text').value = obj.text || '';
-            document.getElementById('prop-font').value = obj.fontFamily || 'Space Grotesk';
+            document.getElementById('prop-font').value = obj.fontFamily || 'Poppins';
             document.getElementById('prop-font-size').value = obj.fontSize || 42;
         }
         refreshLayers();
