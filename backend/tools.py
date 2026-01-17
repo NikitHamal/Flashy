@@ -68,8 +68,15 @@ class Tools:
 
     def write_files(self, files: List[dict]) -> str:
         """Write multiple files. Each entry: {path, content}."""
+        if not isinstance(files, list):
+            return "Error: arguments for write_files must be a list of dictionaries."
+            
         results = []
         for entry in files:
+            if not isinstance(entry, dict):
+                results.append(f"Error: Invalid entry in write_files (expected dict): {entry}")
+                continue
+                
             path = entry.get("path")
             content = entry.get("content", "")
             if not path:
@@ -526,3 +533,7 @@ class Tools:
                 return func(**kwargs)
         except TypeError as e:
             return f"Error: Invalid arguments for '{tool_name}': {str(e)}"
+        except KeyError as e:
+            return f"Error: Missing key requirement for '{tool_name}': {str(e)}"
+        except Exception as e:
+            return f"Error executing '{tool_name}': {type(e).__name__}: {str(e)}"

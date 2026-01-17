@@ -213,6 +213,4 @@ User feedback: {feedback}
 Look at the screenshot I'm sharing and provide your analysis and any improvements."""
 
 # Template for tool execution results
-DESIGN_TOOL_RESULT_TEMPLATE = """Tool: {tool_name}
-Result: {result}
-Status: {status}"""
+
