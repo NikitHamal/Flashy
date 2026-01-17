@@ -188,6 +188,35 @@ body {
 .sidebar-footer {
     padding: 12px;
     border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.design-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.08), rgba(74, 222, 128, 0.02));
+    border: 1px solid rgba(74, 222, 128, 0.15);
+}
+
+.design-link:hover {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.15), rgba(74, 222, 128, 0.05));
+    border-color: rgba(74, 222, 128, 0.3);
+    color: var(--accent);
+}
+
+.design-link .material-symbols-outlined {
+    font-size: 18px;
+    color: var(--accent);
 }
 
 .btn-secondary {
