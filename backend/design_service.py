@@ -193,7 +193,8 @@ class DesignService:
         session_id: str,
         canvas_state: Optional[Dict[str, Any]] = None,
         screenshot_base64: Optional[str] = None,
-        files: Optional[List[str]] = None
+        files: Optional[List[str]] = None,
+        images: Optional[List[Dict[str, str]]] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Generate design based on user prompt.
@@ -213,6 +214,7 @@ class DesignService:
 
         # Track parts for session history
         message_parts = []
+        temp_files: List[str] = []
 
         try:
             # Clear previous interruption
@@ -236,13 +238,34 @@ User Request: {prompt}"""
             # Handle screenshot feedback
             file_paths = files or []
             if screenshot_base64:
-                # Save screenshot to temp file for upload
-                temp_dir = tempfile.mkdtemp(prefix="flashy_design_")
-                screenshot_path = os.path.join(temp_dir, "canvas_screenshot.png")
-                with open(screenshot_path, "wb") as f:
-                    f.write(base64.b64decode(screenshot_base64))
-                file_paths.append(screenshot_path)
-                full_prompt += "\n\nI'm attaching a screenshot of the current canvas for visual reference."
+                screenshot_bytes = self._decode_data_url(screenshot_base64)
+                if screenshot_bytes:
+                    temp_dir = tempfile.mkdtemp(prefix="flashy_design_")
+                    screenshot_path = os.path.join(temp_dir, "canvas_screenshot.png")
+                    with open(screenshot_path, "wb") as f:
+                        f.write(screenshot_bytes)
+                    file_paths.append(screenshot_path)
+                    temp_files.append(screenshot_path)
+                    full_prompt += "\n\nI'm attaching a screenshot of the current canvas for visual reference."
+
+            if images:
+                for index, image in enumerate(images):
+                    data_url = image.get("data")
+                    if not data_url:
+                        continue
+                    image_bytes = self._decode_data_url(data_url)
+                    if not image_bytes:
+                        continue
+                    temp_dir = tempfile.mkdtemp(prefix="flashy_design_upload_")
+                    filename = image.get("name") or f"upload_{index}.png"
+                    safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
+                    file_path = os.path.join(temp_dir, safe_name)
+                    with open(file_path, "wb") as f:
+                        f.write(image_bytes)
+                    file_paths.append(file_path)
+                    temp_files.append(file_path)
+                if images:
+                    full_prompt += "\n\nUser attached reference images. Use them for layout and visual cues."
 
             # Send initial request
             response = await self._send_with_retry(
@@ -344,11 +367,20 @@ User Request: {prompt}"""
                         tool_call["name"],
                         tool_call["args"]
                     )
-
-                    yield {
+                    canvas_action = None
+                    if not str(tool_result).lower().startswith("error"):
+                        canvas_action = self._build_canvas_action(
+                            tool_call["name"],
+                            tool_call.get("args") or {},
+                            tool_result
+                        )
+                    payload = {
                         "tool_result": tool_result,
                         "canvas_state": agent.get_canvas_state()
                     }
+                    if canvas_action:
+                        payload["canvas_action"] = canvas_action
+                    yield payload
                     message_parts.append({"type": "tool_result", "content": tool_result})
 
                     # Check interruption before next API call
@@ -414,14 +446,14 @@ User Request: {prompt}"""
                 self.interrupted_sessions.remove(session_id)
 
             # Clean up temp files
-            if screenshot_base64 and file_paths:
-                for path in file_paths:
-                    if "flashy_design_" in path:
-                        try:
-                            os.unlink(path)
-                            os.rmdir(os.path.dirname(path))
-                        except Exception:
-                            pass
+            for path in temp_files:
+                try:
+                    os.unlink(path)
+                    dir_path = os.path.dirname(path)
+                    if dir_path and "flashy_design_" in dir_path:
+                        os.rmdir(dir_path)
+                except Exception:
+                    pass
 
     async def send_screenshot_for_review(
         self,
@@ -452,6 +484,60 @@ If there are clear improvements to make, use your tools to implement them direct
             screenshot_base64=screenshot_base64
         ):
             yield chunk
+
+    def _decode_data_url(self, data_url: str) -> Optional[bytes]:
+        """Decode base64 content from a data URL or raw base64."""
+        if not data_url:
+            return None
+        try:
+            if "," in data_url:
+                data_url = data_url.split(",", 1)[1]
+            return base64.b64decode(data_url)
+        except Exception:
+            return None
+
+    def _extract_id_from_result(self, tool_result: str) -> Optional[str]:
+        """Extract object IDs from tool results when possible."""
+        if not tool_result:
+            return None
+        id_match = re.search(r"ID:\s*([a-zA-Z0-9_-]+)", tool_result)
+        if id_match:
+            return id_match.group(1)
+        group_match = re.search(r"Created group '([^']+)'", tool_result)
+        if group_match:
+            return group_match.group(1)
+        duplicate_match = re.search(r"Duplicated '[^']+' as '([^']+)'", tool_result)
+        if duplicate_match:
+            return duplicate_match.group(1)
+        return None
+
+    def _build_canvas_action(
+        self, tool_name: str, args: Dict[str, Any], tool_result: str
+    ) -> Optional[Dict[str, Any]]:
+        """Build canvas action payload for frontend execution."""
+        non_canvas_tools = {
+            "list_objects",
+            "get_object_properties",
+            "get_canvas_state",
+            "select_object"
+        }
+        if tool_name in non_canvas_tools:
+            return None
+
+        action_args = dict(args or {})
+        new_id = self._extract_id_from_result(tool_result)
+        if new_id and tool_name.startswith("add_") and "id" not in action_args:
+            action_args["id"] = new_id
+        if tool_name == "group_objects" and new_id:
+            action_args["group_id"] = new_id
+        if tool_name == "duplicate_object" and new_id:
+            action_args["new_id"] = new_id
+
+        return {
+            "tool": tool_name,
+            "args": action_args,
+            "result": tool_result
+        }
 
     def get_canvas_state(self, session_id: str) -> Dict[str, Any]:
         """Get current canvas state for a session."""

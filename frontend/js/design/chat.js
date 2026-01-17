@@ -167,6 +167,7 @@ const DesignChat = {
         this.inputElement.value = '';
         this.autoResizeInput();
         this.setGenerating(true);
+        this.currentToolPill = null;
 
         const aiMessage = this.addMessage('', 'ai');
         const aiContent = aiMessage.querySelector('.message-content');
@@ -180,9 +181,14 @@ const DesignChat = {
                     prompt: message,
                     session_id: DesignApp.sessionId,
                     canvas_state: canvasState,
-                    screenshot_base64: screenshot
+                    screenshot_base64: screenshot,
+                    images: this.uploadedImages
                 })
             });
+
+            if (!response.ok || !response.body) {
+                throw new Error(`Design agent error (${response.status})`);
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -207,6 +213,10 @@ const DesignChat = {
                     }
                 }
             }
+
+            if (aiContent && aiContent.children.length === 0) {
+                aiContent.innerHTML = '<p>Design updated.</p>';
+            }
         } catch (error) {
             console.error('Error sending message:', error);
             this.removeLoadingDots(aiContent);
@@ -220,6 +230,15 @@ const DesignChat = {
 
     handleStreamChunk(chunk, container) {
         this.removeLoadingDots(container);
+
+        if (chunk.error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = `Error: ${chunk.error}`;
+            container.appendChild(errorDiv);
+            this.scrollToBottom();
+            return;
+        }
 
         if (chunk.thought) {
             const thoughtDiv = document.createElement('div');
@@ -279,54 +298,107 @@ const DesignChat = {
                     DesignTools.addRectangle(
                         args.x, args.y, args.width, args.height,
                         args.fill, args.stroke, args.strokeWidth,
-                        args.opacity, args.rx, args.ry, args.angle
+                        args.opacity, args.rx, args.ry, args.angle,
+                        args.id
                     );
                     break;
                 case 'add_circle':
                     DesignTools.addCircle(
                         args.x, args.y, args.radius,
-                        args.fill, args.stroke, args.strokeWidth, args.opacity
+                        args.fill, args.stroke, args.strokeWidth, args.opacity,
+                        args.id
+                    );
+                    break;
+                case 'add_ellipse':
+                    DesignTools.addEllipse(
+                        args.x, args.y, args.rx, args.ry,
+                        args.fill, args.stroke, args.strokeWidth, args.opacity,
+                        args.angle, args.id
                     );
                     break;
                 case 'add_triangle':
                     DesignTools.addTriangle(
                         args.x, args.y, args.width, args.height,
-                        args.fill, args.stroke, args.strokeWidth, args.opacity, args.angle
+                        args.fill, args.stroke, args.strokeWidth, args.opacity, args.angle,
+                        args.id
                     );
                     break;
                 case 'add_line':
                     DesignTools.addLine(
                         args.x1, args.y1, args.x2, args.y2,
-                        args.stroke, args.strokeWidth, args.opacity
+                        args.stroke, args.strokeWidth, args.opacity,
+                        args.id
                     );
                     break;
                 case 'add_text':
                     DesignTools.addText(
                         args.x, args.y, args.text,
                         args.fontSize, args.fontFamily, args.fontWeight,
-                        args.fill, args.textAlign, args.opacity, args.angle
+                        args.fill, args.textAlign, args.opacity, args.angle,
+                        args.id
                     );
                     break;
                 case 'add_polygon':
-                    DesignTools.addPolygon(
-                        args.x, args.y, args.radius, args.sides,
-                        args.fill, args.stroke, args.strokeWidth, args.opacity, args.angle
-                    );
+                    if (args.points) {
+                        DesignTools.addPolygonFromPoints(
+                            args.points,
+                            args.fill, args.stroke, args.strokeWidth, args.opacity,
+                            args.angle, args.id
+                        );
+                    } else {
+                        DesignTools.addPolygon(
+                            args.x, args.y, args.radius, args.sides,
+                            args.fill, args.stroke, args.strokeWidth, args.opacity, args.angle,
+                            args.id
+                        );
+                    }
                     break;
                 case 'add_star':
                     DesignTools.addStar(
                         args.x, args.y, args.outerRadius, args.innerRadius, args.points,
-                        args.fill, args.stroke, args.strokeWidth, args.opacity, args.angle
+                        args.fill, args.stroke, args.strokeWidth, args.opacity, args.angle,
+                        args.id
+                    );
+                    break;
+                case 'add_path':
+                    DesignTools.addPath(
+                        args.path, args.fill, args.stroke, args.strokeWidth, args.opacity,
+                        args.angle, args.id
                     );
                     break;
                 case 'add_image':
                     DesignTools.addImage(
-                        args.url, args.x, args.y,
-                        args.width, args.height, args.opacity, args.angle
+                        args.url || args.src, args.x, args.y,
+                        args.width, args.height, args.opacity, args.angle,
+                        args.id
                     );
+                    break;
+                case 'update_text':
+                    DesignTools.modifyObject(args.id, { text: args.text });
                     break;
                 case 'modify_object':
                     DesignTools.modifyObject(args.id, args);
+                    break;
+                case 'move_object':
+                    DesignTools.modifyObject(args.id, { x: args.x, y: args.y });
+                    break;
+                case 'resize_object':
+                    DesignTools.modifyObject(args.id, { width: args.width, height: args.height });
+                    break;
+                case 'rotate_object':
+                    DesignTools.modifyObject(args.id, { angle: args.angle });
+                    break;
+                case 'scale_object':
+                    DesignTools.modifyObject(args.id, { scaleX: args.scaleX, scaleY: args.scaleY });
+                    break;
+                case 'set_fill':
+                    DesignTools.modifyObject(args.id, { fill: args.color || args.fill });
+                    break;
+                case 'set_stroke':
+                    DesignTools.modifyObject(args.id, { stroke: args.color, strokeWidth: args.width });
+                    break;
+                case 'set_opacity':
+                    DesignTools.modifyObject(args.id, { opacity: args.opacity });
                     break;
                 case 'delete_object':
                     DesignTools.deleteObject(args.id);
@@ -341,10 +413,40 @@ const DesignChat = {
                     DesignCanvas.setCanvasSize(args.width, args.height);
                     break;
                 case 'group_objects':
-                    DesignTools.groupObjects(args.ids);
+                    DesignTools.groupObjects(args.ids, args.group_id);
                     break;
                 case 'ungroup_objects':
-                    DesignTools.ungroupObjects(args.group_id);
+                    DesignTools.ungroupObjects(args.group_id || args.id);
+                    break;
+                case 'ungroup_object':
+                    DesignTools.ungroupObjects(args.id || args.group_id);
+                    break;
+                case 'bring_to_front':
+                    DesignTools.bringToFront(args.id);
+                    break;
+                case 'send_to_back':
+                    DesignTools.sendToBack(args.id);
+                    break;
+                case 'bring_forward':
+                    DesignTools.bringForward(args.id);
+                    break;
+                case 'send_backward':
+                    DesignTools.sendBackward(args.id);
+                    break;
+                case 'duplicate_object':
+                    DesignTools.duplicateObject(args.id, args.new_id);
+                    break;
+                case 'align_objects':
+                    DesignTools.alignObjects(args.ids, args.alignment);
+                    break;
+                case 'distribute_objects':
+                    DesignTools.distributeObjects(args.ids, args.direction);
+                    break;
+                case 'undo':
+                    DesignCanvas.undo();
+                    break;
+                case 'redo':
+                    DesignCanvas.redo();
                     break;
             }
         } catch (error) {
@@ -359,19 +461,37 @@ const DesignChat = {
         const toolIcons = {
             'add_rectangle': 'rectangle',
             'add_circle': 'circle',
+            'add_ellipse': 'ellipse',
             'add_triangle': 'change_history',
             'add_line': 'horizontal_rule',
             'add_text': 'title',
             'add_polygon': 'hexagon',
             'add_star': 'star',
+            'add_path': 'polyline',
             'add_image': 'image',
+            'update_text': 'edit_note',
             'modify_object': 'edit',
+            'move_object': 'open_with',
+            'resize_object': 'open_in_full',
+            'rotate_object': 'rotate_right',
+            'scale_object': 'aspect_ratio',
+            'set_fill': 'format_color_fill',
+            'set_stroke': 'border_color',
+            'set_opacity': 'opacity',
             'delete_object': 'delete',
             'clear_canvas': 'layers_clear',
             'set_background': 'format_color_fill',
             'set_canvas_size': 'aspect_ratio',
             'group_objects': 'group_work',
-            'ungroup_objects': 'workspaces'
+            'ungroup_objects': 'workspaces',
+            'ungroup_object': 'workspaces',
+            'bring_to_front': 'flip_to_front',
+            'send_to_back': 'flip_to_back',
+            'bring_forward': 'move_up',
+            'send_backward': 'move_down',
+            'duplicate_object': 'content_copy',
+            'align_objects': 'align_horizontal_center',
+            'distribute_objects': 'view_week'
         };
 
         const icon = toolIcons[toolCall.name] || 'build';
@@ -439,6 +559,10 @@ const DesignChat = {
                 })
             });
 
+            if (!response.ok || !response.body) {
+                throw new Error(`Design review error (${response.status})`);
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -461,6 +585,10 @@ const DesignChat = {
                         }
                     }
                 }
+            }
+
+            if (aiContent && aiContent.children.length === 0) {
+                aiContent.innerHTML = '<p>Review complete.</p>';
             }
         } catch (error) {
             console.error('Error sending for review:', error);

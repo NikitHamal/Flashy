@@ -417,7 +417,7 @@ const DesignTools = {
         return 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     },
 
-    addRectangle(x, y, width, height, fill, stroke, strokeWidth, opacity, rx, ry, angle) {
+    addRectangle(x, y, width, height, fill, stroke, strokeWidth, opacity, rx, ry, angle, id) {
         const rect = new fabric.Rect({
             left: x,
             top: y,
@@ -430,14 +430,14 @@ const DesignTools = {
             rx: rx || 0,
             ry: ry || 0,
             angle: angle || 0,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(rect);
         return rect.id;
     },
 
-    addCircle(x, y, radius, fill, stroke, strokeWidth, opacity) {
+    addCircle(x, y, radius, fill, stroke, strokeWidth, opacity, id) {
         const circle = new fabric.Circle({
             left: x,
             top: y,
@@ -446,14 +446,32 @@ const DesignTools = {
             stroke: stroke || null,
             strokeWidth: strokeWidth || 0,
             opacity: opacity !== undefined ? opacity : 1,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(circle);
         return circle.id;
     },
 
-    addTriangle(x, y, width, height, fill, stroke, strokeWidth, opacity, angle) {
+    addEllipse(x, y, rx, ry, fill, stroke, strokeWidth, opacity, angle, id) {
+        const ellipse = new fabric.Ellipse({
+            left: x,
+            top: y,
+            rx: rx,
+            ry: ry,
+            fill: fill || this.defaultFill,
+            stroke: stroke || null,
+            strokeWidth: strokeWidth || 0,
+            opacity: opacity !== undefined ? opacity : 1,
+            angle: angle || 0,
+            id: id || this.generateId()
+        });
+
+        DesignCanvas.addObject(ellipse);
+        return ellipse.id;
+    },
+
+    addTriangle(x, y, width, height, fill, stroke, strokeWidth, opacity, angle, id) {
         const triangle = new fabric.Triangle({
             left: x,
             top: y,
@@ -464,26 +482,26 @@ const DesignTools = {
             strokeWidth: strokeWidth || 0,
             opacity: opacity !== undefined ? opacity : 1,
             angle: angle || 0,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(triangle);
         return triangle.id;
     },
 
-    addLine(x1, y1, x2, y2, stroke, strokeWidth, opacity) {
+    addLine(x1, y1, x2, y2, stroke, strokeWidth, opacity, id) {
         const line = new fabric.Line([x1, y1, x2, y2], {
             stroke: stroke || '#000000',
             strokeWidth: strokeWidth || 2,
             opacity: opacity !== undefined ? opacity : 1,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(line);
         return line.id;
     },
 
-    addText(x, y, text, fontSize, fontFamily, fontWeight, fill, textAlign, opacity, angle) {
+    addText(x, y, text, fontSize, fontFamily, fontWeight, fill, textAlign, opacity, angle, id) {
         const textObj = new fabric.IText(text, {
             left: x,
             top: y,
@@ -495,14 +513,14 @@ const DesignTools = {
             textAlign: textAlign || 'left',
             opacity: opacity !== undefined ? opacity : 1,
             angle: angle || 0,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(textObj);
         return textObj.id;
     },
 
-    addPolygon(x, y, radius, sides, fill, stroke, strokeWidth, opacity, angle) {
+    addPolygon(x, y, radius, sides, fill, stroke, strokeWidth, opacity, angle, id) {
         const points = this.createPolygonPoints({ x: 0, y: 0 }, radius, sides);
         const polygon = new fabric.Polygon(points, {
             left: x,
@@ -512,14 +530,38 @@ const DesignTools = {
             strokeWidth: strokeWidth || 0,
             opacity: opacity !== undefined ? opacity : 1,
             angle: angle || 0,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(polygon);
         return polygon.id;
     },
 
-    addStar(x, y, outerRadius, innerRadius, points, fill, stroke, strokeWidth, opacity, angle) {
+    addPolygonFromPoints(points, fill, stroke, strokeWidth, opacity, angle, id) {
+        if (!points || points.length === 0) return null;
+        const normalized = points.map(point => Array.isArray(point) ? point : [point.x, point.y]);
+        const xs = normalized.map(point => point[0]);
+        const ys = normalized.map(point => point[1]);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const adjusted = normalized.map(point => ({ x: point[0] - minX, y: point[1] - minY }));
+
+        const polygon = new fabric.Polygon(adjusted, {
+            left: minX,
+            top: minY,
+            fill: fill || this.defaultFill,
+            stroke: stroke || null,
+            strokeWidth: strokeWidth || 0,
+            opacity: opacity !== undefined ? opacity : 1,
+            angle: angle || 0,
+            id: id || this.generateId()
+        });
+
+        DesignCanvas.addObject(polygon);
+        return polygon.id;
+    },
+
+    addStar(x, y, outerRadius, innerRadius, points, fill, stroke, strokeWidth, opacity, angle, id) {
         const starPoints = this.createStarPoints({ x: 0, y: 0 }, outerRadius, innerRadius || outerRadius * 0.4, points || 5);
         const star = new fabric.Polygon(starPoints, {
             left: x,
@@ -529,14 +571,32 @@ const DesignTools = {
             strokeWidth: strokeWidth || 0,
             opacity: opacity !== undefined ? opacity : 1,
             angle: angle || 0,
-            id: this.generateId()
+            id: id || this.generateId()
         });
 
         DesignCanvas.addObject(star);
         return star.id;
     },
 
-    addImage(url, x, y, width, height, opacity, angle) {
+    addPath(path, fill, stroke, strokeWidth, opacity, angle, id) {
+        if (!path) return null;
+        const svgPath = new fabric.Path(path, {
+            left: 0,
+            top: 0,
+            fill: fill || this.defaultFill,
+            stroke: stroke || null,
+            strokeWidth: strokeWidth || 0,
+            opacity: opacity !== undefined ? opacity : 1,
+            angle: angle || 0,
+            id: id || this.generateId()
+        });
+
+        DesignCanvas.addObject(svgPath);
+        return svgPath.id;
+    },
+
+    addImage(url, x, y, width, height, opacity, angle, id) {
+        if (!url) return Promise.resolve(null);
         return new Promise((resolve) => {
             fabric.Image.fromURL(url, (img) => {
                 const props = {
@@ -544,7 +604,7 @@ const DesignTools = {
                     top: y,
                     opacity: opacity !== undefined ? opacity : 1,
                     angle: angle || 0,
-                    id: this.generateId()
+                    id: id || this.generateId()
                 };
 
                 if (width && height) {
@@ -588,10 +648,16 @@ const DesignTools = {
         if (properties.strokeWidth !== undefined) mappedProps.strokeWidth = properties.strokeWidth;
         if (properties.opacity !== undefined) mappedProps.opacity = properties.opacity;
         if (properties.angle !== undefined) mappedProps.angle = properties.angle;
+        if (properties.scaleX !== undefined) mappedProps.scaleX = properties.scaleX;
+        if (properties.scaleY !== undefined) mappedProps.scaleY = properties.scaleY;
         if (properties.text !== undefined) mappedProps.text = properties.text;
         if (properties.fontSize !== undefined) mappedProps.fontSize = properties.fontSize;
         if (properties.fontFamily !== undefined) mappedProps.fontFamily = properties.fontFamily;
         if (properties.fontWeight !== undefined) mappedProps.fontWeight = properties.fontWeight;
+        if (properties.fontStyle !== undefined) mappedProps.fontStyle = properties.fontStyle;
+        if (properties.textAlign !== undefined) mappedProps.textAlign = properties.textAlign;
+        if (properties.rx !== undefined) mappedProps.rx = properties.rx;
+        if (properties.ry !== undefined) mappedProps.ry = properties.ry;
 
         DesignCanvas.updateObjectById(id, mappedProps);
         return true;
@@ -612,14 +678,14 @@ const DesignTools = {
         return true;
     },
 
-    groupObjects(ids) {
+    groupObjects(ids, groupId) {
         const canvas = DesignCanvas.canvas;
         const objects = ids.map(id => DesignCanvas.getObjectById(id)).filter(Boolean);
 
         if (objects.length < 2) return null;
 
         const group = new fabric.Group(objects, {
-            id: this.generateId()
+            id: groupId || this.generateId()
         });
 
         objects.forEach(obj => canvas.remove(obj));
@@ -643,7 +709,9 @@ const DesignTools = {
 
         const ids = [];
         items.forEach(item => {
-            item.id = this.generateId();
+            if (!item.id) {
+                item.id = this.generateId();
+            }
             ids.push(item.id);
             canvas.add(item);
         });
@@ -652,5 +720,157 @@ const DesignTools = {
         DesignCanvas.saveHistory();
 
         return ids;
+    },
+    duplicateObject(id, newId) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return null;
+
+        obj.clone((cloned) => {
+            cloned.set({
+                left: (cloned.left || 0) + 20,
+                top: (cloned.top || 0) + 20,
+                id: newId || this.generateId()
+            });
+
+            if (cloned.type === 'activeSelection') {
+                cloned.canvas = DesignCanvas.canvas;
+                cloned.forEachObject((child) => {
+                    child.id = this.generateId();
+                    DesignCanvas.canvas.add(child);
+                });
+                cloned.setCoords();
+            } else {
+                DesignCanvas.canvas.add(cloned);
+            }
+
+            DesignCanvas.canvas.setActiveObject(cloned);
+            DesignCanvas.canvas.requestRenderAll();
+            DesignCanvas.saveHistory();
+        });
+
+        return true;
+    },
+
+    bringToFront(id) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+        DesignCanvas.canvas.bringToFront(obj);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    sendToBack(id) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+        DesignCanvas.canvas.sendToBack(obj);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    bringForward(id) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+        DesignCanvas.canvas.bringForward(obj);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    sendBackward(id) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+        DesignCanvas.canvas.sendBackwards(obj);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    alignObjects(ids, alignment) {
+        const canvas = DesignCanvas.canvas;
+        const objects = ids.map(id => DesignCanvas.getObjectById(id)).filter(Boolean);
+        if (objects.length < 2) return false;
+
+        const bounds = objects.map(obj => obj.getBoundingRect(true));
+        const minX = Math.min(...bounds.map(b => b.left));
+        const maxX = Math.max(...bounds.map(b => b.left + b.width));
+        const minY = Math.min(...bounds.map(b => b.top));
+        const maxY = Math.max(...bounds.map(b => b.top + b.height));
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        objects.forEach((obj, index) => {
+            const rect = bounds[index];
+            switch (alignment) {
+                case 'left':
+                    obj.set('left', minX);
+                    break;
+                case 'center':
+                    obj.set('left', centerX - rect.width / 2);
+                    break;
+                case 'right':
+                    obj.set('left', maxX - rect.width);
+                    break;
+                case 'top':
+                    obj.set('top', minY);
+                    break;
+                case 'middle':
+                    obj.set('top', centerY - rect.height / 2);
+                    break;
+                case 'bottom':
+                    obj.set('top', maxY - rect.height);
+                    break;
+            }
+            obj.setCoords();
+        });
+
+        canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    distributeObjects(ids, direction) {
+        const canvas = DesignCanvas.canvas;
+        const objects = ids.map(id => DesignCanvas.getObjectById(id)).filter(Boolean);
+        if (objects.length < 3) return false;
+
+        const sorted = objects.slice().sort((a, b) => {
+            const rectA = a.getBoundingRect(true);
+            const rectB = b.getBoundingRect(true);
+            return direction === 'horizontal' ? rectA.left - rectB.left : rectA.top - rectB.top;
+        });
+
+        if (direction === 'horizontal') {
+            const leftMost = sorted[0].getBoundingRect(true).left;
+            const rightMost = sorted[sorted.length - 1].getBoundingRect(true);
+            const totalWidth = sorted.reduce((sum, obj) => sum + obj.getBoundingRect(true).width, 0);
+            const spacing = (rightMost.left + rightMost.width - leftMost - totalWidth) / (sorted.length - 1);
+
+            let current = leftMost;
+            sorted.forEach((obj) => {
+                const rect = obj.getBoundingRect(true);
+                obj.set('left', current);
+                obj.setCoords();
+                current += rect.width + spacing;
+            });
+        } else {
+            const topMost = sorted[0].getBoundingRect(true).top;
+            const bottomMost = sorted[sorted.length - 1].getBoundingRect(true);
+            const totalHeight = sorted.reduce((sum, obj) => sum + obj.getBoundingRect(true).height, 0);
+            const spacing = (bottomMost.top + bottomMost.height - topMost - totalHeight) / (sorted.length - 1);
+
+            let current = topMost;
+            sorted.forEach((obj) => {
+                const rect = obj.getBoundingRect(true);
+                obj.set('top', current);
+                obj.setCoords();
+                current += rect.height + spacing;
+            });
+        }
+
+        canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
     }
 };

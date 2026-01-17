@@ -139,6 +139,14 @@
                             <span class="material-symbols-outlined">fit_screen</span>
                         </button>
                     </div>
+                    <div class="canvas-toggle-group">
+                        <button id="btn-toggle-grid" class="btn-icon-sm" title="Toggle Grid">
+                            <span class="material-symbols-outlined">grid_on</span>
+                        </button>
+                        <button id="btn-toggle-snap" class="btn-icon-sm" title="Toggle Snap">
+                            <span class="material-symbols-outlined">magnet_on</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="canvas-actions">
@@ -158,6 +166,7 @@
 
             <!-- Canvas Container -->
             <div class="canvas-wrapper">
+                <div id="canvas-grid" class="canvas-grid hidden"></div>
                 <div id="canvas-container" class="canvas-container">
                     <canvas id="design-canvas"></canvas>
                 </div>
@@ -398,6 +407,38 @@
                             </button>
                         </div>
                     </div>
+
+                    <div class="property-group">
+                        <div class="property-group-title">Arrange</div>
+                        <div class="align-grid">
+                            <button class="arrange-btn" data-align="left" title="Align Left">
+                                <span class="material-symbols-outlined">align_horizontal_left</span>
+                            </button>
+                            <button class="arrange-btn" data-align="center" title="Align Center">
+                                <span class="material-symbols-outlined">align_horizontal_center</span>
+                            </button>
+                            <button class="arrange-btn" data-align="right" title="Align Right">
+                                <span class="material-symbols-outlined">align_horizontal_right</span>
+                            </button>
+                            <button class="arrange-btn" data-align="top" title="Align Top">
+                                <span class="material-symbols-outlined">align_vertical_top</span>
+                            </button>
+                            <button class="arrange-btn" data-align="middle" title="Align Middle">
+                                <span class="material-symbols-outlined">align_vertical_center</span>
+                            </button>
+                            <button class="arrange-btn" data-align="bottom" title="Align Bottom">
+                                <span class="material-symbols-outlined">align_vertical_bottom</span>
+                            </button>
+                        </div>
+                        <div class="distribute-grid">
+                            <button class="arrange-btn" data-distribute="horizontal" title="Distribute Horizontally">
+                                <span class="material-symbols-outlined">space_bar</span>
+                            </button>
+                            <button class="arrange-btn" data-distribute="vertical" title="Distribute Vertically">
+                                <span class="material-symbols-outlined">height</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Canvas Properties (shown when no object selected) -->
@@ -454,6 +495,20 @@
                             <div class="export-desc">High-quality raster image</div>
                         </div>
                     </button>
+                    <button class="export-option" data-format="jpg">
+                        <span class="material-symbols-outlined">photo</span>
+                        <div class="export-info">
+                            <div class="export-title">JPG Image</div>
+                            <div class="export-desc">Smaller files with adjustable quality</div>
+                        </div>
+                    </button>
+                    <button class="export-option" data-format="webp">
+                        <span class="material-symbols-outlined">image</span>
+                        <div class="export-info">
+                            <div class="export-title">WebP Image</div>
+                            <div class="export-desc">Modern web-optimized format</div>
+                        </div>
+                    </button>
                     <button class="export-option" data-format="svg">
                         <span class="material-symbols-outlined">code</span>
                         <div class="export-info">
@@ -478,6 +533,15 @@
                                 <option value="2" selected>2x</option>
                                 <option value="3">3x</option>
                                 <option value="4">4x</option>
+                            </select>
+                        </div>
+                        <div class="property-field">
+                            <label>Quality</label>
+                            <select id="export-quality" class="prop-select">
+                                <option value="0.6">60%</option>
+                                <option value="0.8" selected>80%</option>
+                                <option value="0.9">90%</option>
+                                <option value="1">100%</option>
                             </select>
                         </div>
                     </div>

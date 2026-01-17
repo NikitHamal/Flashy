@@ -96,6 +96,18 @@ const DesignProperties = {
                 this.applyTextAlign(btn.dataset.align);
             });
         });
+
+        document.querySelectorAll('.arrange-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const alignment = btn.dataset.align;
+                const distribution = btn.dataset.distribute;
+                if (alignment) {
+                    this.applyAlignment(alignment);
+                } else if (distribution) {
+                    this.applyDistribution(distribution);
+                }
+            });
+        });
     },
 
     setupColorInputs() {
@@ -411,6 +423,63 @@ const DesignProperties = {
 
         DesignCanvas.canvas.requestRenderAll();
         DesignCanvas.saveHistory();
+    },
+
+    getSelectionObjects() {
+        const active = DesignCanvas.canvas.getActiveObject();
+        if (!active) return [];
+        if (active.type === 'activeSelection') {
+            return active.getObjects();
+        }
+        return [active];
+    },
+
+    applyAlignment(alignment) {
+        const objects = this.getSelectionObjects();
+        if (objects.length === 0) return;
+
+        if (objects.length === 1) {
+            const obj = objects[0];
+            const bounds = obj.getBoundingRect(true);
+            const canvasWidth = DesignCanvas.canvasWidth;
+            const canvasHeight = DesignCanvas.canvasHeight;
+
+            switch (alignment) {
+                case 'left':
+                    obj.set('left', 0);
+                    break;
+                case 'center':
+                    obj.set('left', (canvasWidth - bounds.width) / 2);
+                    break;
+                case 'right':
+                    obj.set('left', canvasWidth - bounds.width);
+                    break;
+                case 'top':
+                    obj.set('top', 0);
+                    break;
+                case 'middle':
+                    obj.set('top', (canvasHeight - bounds.height) / 2);
+                    break;
+                case 'bottom':
+                    obj.set('top', canvasHeight - bounds.height);
+                    break;
+            }
+
+            obj.setCoords();
+            DesignCanvas.canvas.requestRenderAll();
+            DesignCanvas.saveHistory();
+            return;
+        }
+
+        const ids = objects.map(obj => obj.id).filter(Boolean);
+        DesignTools.alignObjects(ids, alignment);
+    },
+
+    applyDistribution(direction) {
+        const objects = this.getSelectionObjects();
+        if (objects.length < 3) return;
+        const ids = objects.map(obj => obj.id).filter(Boolean);
+        DesignTools.distributeObjects(ids, direction);
     },
 
     applyTextAlign(align) {
