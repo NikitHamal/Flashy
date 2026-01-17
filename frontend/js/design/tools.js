@@ -10,12 +10,27 @@ const DesignTools = {
     defaultFill: '#4ade80',
     defaultStroke: '#000000',
     defaultStrokeWidth: 0,
+    clipboard: null,
+    shiftPressed: false,
 
     init() {
         this.setupToolButtons();
         this.setupCanvasDrawing();
         this.setupQuickActions();
+        this.setupModifierKeys();
         return this;
+    },
+
+    /**
+     * Track modifier keys for constrained drawing
+     */
+    setupModifierKeys() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Shift') this.shiftPressed = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift') this.shiftPressed = false;
+        });
     },
 
     setupToolButtons() {
@@ -134,6 +149,16 @@ const DesignTools = {
                 });
                 break;
 
+            case 'ellipse':
+                shape = new fabric.Ellipse({
+                    ...commonProps,
+                    rx: 0,
+                    ry: 0,
+                    originX: 'center',
+                    originY: 'center'
+                });
+                break;
+
             case 'triangle':
                 shape = new fabric.Triangle({
                     ...commonProps,
@@ -207,6 +232,18 @@ const DesignTools = {
                 });
                 break;
 
+            case 'ellipse':
+                // Hold Shift to constrain to circle
+                const rx = Math.abs(dx) / 2;
+                const ry = this.shiftPressed ? rx : Math.abs(dy) / 2;
+                this.tempShape.set({
+                    rx: rx,
+                    ry: ry,
+                    left: this.startPoint.x + dx / 2,
+                    top: this.startPoint.y + dy / 2
+                });
+                break;
+
             case 'line':
                 this.tempShape.set({
                     x2: pointer.x,
@@ -266,6 +303,14 @@ const DesignTools = {
                 shape = new fabric.Circle({
                     ...commonProps,
                     radius: 50
+                });
+                break;
+
+            case 'ellipse':
+                shape = new fabric.Ellipse({
+                    ...commonProps,
+                    rx: 60,
+                    ry: 40
                 });
                 break;
 
@@ -652,5 +697,326 @@ const DesignTools = {
         DesignCanvas.saveHistory();
 
         return ids;
+    },
+
+    /**
+     * Add an ellipse to the canvas
+     */
+    addEllipse(x, y, rx, ry, fill, stroke, strokeWidth, opacity, angle) {
+        const ellipse = new fabric.Ellipse({
+            left: x,
+            top: y,
+            rx: rx || 60,
+            ry: ry || 40,
+            fill: fill || this.defaultFill,
+            stroke: stroke || null,
+            strokeWidth: strokeWidth || 0,
+            opacity: opacity !== undefined ? opacity : 1,
+            angle: angle || 0,
+            id: this.generateId()
+        });
+
+        DesignCanvas.addObject(ellipse);
+        return ellipse.id;
+    },
+
+    /**
+     * Add a path to the canvas
+     */
+    addPath(pathData, x, y, fill, stroke, strokeWidth, opacity, angle) {
+        const path = new fabric.Path(pathData, {
+            left: x || 0,
+            top: y || 0,
+            fill: fill || this.defaultFill,
+            stroke: stroke || null,
+            strokeWidth: strokeWidth || 0,
+            opacity: opacity !== undefined ? opacity : 1,
+            angle: angle || 0,
+            id: this.generateId()
+        });
+
+        DesignCanvas.addObject(path);
+        return path.id;
+    },
+
+    /**
+     * Copy selected objects to clipboard
+     */
+    copySelection() {
+        const activeObject = DesignCanvas.canvas.getActiveObject();
+        if (!activeObject) return false;
+
+        activeObject.clone((cloned) => {
+            this.clipboard = cloned;
+        });
+        return true;
+    },
+
+    /**
+     * Paste from clipboard
+     */
+    pasteFromClipboard() {
+        if (!this.clipboard) return false;
+
+        this.clipboard.clone((cloned) => {
+            cloned.set({
+                left: cloned.left + 20,
+                top: cloned.top + 20,
+                id: this.generateId(),
+                evented: true
+            });
+
+            if (cloned.type === 'activeSelection') {
+                cloned.canvas = DesignCanvas.canvas;
+                cloned.forEachObject((obj) => {
+                    obj.id = this.generateId();
+                    DesignCanvas.canvas.add(obj);
+                });
+                cloned.setCoords();
+            } else {
+                DesignCanvas.canvas.add(cloned);
+            }
+
+            this.clipboard.top += 20;
+            this.clipboard.left += 20;
+            DesignCanvas.canvas.setActiveObject(cloned);
+            DesignCanvas.canvas.requestRenderAll();
+            DesignCanvas.saveHistory();
+        });
+
+        return true;
+    },
+
+    /**
+     * Align selected objects
+     * @param {string} alignment - left, center, right, top, middle, bottom
+     */
+    alignObjects(alignment) {
+        const canvas = DesignCanvas.canvas;
+        const activeObject = canvas.getActiveObject();
+
+        if (!activeObject) return false;
+
+        // For single object, align to canvas
+        if (activeObject.type !== 'activeSelection') {
+            const bounds = activeObject.getBoundingRect();
+            const canvasWidth = DesignCanvas.canvasWidth;
+            const canvasHeight = DesignCanvas.canvasHeight;
+
+            switch (alignment) {
+                case 'left':
+                    activeObject.set('left', 0);
+                    break;
+                case 'center':
+                    activeObject.set('left', (canvasWidth - bounds.width) / 2);
+                    break;
+                case 'right':
+                    activeObject.set('left', canvasWidth - bounds.width);
+                    break;
+                case 'top':
+                    activeObject.set('top', 0);
+                    break;
+                case 'middle':
+                    activeObject.set('top', (canvasHeight - bounds.height) / 2);
+                    break;
+                case 'bottom':
+                    activeObject.set('top', canvasHeight - bounds.height);
+                    break;
+            }
+            activeObject.setCoords();
+        } else {
+            // For multiple objects, align to selection bounds
+            const objects = activeObject.getObjects();
+            const selectionBounds = activeObject.getBoundingRect();
+
+            objects.forEach(obj => {
+                const objBounds = obj.getBoundingRect(true);
+                const offset = {
+                    x: objBounds.left - selectionBounds.left,
+                    y: objBounds.top - selectionBounds.top
+                };
+
+                switch (alignment) {
+                    case 'left':
+                        obj.set('left', obj.left - offset.x);
+                        break;
+                    case 'center':
+                        const centerX = selectionBounds.width / 2;
+                        obj.set('left', obj.left - offset.x + centerX - objBounds.width / 2);
+                        break;
+                    case 'right':
+                        obj.set('left', obj.left - offset.x + selectionBounds.width - objBounds.width);
+                        break;
+                    case 'top':
+                        obj.set('top', obj.top - offset.y);
+                        break;
+                    case 'middle':
+                        const centerY = selectionBounds.height / 2;
+                        obj.set('top', obj.top - offset.y + centerY - objBounds.height / 2);
+                        break;
+                    case 'bottom':
+                        obj.set('top', obj.top - offset.y + selectionBounds.height - objBounds.height);
+                        break;
+                }
+                obj.setCoords();
+            });
+        }
+
+        canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Distribute selected objects evenly
+     * @param {string} direction - horizontal or vertical
+     */
+    distributeObjects(direction) {
+        const canvas = DesignCanvas.canvas;
+        const activeObject = canvas.getActiveObject();
+
+        if (!activeObject || activeObject.type !== 'activeSelection') return false;
+
+        const objects = activeObject.getObjects();
+        if (objects.length < 3) return false;
+
+        // Sort objects by position
+        const sorted = [...objects].sort((a, b) => {
+            if (direction === 'horizontal') {
+                return a.left - b.left;
+            }
+            return a.top - b.top;
+        });
+
+        // Calculate total space and gap
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        let totalSpace, totalSize = 0;
+
+        if (direction === 'horizontal') {
+            totalSpace = last.left + last.width * last.scaleX - first.left;
+            sorted.forEach(obj => totalSize += obj.width * obj.scaleX);
+        } else {
+            totalSpace = last.top + last.height * last.scaleY - first.top;
+            sorted.forEach(obj => totalSize += obj.height * obj.scaleY);
+        }
+
+        const gap = (totalSpace - totalSize) / (objects.length - 1);
+        let currentPos = direction === 'horizontal' ? first.left : first.top;
+
+        // Distribute objects
+        sorted.forEach((obj, i) => {
+            if (i === 0) {
+                if (direction === 'horizontal') {
+                    currentPos += obj.width * obj.scaleX + gap;
+                } else {
+                    currentPos += obj.height * obj.scaleY + gap;
+                }
+                return;
+            }
+
+            if (direction === 'horizontal') {
+                obj.set('left', currentPos);
+                currentPos += obj.width * obj.scaleX + gap;
+            } else {
+                obj.set('top', currentPos);
+                currentPos += obj.height * obj.scaleY + gap;
+            }
+            obj.setCoords();
+        });
+
+        canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Flip selected object
+     * @param {string} direction - horizontal or vertical
+     */
+    flipObject(direction) {
+        const activeObject = DesignCanvas.canvas.getActiveObject();
+        if (!activeObject) return false;
+
+        if (direction === 'horizontal') {
+            activeObject.set('flipX', !activeObject.flipX);
+        } else {
+            activeObject.set('flipY', !activeObject.flipY);
+        }
+
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Rotate selected object by a specific amount
+     */
+    rotateObject(degrees) {
+        const activeObject = DesignCanvas.canvas.getActiveObject();
+        if (!activeObject) return false;
+
+        const currentAngle = activeObject.angle || 0;
+        activeObject.set('angle', currentAngle + degrees);
+        activeObject.setCoords();
+
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Scale object by a factor
+     */
+    scaleObject(factor) {
+        const activeObject = DesignCanvas.canvas.getActiveObject();
+        if (!activeObject) return false;
+
+        activeObject.scale(activeObject.scaleX * factor);
+        activeObject.setCoords();
+
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Lock/unlock object from editing
+     */
+    lockObject(id, locked = true) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        obj.set({
+            lockMovementX: locked,
+            lockMovementY: locked,
+            lockRotation: locked,
+            lockScalingX: locked,
+            lockScalingY: locked,
+            hasControls: !locked,
+            selectable: !locked
+        });
+
+        DesignCanvas.canvas.requestRenderAll();
+        return true;
+    },
+
+    /**
+     * Get all objects on canvas as structured data
+     */
+    getCanvasObjects() {
+        const objects = DesignCanvas.canvas.getObjects();
+        return objects.map(obj => ({
+            id: obj.id,
+            type: obj.type,
+            left: Math.round(obj.left),
+            top: Math.round(obj.top),
+            width: Math.round((obj.width || 0) * (obj.scaleX || 1)),
+            height: Math.round((obj.height || 0) * (obj.scaleY || 1)),
+            fill: obj.fill,
+            stroke: obj.stroke,
+            opacity: obj.opacity,
+            angle: obj.angle
+        }));
     }
 };

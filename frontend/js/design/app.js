@@ -14,6 +14,7 @@ const DesignApp = {
         DesignProperties.init();
         DesignChat.init();
         DesignExport.init();
+        DesignLayers.init();
 
         this.setupProjectName();
         this.setupKeyboardShortcuts();
@@ -50,6 +51,17 @@ const DesignApp = {
                     e.target.blur();
                 }
                 return;
+            }
+
+            // Copy/Paste shortcuts
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                e.preventDefault();
+                DesignTools.copySelection();
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                e.preventDefault();
+                DesignTools.pasteFromClipboard();
             }
 
             if ((e.ctrlKey || e.metaKey) && e.key === 'e') {

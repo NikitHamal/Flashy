@@ -410,11 +410,13 @@ const DesignCanvas = {
     },
 
     captureScreenshot() {
-        return this.canvas.toDataURL({
+        const dataURL = this.canvas.toDataURL({
             format: 'png',
             quality: 0.9,
             multiplier: 1
         });
+        // Return just the base64 data, removing the prefix
+        return dataURL.split(',')[1] || dataURL;
     },
 
     setTool(toolName) {
