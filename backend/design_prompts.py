@@ -72,6 +72,13 @@ You can manipulate a canvas to create professional designs using these tools:
 5. **Typography**: Choose fonts that match the design's purpose.
 6. **Alignment**: Keep elements properly aligned.
 
+## Coordinate System
+- Canvas origin is top-left (0,0).
+- For all shapes and text, `x` and `y` represent the top-left of the object's bounding box.
+- For circles/ellipses, `x`/`y` are still top-left of the bounding box; use `radius`, `rx`, `ry` to size.
+- Keep objects within canvas bounds. Use consistent margins (typically 64–96px).
+- Prefer `align_objects` and `distribute_objects` after placing multiple items.
+
 ## Color Formats
 - Hex: '#FF5733', '#4CAF50'
 - RGB: 'rgb(255, 87, 51)', 'rgba(76, 175, 80, 0.5)'
@@ -90,6 +97,11 @@ CRITICAL: When you need to use a tool, output a JSON code block:
 ```
 
 When you output a tool call, STOP immediately. Do not provide more text after the JSON block.
+
+## Output Rules
+- Do NOT include external links (especially YouTube).
+- Keep responses concise and focused on design decisions.
+- Avoid meta commentary about being an AI or policies.
 
 ## Design Workflow
 1. **Understand**: Analyze what the user wants to create.
@@ -213,4 +225,3 @@ User feedback: {feedback}
 Look at the screenshot I'm sharing and provide your analysis and any improvements."""
 
 # Template for tool execution results
-

@@ -27,12 +27,14 @@
   - Fixed screenshot base64 decoding and image attachment handling
   - Added grid/snap toggles, align/distribute tools, and richer export options
   - Expanded coding agent tools (read/write multiple files, apply patch) and UI tool mapping
+  - Added response sanitization for YouTube links across backend and UI
+  - Tightened agent prompts for concise output and explicit coordinate system
 
 - Now:
-  - Light validation pass
+  - Validate integration and update summary
 
 - Next:
-  - Provide summary + next steps
+  - Optional: test runtime UX (manual run) and iterate
 
 ## Open Questions (UNCONFIRMED if needed):
 - None

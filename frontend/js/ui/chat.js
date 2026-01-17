@@ -1,5 +1,16 @@
 // Chat Rendering Logic
 Object.assign(UI, {
+    sanitizeAssistantText(text, { streaming = false } = {}) {
+        if (!text) return '';
+        let cleaned = text;
+        cleaned = cleaned.replace(/\[([^\]]+)\]\((https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+)\)/gi, '$1');
+        cleaned = cleaned.replace(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/gi, '');
+        cleaned = cleaned.replace(/https?:\/\/googleusercontent\.com\/youtube_content\/\d+/gi, '');
+        if (!streaming) {
+            cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+        }
+        return cleaned;
+    },
     addMessage(textOrParts, role, images = [], attachedFiles = [], legacyToolOutputs = []) {
         if (!this.elements.chatHistory) return;
         const messageDiv = document.createElement('div');
@@ -67,7 +78,7 @@ Object.assign(UI, {
                     }
                 }, 0);
             } else {
-                const cleanedContent = part.content.replace(/https?:\/\/googleusercontent\.com\/youtube_content\/\d+/g, '');
+                const cleanedContent = this.sanitizeAssistantText(part.content);
                 textDiv.innerHTML = marked.parse(cleanedContent);
                 textDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
                 this._embedMedia(textDiv);
@@ -236,7 +247,7 @@ Object.assign(UI, {
                 activeText.dataset.raw = '';
                 dots.before(activeText);
             }
-            activeText.dataset.raw += chunk.text;
+            activeText.dataset.raw += this.sanitizeAssistantText(chunk.text, { streaming: true });
             activeText.innerHTML = marked.parse(activeText.dataset.raw);
             activeText.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         }

@@ -262,7 +262,7 @@ const DesignChat = {
                 textDiv.dataset.raw = '';
                 container.appendChild(textDiv);
             }
-            textDiv.dataset.raw += chunk.text;
+            textDiv.dataset.raw += this.sanitizeAssistantText(chunk.text, { streaming: true });
             textDiv.innerHTML = marked.parse(textDiv.dataset.raw);
         }
 
@@ -623,7 +623,7 @@ const DesignChat = {
             contentDiv.textContent = content;
         } else {
             if (content) {
-                contentDiv.innerHTML = marked.parse(content);
+                contentDiv.innerHTML = marked.parse(this.sanitizeAssistantText(content));
             }
         }
 
@@ -685,5 +685,16 @@ const DesignChat = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+    sanitizeAssistantText(text, { streaming = false } = {}) {
+        if (!text) return '';
+        let cleaned = text;
+        cleaned = cleaned.replace(/\[([^\]]+)\]\((https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+)\)/gi, '$1');
+        cleaned = cleaned.replace(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/gi, '');
+        cleaned = cleaned.replace(/https?:\/\/googleusercontent\.com\/youtube_content\/\d+/gi, '');
+        if (!streaming) {
+            cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+        }
+        return cleaned;
     }
 };

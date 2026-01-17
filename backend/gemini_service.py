@@ -6,6 +6,7 @@ from .config import load_config
 from .agent import Agent
 from .prompts import SYSTEM_PROMPT
 from .storage import save_chat_message, save_chat_metadata, get_chat_metadata
+from .response_sanitizer import sanitize_response_text
 
 
 class GeminiService:
@@ -129,8 +130,8 @@ class GeminiService:
         # e.g. http://googleusercontent.com/youtube_content/0
         google_content_pattern = r'https?://googleusercontent\.com/youtube_content/\d+'
         cleaned = re.sub(google_content_pattern, '', cleaned).strip()
-        
-        return cleaned
+
+        return sanitize_response_text(cleaned)
 
     def _separate_thinking_from_text(self, text: str) -> tuple:
         """
@@ -413,8 +414,9 @@ class GeminiService:
                         if img.url not in images:
                             images.append(img.url)
                 
-                yield {"text": clean_text, "images": images, "is_final": True}
-                message_parts.append({"type": "text", "content": clean_text})
+                sanitized_text = sanitize_response_text(clean_text)
+                yield {"text": sanitized_text, "images": images, "is_final": True}
+                message_parts.append({"type": "text", "content": sanitized_text})
 
         except asyncio.CancelledError:
             interruption_msg = "\n\n*Agent interrupted by user.*"

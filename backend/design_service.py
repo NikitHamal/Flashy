@@ -17,6 +17,7 @@ from gemini_webapi.constants import Model
 
 from .config import load_config
 from .design_agent import DesignAgent
+from .response_sanitizer import sanitize_response_text
 
 
 class DesignService:
@@ -110,7 +111,7 @@ class DesignService:
         json_block_pattern = r'```json\s*\{[^`]*?"(?:action|tool|name)"\s*:[^`]*?\}\s*```'
         cleaned = re.sub(json_block_pattern, '', cleaned, flags=re.DOTALL).strip()
 
-        return cleaned
+        return sanitize_response_text(cleaned)
 
     def _separate_thinking(self, text: str) -> tuple:
         """Separate thinking from response text."""
