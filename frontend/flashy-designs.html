@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashy Designs | AI Design Agent</title>
+    <link rel="stylesheet" href="/css/flashy-designs.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+
+<body class="designs-body">
+    <div class="designs-app">
+        <aside class="designs-sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-mark">
+                    <span class="material-symbols-outlined">flash_on</span>
+                </div>
+                <div>
+                    <div class="brand-title">Flashy</div>
+                    <div class="brand-subtitle">Design Studio</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-link" href="/index.html">
+                    <span class="material-symbols-outlined">code</span>
+                    <span>AI Coding Agent</span>
+                </a>
+                <a class="nav-link active" href="/flashy-designs.html">
+                    <span class="material-symbols-outlined">palette</span>
+                    <span>Flashy Designs</span>
+                </a>
+            </nav>
+            <div class="sidebar-section">
+                <div class="section-title">Tools</div>
+                <div class="tool-grid">
+                    <button class="tool-btn" data-tool="select" title="Select">
+                        <span class="material-symbols-outlined">near_me</span>
+                    </button>
+                    <button class="tool-btn" data-tool="hand" title="Pan">
+                        <span class="material-symbols-outlined">pan_tool</span>
+                    </button>
+                    <button class="tool-btn" data-tool="frame" title="Frame">
+                        <span class="material-symbols-outlined">crop_square</span>
+                    </button>
+                    <button class="tool-btn" data-tool="rect" title="Rectangle">
+                        <span class="material-symbols-outlined">square</span>
+                    </button>
+                    <button class="tool-btn" data-tool="circle" title="Ellipse">
+                        <span class="material-symbols-outlined">circle</span>
+                    </button>
+                    <button class="tool-btn" data-tool="line" title="Line">
+                        <span class="material-symbols-outlined">horizontal_rule</span>
+                    </button>
+                    <button class="tool-btn" data-tool="text" title="Text">
+                        <span class="material-symbols-outlined">title</span>
+                    </button>
+                    <button class="tool-btn" data-tool="image" title="Image">
+                        <span class="material-symbols-outlined">image</span>
+                    </button>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="section-title">Pages</div>
+                <div class="pages-list" id="pages-list"></div>
+                <div class="pages-actions">
+                    <button id="btn-new-page" class="btn-secondary">New Page</button>
+                    <button id="btn-duplicate-page" class="btn-ghost">Duplicate</button>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="btn-export" class="btn-primary">
+                    <span class="material-symbols-outlined">download</span> Export
+                </button>
+                <button id="btn-send-to-agent" class="btn-accent">
+                    <span class="material-symbols-outlined">auto_awesome</span> Send to Agent
+                </button>
+            </div>
+        </aside>
+
+        <main class="designs-main">
+            <header class="designs-topbar">
+                <div class="topbar-left">
+                    <div class="project-title">
+                        <span>Flashy Canvas</span>
+                        <input id="project-name" value="Untitled Design" aria-label="Project name">
+                    </div>
+                    <div class="topbar-sep"></div>
+                    <div class="preset-picker">
+                        <label for="canvas-preset">Canvas</label>
+                        <select id="canvas-preset">
+                            <option value="1080x1080">Square 1080</option>
+                            <option value="1920x1080">Presentation 16:9</option>
+                            <option value="1080x1920">Story 9:16</option>
+                            <option value="2480x3508">A4 Print</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn-ghost" id="btn-undo" title="Undo">
+                        <span class="material-symbols-outlined">undo</span>
+                    </button>
+                    <button class="btn-ghost" id="btn-redo" title="Redo">
+                        <span class="material-symbols-outlined">redo</span>
+                    </button>
+                    <button class="btn-ghost" id="btn-zoom-out" title="Zoom out">
+                        <span class="material-symbols-outlined">zoom_out</span>
+                    </button>
+                    <div class="zoom-pill"><span id="zoom-value">100%</span></div>
+                    <button class="btn-ghost" id="btn-zoom-in" title="Zoom in">
+                        <span class="material-symbols-outlined">zoom_in</span>
+                    </button>
+                    <button class="btn-ghost" id="btn-fit" title="Fit to screen">
+                        <span class="material-symbols-outlined">fit_screen</span>
+                    </button>
+                </div>
+            </header>
+
+            <section class="designs-workspace">
+                <div class="canvas-stage" id="canvas-stage">
+                    <div class="canvas-shadow"></div>
+                    <canvas id="design-canvas" width="1080" height="1080"></canvas>
+                </div>
+                <div class="status-bar">
+                    <div class="status-left">
+                        <span id="status-selection">No selection</span>
+                        <span class="status-dot"></span>
+                        <span id="status-size">1080 x 1080</span>
+                    </div>
+                    <div class="status-right">
+                        <span id="status-message">Ready</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="designs-rightbar">
+            <div class="panel-tabs">
+                <button class="tab-btn active" data-tab="properties">Properties</button>
+                <button class="tab-btn" data-tab="layers">Layers</button>
+                <button class="tab-btn" data-tab="assets">Assets</button>
+            </div>
+            <div class="panel-content">
+                <div class="panel-pane active" id="panel-properties">
+                    <div class="field-group">
+                        <label>Fill</label>
+                        <input type="color" id="prop-fill" value="#ffffff">
+                    </div>
+                    <div class="field-group">
+                        <label>Stroke</label>
+                        <div class="inline-row">
+                            <input type="color" id="prop-stroke" value="#111111">
+                            <input type="number" id="prop-stroke-width" min="0" max="40" value="0">
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>Opacity</label>
+                        <input type="range" id="prop-opacity" min="0" max="1" step="0.05" value="1">
+                    </div>
+                    <div class="field-group">
+                        <label>Corner Radius</label>
+                        <input type="range" id="prop-radius" min="0" max="200" value="0">
+                    </div>
+                    <div class="field-group">
+                        <label>Text</label>
+                        <input id="prop-text" type="text" placeholder="Edit text">
+                    </div>
+                    <div class="field-group">
+                        <label>Font</label>
+                        <select id="prop-font">
+                            <option value="Space Grotesk">Space Grotesk</option>
+                            <option value="Fraunces">Fraunces</option>
+                            <option value="JetBrains Mono">JetBrains Mono</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label>Size</label>
+                        <input type="number" id="prop-font-size" min="6" max="240" value="42">
+                    </div>
+                    <div class="field-group">
+                        <label>Align</label>
+                        <div class="segmented">
+                            <button data-align="left">Left</button>
+                            <button data-align="center">Center</button>
+                            <button data-align="right">Right</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-pane" id="panel-layers">
+                    <div class="layers-list" id="layers-list"></div>
+                </div>
+                <div class="panel-pane" id="panel-assets">
+                    <div class="assets-drop">
+                        <span class="material-symbols-outlined">cloud_upload</span>
+                        <p>Drop images or click to upload</p>
+                        <input id="asset-upload" type="file" accept="image/*" multiple hidden>
+                    </div>
+                    <div class="assets-grid" id="assets-grid"></div>
+                </div>
+            </div>
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <div>
+                        <div class="chat-title">Flashy Designer</div>
+                        <div class="chat-subtitle">Multimodal design assistant</div>
+                    </div>
+                    <div class="chat-actions">
+                        <button class="btn-ghost" id="btn-new-chat" title="New chat">
+                            <span class="material-symbols-outlined">chat</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="chat-history" id="design-chat-history"></div>
+                <div class="chat-prompt">
+                    <div class="prompt-chips" id="prompt-chips">
+                        <button class="chip" data-prompt="Design a hero slide for an AI product launch.">Hero slide</button>
+                        <button class="chip" data-prompt="Create a 3-card feature layout with icons and labels.">Feature grid</button>
+                        <button class="chip" data-prompt="Make a minimal poster with bold typography.">Poster</button>
+                    </div>
+                    <div class="chat-input">
+                        <textarea id="design-chat-input" rows="1" placeholder="Describe the design you want. The agent will return structured layout actions."></textarea>
+                        <div class="chat-input-actions">
+                            <button id="btn-chat-attach" class="btn-ghost" title="Attach files">
+                                <span class="material-symbols-outlined">attach_file</span>
+                                <input type="file" id="design-file-input" multiple hidden>
+                            </button>
+                            <button id="btn-chat-send" class="btn-primary">
+                                <span class="material-symbols-outlined">send</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="modal hidden" id="export-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Export Design</h2>
+                <button class="btn-close" id="btn-close-export">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="export-grid">
+                    <button class="export-card" data-format="png">
+                        <span class="material-symbols-outlined">image</span>
+                        <div>
+                            <strong>PNG</strong>
+                            <p>Transparent, best for UI</p>
+                        </div>
+                    </button>
+                    <button class="export-card" data-format="jpg">
+                        <span class="material-symbols-outlined">photo</span>
+                        <div>
+                            <strong>JPG</strong>
+                            <p>Compressed, smaller size</p>
+                        </div>
+                    </button>
+                    <button class="export-card" data-format="svg">
+                        <span class="material-symbols-outlined">polyline</span>
+                        <div>
+                            <strong>SVG</strong>
+                            <p>Vector for editing</p>
+                        </div>
+                    </button>
+                    <button class="export-card" data-format="json">
+                        <span class="material-symbols-outlined">code</span>
+                        <div>
+                            <strong>JSON</strong>
+                            <p>Re-open in Flashy</p>
+                        </div>
+                    </button>
+                </div>
+                <div class="export-options">
+                    <label for="export-scale">Resolution</label>
+                    <select id="export-scale">
+                        <option value="1">1x</option>
+                        <option value="2" selected>2x</option>
+                        <option value="4">4x</option>
+                    </select>
+                    <label for="export-bg">Background</label>
+                    <select id="export-bg">
+                        <option value="transparent">Transparent</option>
+                        <option value="white">White</option>
+                        <option value="current" selected>Current</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/designs/state.js"></script>
+    <script src="/js/designs/canvas.js"></script>
+    <script src="/js/designs/history.js"></script>
+    <script src="/js/designs/export.js"></script>
+    <script src="/js/designs/chat.js"></script>
+    <script src="/js/designs/ui.js"></script>
+    <script src="/js/designs/app.js"></script>
+</body>
+
+</html>
