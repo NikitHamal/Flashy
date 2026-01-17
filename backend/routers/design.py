@@ -3,9 +3,11 @@ Design Routes Module
 
 This module provides API endpoints for the Flashy Design Agent.
 Handles design generation, canvas state management, and export operations.
+
+Enhanced with comprehensive template support and canvas presets.
 """
 
-from fastapi import APIRouter, HTTPException, Body, Request, UploadFile, File
+from fastapi import APIRouter, HTTPException, Body, Request, UploadFile, File, Query
 from fastapi.responses import StreamingResponse, Response
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
@@ -14,6 +16,12 @@ import base64
 import io
 import tempfile
 import os
+
+from ..design_templates import (
+    get_template, get_all_templates, get_templates_by_category,
+    get_palette, get_all_palettes, get_canvas_preset, get_all_canvas_presets,
+    search_templates, apply_palette_to_template, TemplateCategory, TEMPLATES
+)
 
 
 router = APIRouter(prefix="/design", tags=["design"])
@@ -277,99 +285,216 @@ async def upload_image_for_canvas(
 
 
 @router.get("/templates")
-async def get_design_templates():
-    """Get available design templates."""
-    templates = [
-        {
-            "id": "blank",
-            "name": "Blank Canvas",
-            "description": "Start with an empty canvas",
-            "preview": None,
-            "size": {"width": 1200, "height": 800}
-        },
-        {
-            "id": "presentation_16_9",
-            "name": "Presentation (16:9)",
-            "description": "Standard presentation slide",
-            "preview": None,
-            "size": {"width": 1920, "height": 1080}
-        },
-        {
-            "id": "social_square",
-            "name": "Social Media (Square)",
-            "description": "Instagram post format",
-            "preview": None,
-            "size": {"width": 1080, "height": 1080}
-        },
-        {
-            "id": "social_story",
-            "name": "Social Media (Story)",
-            "description": "Instagram/Facebook story format",
-            "preview": None,
-            "size": {"width": 1080, "height": 1920}
-        },
-        {
-            "id": "banner_web",
-            "name": "Web Banner",
-            "description": "Standard web banner",
-            "preview": None,
-            "size": {"width": 1200, "height": 628}
-        },
-        {
-            "id": "poster_a4",
-            "name": "Poster (A4)",
-            "description": "A4 sized poster",
-            "preview": None,
-            "size": {"width": 2480, "height": 3508}
-        },
-        {
-            "id": "business_card",
-            "name": "Business Card",
-            "description": "Standard business card",
-            "preview": None,
-            "size": {"width": 1050, "height": 600}
-        },
-        {
-            "id": "youtube_thumbnail",
-            "name": "YouTube Thumbnail",
-            "description": "YouTube video thumbnail",
-            "preview": None,
-            "size": {"width": 1280, "height": 720}
-        }
-    ]
-    return {"templates": templates}
+async def get_design_templates(
+    category: Optional[str] = Query(None, description="Filter by category")
+):
+    """Get available design templates with optional category filter."""
+    if category:
+        try:
+            cat = TemplateCategory(category)
+            templates = get_templates_by_category(cat)
+            return {
+                "templates": [t.to_dict() for t in templates],
+                "category": category
+            }
+        except ValueError:
+            pass
+
+    # Return all templates summary
+    return {"templates": get_all_templates()}
+
+
+@router.get("/templates/{template_id}")
+async def get_template_details(template_id: str):
+    """Get detailed information about a specific template."""
+    template = get_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+
+    return {"template": template.to_dict()}
+
+
+@router.get("/templates/search/{query}")
+async def search_design_templates(query: str):
+    """Search templates by name, description, or tags."""
+    results = search_templates(query)
+    return {
+        "query": query,
+        "count": len(results),
+        "templates": [t.to_dict() for t in results]
+    }
+
+
+@router.get("/palettes")
+async def get_color_palettes():
+    """Get all available color palettes."""
+    return {"palettes": get_all_palettes()}
+
+
+@router.get("/palettes/{palette_name}")
+async def get_color_palette(palette_name: str):
+    """Get a specific color palette by name."""
+    palette = get_palette(palette_name)
+    if not palette:
+        raise HTTPException(status_code=404, detail=f"Palette '{palette_name}' not found")
+    return {"palette": palette.to_dict()}
+
+
+@router.get("/presets")
+async def get_canvas_presets():
+    """Get all available canvas size presets."""
+    return {"presets": get_all_canvas_presets()}
+
+
+@router.get("/presets/{preset_name}")
+async def get_canvas_preset_detail(preset_name: str):
+    """Get a specific canvas preset by name."""
+    preset = get_canvas_preset(preset_name)
+    if not preset:
+        raise HTTPException(status_code=404, detail=f"Preset '{preset_name}' not found")
+    return {"preset": {"id": preset_name, **preset}}
 
 
 @router.post("/template/apply")
 async def apply_template(
     request: Request,
     session_id: str = Body(...),
-    template_id: str = Body(...)
+    template_id: str = Body(...),
+    palette_name: Optional[str] = Body(None)
 ):
-    """Apply a template to initialize the canvas."""
-    templates = {
-        "blank": {"width": 1200, "height": 800, "background": "#FFFFFF"},
-        "presentation_16_9": {"width": 1920, "height": 1080, "background": "#FFFFFF"},
-        "social_square": {"width": 1080, "height": 1080, "background": "#FFFFFF"},
-        "social_story": {"width": 1080, "height": 1920, "background": "#FFFFFF"},
-        "banner_web": {"width": 1200, "height": 628, "background": "#FFFFFF"},
-        "poster_a4": {"width": 2480, "height": 3508, "background": "#FFFFFF"},
-        "business_card": {"width": 1050, "height": 600, "background": "#FFFFFF"},
-        "youtube_thumbnail": {"width": 1280, "height": 720, "background": "#FF0000"}
-    }
+    """
+    Apply a template to initialize the canvas.
+    Optionally apply a different color palette.
+    """
+    design_service = request.app.state.design_service
 
-    template = templates.get(template_id, templates["blank"])
+    # Check for full template with elements
+    full_template = get_template(template_id)
+    if full_template:
+        # Optionally apply different palette
+        if palette_name:
+            palette = get_palette(palette_name)
+            if palette:
+                full_template = apply_palette_to_template(full_template, palette)
+
+        # Build canvas state from template
+        state = {
+            "width": full_template.width,
+            "height": full_template.height,
+            "background": full_template.background,
+            "objects": []
+        }
+
+        # Convert template elements to canvas objects
+        for element in full_template.elements:
+            obj = _convert_template_element_to_canvas_object(element.to_dict())
+            if obj:
+                state["objects"].append(obj)
+
+        design_service.set_canvas_state(session_id, state)
+
+        return {
+            "message": f"Applied template: {full_template.name}",
+            "canvas_state": design_service.get_canvas_state(session_id)
+        }
+
+    # Check for canvas preset
+    preset = get_canvas_preset(template_id)
+    if preset:
+        state = {
+            "width": preset["width"],
+            "height": preset["height"],
+            "background": "#FFFFFF",
+            "objects": []
+        }
+        design_service.set_canvas_state(session_id, state)
+        return {
+            "message": f"Applied preset: {preset['name']}",
+            "canvas_state": design_service.get_canvas_state(session_id)
+        }
+
+    # Fallback to blank canvas
     state = {
-        "width": template["width"],
-        "height": template["height"],
-        "background": template["background"],
+        "width": 1200,
+        "height": 800,
+        "background": "#FFFFFF",
         "objects": []
     }
-
-    design_service = request.app.state.design_service
-    result = design_service.set_canvas_state(session_id, state)
+    design_service.set_canvas_state(session_id, state)
 
     return {
-        "message": f"Applied template: {template_id}",
+        "message": "Applied blank canvas",
         "canvas_state": design_service.get_canvas_state(session_id)
     }
+
+
+def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Convert a template element definition to a Fabric.js canvas object."""
+    element_type = element.get("type", "")
+
+    if element_type == "rectangle":
+        return {
+            "type": "rect",
+            "left": element.get("x", 0),
+            "top": element.get("y", 0),
+            "width": element.get("width", 100),
+            "height": element.get("height", 50),
+            "fill": element.get("fill", "#000000"),
+            "stroke": element.get("stroke", "transparent"),
+            "strokeWidth": element.get("strokeWidth", 0),
+            "opacity": element.get("opacity", 1),
+            "rx": element.get("rx", 0),
+            "ry": element.get("ry", 0),
+            "angle": element.get("angle", 0),
+        }
+
+    elif element_type == "circle":
+        radius = element.get("radius", element.get("width", 50) / 2)
+        return {
+            "type": "circle",
+            "left": element.get("x", 0),
+            "top": element.get("y", 0),
+            "radius": radius,
+            "fill": element.get("fill", "#000000"),
+            "stroke": element.get("stroke", "transparent"),
+            "strokeWidth": element.get("strokeWidth", 0),
+            "opacity": element.get("opacity", 1),
+        }
+
+    elif element_type == "text":
+        return {
+            "type": "i-text",
+            "left": element.get("x", 0),
+            "top": element.get("y", 0),
+            "text": element.get("text", "Text"),
+            "fontSize": element.get("fontSize", 24),
+            "fontFamily": element.get("fontFamily", "Inter"),
+            "fontWeight": element.get("fontWeight", "normal"),
+            "fill": element.get("fill", "#000000"),
+            "textAlign": element.get("textAlign", "left"),
+            "angle": element.get("angle", 0),
+        }
+
+    elif element_type == "line":
+        return {
+            "type": "line",
+            "x1": element.get("x1", 0),
+            "y1": element.get("y1", 0),
+            "x2": element.get("x2", 100),
+            "y2": element.get("y2", 0),
+            "stroke": element.get("stroke", "#000000"),
+            "strokeWidth": element.get("strokeWidth", 2),
+        }
+
+    elif element_type == "image":
+        return {
+            "type": "image",
+            "left": element.get("x", 0),
+            "top": element.get("y", 0),
+            "width": element.get("width", 200),
+            "height": element.get("height", 200),
+            "src": element.get("src", ""),
+            "opacity": element.get("opacity", 1),
+        }
+
+    return None

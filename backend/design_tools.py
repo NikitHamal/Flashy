@@ -4,14 +4,24 @@ Design Tools Module
 This module provides the tool definitions and execution logic for the
 Flashy Design Agent. It handles canvas manipulation commands and
 translates them into canvas state updates.
+
+Enhanced with advanced effects: gradients, shadows, filters, and blend modes.
 """
 
 import uuid
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 import json
 import copy
+
+from .design_effects import (
+    GradientType, BlendMode, FilterType,
+    GradientStop, LinearGradient, RadialGradient, ConicGradient,
+    Shadow, Filter, FilterStack, TextEffects, ObjectEffects,
+    EffectPresets, hex_to_rgba, lighten_color, darken_color,
+    create_linear_gradient, create_radial_gradient, create_shadow
+)
 
 
 class ObjectType(Enum):
@@ -30,7 +40,7 @@ class ObjectType(Enum):
 
 @dataclass
 class CanvasObject:
-    """Represents a single object on the canvas."""
+    """Represents a single object on the canvas with full effect support."""
     id: str
     type: ObjectType
     x: float = 0
@@ -46,6 +56,14 @@ class CanvasObject:
     scaleY: float = 1.0
     visible: bool = True
     locked: bool = False
+
+    # Advanced effects
+    shadow: Optional[Dict[str, Any]] = None
+    gradient: Optional[Dict[str, Any]] = None
+    filters: Optional[List[Dict[str, Any]]] = None
+    blendMode: str = "normal"
+    backdropBlur: float = 0
+    borderRadius: float = 0  # For rounded corners on rectangles
 
     # Type-specific properties stored here
     properties: Dict[str, Any] = field(default_factory=dict)
@@ -68,8 +86,20 @@ class CanvasObject:
             "scaleY": self.scaleY,
             "visible": self.visible,
             "locked": self.locked,
+            "blendMode": self.blendMode,
+            "backdropBlur": self.backdropBlur,
+            "borderRadius": self.borderRadius,
             **self.properties
         }
+
+        # Include effects only if set
+        if self.shadow:
+            data["shadow"] = self.shadow
+        if self.gradient:
+            data["gradient"] = self.gradient
+        if self.filters:
+            data["filters"] = self.filters
+
         return data
 
 
@@ -153,6 +183,7 @@ class DesignTools:
     def get_available_tools(self) -> List[Dict[str, str]]:
         """Get list of available design tools with descriptions."""
         return [
+            # Shape tools
             {"name": "add_rectangle", "description": "Add a rectangle shape"},
             {"name": "add_circle", "description": "Add a circle shape"},
             {"name": "add_ellipse", "description": "Add an ellipse shape"},
@@ -161,9 +192,16 @@ class DesignTools:
             {"name": "add_polygon", "description": "Add a polygon (points or center/radius/sides)"},
             {"name": "add_star", "description": "Add a star shape"},
             {"name": "add_path", "description": "Add an SVG path"},
+
+            # Text tools
             {"name": "add_text", "description": "Add text to the canvas"},
             {"name": "update_text", "description": "Update text content"},
+            {"name": "style_text", "description": "Apply advanced text styling (shadow, spacing, decoration)"},
+
+            # Image tools
             {"name": "add_image", "description": "Add an image from URL"},
+
+            # Object manipulation
             {"name": "select_object", "description": "Select an object by ID"},
             {"name": "delete_object", "description": "Delete an object"},
             {"name": "modify_object", "description": "Modify object properties"},
@@ -171,27 +209,56 @@ class DesignTools:
             {"name": "resize_object", "description": "Resize an object"},
             {"name": "rotate_object", "description": "Rotate an object"},
             {"name": "scale_object", "description": "Scale an object"},
+
+            # Style tools
             {"name": "set_fill", "description": "Change fill color"},
             {"name": "set_stroke", "description": "Change stroke color and width"},
             {"name": "set_opacity", "description": "Change opacity"},
+            {"name": "set_border_radius", "description": "Set rounded corners"},
+
+            # Advanced effects
+            {"name": "add_shadow", "description": "Add drop shadow to an object"},
+            {"name": "remove_shadow", "description": "Remove shadow from an object"},
+            {"name": "set_gradient", "description": "Apply gradient fill (linear or radial)"},
+            {"name": "remove_gradient", "description": "Remove gradient, restore solid fill"},
+            {"name": "add_filter", "description": "Add filter effect (blur, brightness, contrast, etc.)"},
+            {"name": "remove_filters", "description": "Remove all filters from object"},
+            {"name": "set_blend_mode", "description": "Set blend/composite mode"},
+            {"name": "set_backdrop_blur", "description": "Set background blur (glassmorphism)"},
+            {"name": "apply_effect_preset", "description": "Apply a pre-defined effect preset"},
+
+            # Layer ordering
             {"name": "bring_to_front", "description": "Bring object to front"},
             {"name": "send_to_back", "description": "Send object to back"},
             {"name": "bring_forward", "description": "Bring object forward"},
             {"name": "send_backward", "description": "Send object backward"},
+
+            # Cloning
             {"name": "duplicate_object", "description": "Duplicate an object"},
-            {"name": "set_background", "description": "Set canvas background"},
+
+            # Canvas operations
+            {"name": "set_background", "description": "Set canvas background color or gradient"},
             {"name": "set_canvas_size", "description": "Set canvas dimensions"},
             {"name": "clear_canvas", "description": "Clear all objects"},
             {"name": "get_canvas_state", "description": "Get current canvas state"},
+
+            # History
             {"name": "undo", "description": "Undo last action"},
             {"name": "redo", "description": "Redo last undone action"},
+
+            # Grouping
             {"name": "group_objects", "description": "Group multiple objects"},
             {"name": "ungroup_object", "description": "Ungroup a group"},
             {"name": "ungroup_objects", "description": "Ungroup a group (alias)"},
+
+            # Alignment & Distribution
             {"name": "align_objects", "description": "Align multiple objects"},
             {"name": "distribute_objects", "description": "Distribute objects evenly"},
+
+            # Information
             {"name": "list_objects", "description": "List all objects"},
             {"name": "get_object_properties", "description": "Get object properties"},
+            {"name": "get_effect_presets", "description": "Get available effect presets"},
         ]
 
     async def execute(self, tool_name: str, **kwargs) -> str:
@@ -1008,3 +1075,465 @@ class DesignTools:
             py = y + radius * math.sin(angle)
             coords.append([px, py])
         return coords
+
+    # =========================================================================
+    # ADVANCED EFFECT TOOLS
+    # =========================================================================
+
+    def add_shadow(
+        self, id: str,
+        offset_x: float = 4, offset_y: float = 4,
+        blur: float = 8, color: str = "rgba(0, 0, 0, 0.3)",
+        spread: float = 0, inset: bool = False
+    ) -> str:
+        """Add a drop shadow to an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        shadow = Shadow(
+            offset_x=offset_x,
+            offset_y=offset_y,
+            blur=blur,
+            spread=spread,
+            color=color,
+            inset=inset
+        )
+        obj.shadow = shadow.to_dict()
+        self._save_state()
+
+        shadow_type = "inner shadow" if inset else "drop shadow"
+        return f"Added {shadow_type} to '{id}'"
+
+    def remove_shadow(self, id: str) -> str:
+        """Remove shadow from an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.shadow = None
+        self._save_state()
+        return f"Removed shadow from '{id}'"
+
+    def set_gradient(
+        self, id: str,
+        gradient_type: str = "linear",  # linear, radial, conic
+        colors: List[str] = None,
+        angle: float = 0,  # for linear
+        stops: List[float] = None,  # custom stop positions (0-1)
+        cx: float = 0.5, cy: float = 0.5,  # for radial/conic
+        preset: str = None  # Use a preset gradient name
+    ) -> str:
+        """Apply a gradient fill to an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        # Handle preset gradients
+        if preset:
+            preset_map = {
+                "blue_purple": EffectPresets.gradient_blue_purple,
+                "sunset": EffectPresets.gradient_sunset,
+                "ocean": EffectPresets.gradient_ocean,
+                "midnight": EffectPresets.gradient_midnight,
+                "emerald": EffectPresets.gradient_emerald,
+                "fire": EffectPresets.gradient_fire,
+                "rainbow": EffectPresets.gradient_rainbow,
+            }
+            if preset.lower() in preset_map:
+                gradient = preset_map[preset.lower()]()
+                obj.gradient = gradient.to_dict()
+                self._save_state()
+                return f"Applied '{preset}' gradient preset to '{id}'"
+            else:
+                return f"Error: Unknown preset '{preset}'. Available: {', '.join(preset_map.keys())}"
+
+        # Build custom gradient
+        if not colors or len(colors) < 2:
+            colors = ["#667eea", "#764ba2"]  # Default blue-purple
+
+        # Build gradient stops
+        gradient_stops = []
+        if stops and len(stops) == len(colors):
+            for i, color in enumerate(colors):
+                gradient_stops.append(GradientStop(stops[i], color))
+        else:
+            # Evenly distribute colors
+            for i, color in enumerate(colors):
+                offset = i / (len(colors) - 1) if len(colors) > 1 else 0
+                gradient_stops.append(GradientStop(offset, color))
+
+        if gradient_type == "linear":
+            gradient = LinearGradient(angle=angle, stops=gradient_stops)
+        elif gradient_type == "radial":
+            gradient = RadialGradient(
+                cx=cx, cy=cy, r1=0, r2=0.5, fx=cx, fy=cy,
+                stops=gradient_stops
+            )
+        elif gradient_type == "conic":
+            gradient = ConicGradient(
+                cx=cx, cy=cy, start_angle=angle,
+                stops=gradient_stops
+            )
+        else:
+            return f"Error: Unknown gradient type '{gradient_type}'"
+
+        obj.gradient = gradient.to_dict()
+        self._save_state()
+        return f"Applied {gradient_type} gradient to '{id}'"
+
+    def remove_gradient(self, id: str, restore_color: str = None) -> str:
+        """Remove gradient from an object, optionally restore a solid color."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.gradient = None
+        if restore_color:
+            obj.fill = restore_color
+        self._save_state()
+        return f"Removed gradient from '{id}'"
+
+    def add_filter(
+        self, id: str,
+        filter_type: str,  # blur, brightness, contrast, saturation, grayscale, sepia, invert, hue-rotate
+        value: float
+    ) -> str:
+        """Add a filter effect to an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        # Map string to FilterType
+        filter_map = {
+            "blur": FilterType.BLUR,
+            "brightness": FilterType.BRIGHTNESS,
+            "contrast": FilterType.CONTRAST,
+            "saturation": FilterType.SATURATION,
+            "saturate": FilterType.SATURATION,
+            "grayscale": FilterType.GRAYSCALE,
+            "sepia": FilterType.SEPIA,
+            "invert": FilterType.INVERT,
+            "hue-rotate": FilterType.HUE_ROTATE,
+            "hue_rotate": FilterType.HUE_ROTATE,
+        }
+
+        ft = filter_map.get(filter_type.lower())
+        if not ft:
+            return f"Error: Unknown filter '{filter_type}'. Available: {', '.join(filter_map.keys())}"
+
+        new_filter = Filter(ft, value).to_dict()
+
+        if obj.filters is None:
+            obj.filters = []
+
+        # Replace existing filter of same type or add new
+        existing_idx = None
+        for i, f in enumerate(obj.filters):
+            if f.get("type") == ft.value:
+                existing_idx = i
+                break
+
+        if existing_idx is not None:
+            obj.filters[existing_idx] = new_filter
+        else:
+            obj.filters.append(new_filter)
+
+        self._save_state()
+        return f"Applied {filter_type}({value}) filter to '{id}'"
+
+    def remove_filters(self, id: str, filter_type: str = None) -> str:
+        """Remove all filters or a specific filter type from an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        if filter_type:
+            if obj.filters:
+                obj.filters = [f for f in obj.filters if f.get("type") != filter_type.lower()]
+                if not obj.filters:
+                    obj.filters = None
+            self._save_state()
+            return f"Removed '{filter_type}' filter from '{id}'"
+        else:
+            obj.filters = None
+            self._save_state()
+            return f"Removed all filters from '{id}'"
+
+    def set_blend_mode(self, id: str, mode: str) -> str:
+        """Set the blend/composite mode for an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        # Validate blend mode
+        valid_modes = {m.value for m in BlendMode}
+        if mode.lower() not in valid_modes:
+            return f"Error: Unknown blend mode '{mode}'. Available: {', '.join(sorted(valid_modes))}"
+
+        obj.blendMode = mode.lower()
+        self._save_state()
+        return f"Set blend mode of '{id}' to '{mode}'"
+
+    def set_backdrop_blur(self, id: str, blur: float) -> str:
+        """Set backdrop blur for glassmorphism effect."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.backdropBlur = max(0, blur)
+        self._save_state()
+        return f"Set backdrop blur of '{id}' to {blur}px"
+
+    def set_border_radius(self, id: str, radius: float) -> str:
+        """Set border radius for rounded corners."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.borderRadius = max(0, radius)
+
+        # Also update rx/ry for rectangles (Fabric.js compatibility)
+        if obj.type == ObjectType.RECTANGLE:
+            obj.properties["rx"] = radius
+            obj.properties["ry"] = radius
+
+        self._save_state()
+        return f"Set border radius of '{id}' to {radius}px"
+
+    def style_text(
+        self, id: str,
+        letter_spacing: float = None,
+        line_height: float = None,
+        text_shadow_x: float = None,
+        text_shadow_y: float = None,
+        text_shadow_blur: float = None,
+        text_shadow_color: str = None,
+        text_decoration: str = None,  # none, underline, line-through
+        text_transform: str = None  # none, uppercase, lowercase, capitalize
+    ) -> str:
+        """Apply advanced text styling."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+        if obj.type != ObjectType.TEXT:
+            return f"Error: Object '{id}' is not a text object"
+
+        changes = []
+
+        if letter_spacing is not None:
+            obj.properties["letterSpacing"] = letter_spacing
+            changes.append(f"letter-spacing={letter_spacing}")
+
+        if line_height is not None:
+            obj.properties["lineHeight"] = line_height
+            changes.append(f"line-height={line_height}")
+
+        if text_decoration is not None:
+            obj.properties["textDecoration"] = text_decoration
+            changes.append(f"text-decoration={text_decoration}")
+
+        if text_transform is not None:
+            obj.properties["textTransform"] = text_transform
+            changes.append(f"text-transform={text_transform}")
+
+        # Handle text shadow
+        if any([text_shadow_x, text_shadow_y, text_shadow_blur, text_shadow_color]):
+            shadow = Shadow(
+                offset_x=text_shadow_x or 1,
+                offset_y=text_shadow_y or 1,
+                blur=text_shadow_blur or 2,
+                color=text_shadow_color or "rgba(0, 0, 0, 0.3)"
+            )
+            obj.properties["textShadow"] = shadow.to_dict()
+            changes.append("text-shadow")
+
+        self._save_state()
+
+        if changes:
+            return f"Styled text '{id}': {', '.join(changes)}"
+        return f"No changes made to text '{id}'"
+
+    def apply_effect_preset(self, id: str, preset: str) -> str:
+        """Apply a pre-defined effect preset to an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        preset_lower = preset.lower().replace(" ", "_").replace("-", "_")
+
+        # Shadow presets
+        if preset_lower == "soft_shadow":
+            shadow = EffectPresets.soft_shadow()
+            obj.shadow = shadow.to_dict()
+            self._save_state()
+            return f"Applied soft shadow preset to '{id}'"
+
+        elif preset_lower == "hard_shadow":
+            shadow = EffectPresets.hard_shadow()
+            obj.shadow = shadow.to_dict()
+            self._save_state()
+            return f"Applied hard shadow preset to '{id}'"
+
+        elif preset_lower.startswith("glow"):
+            # Extract color if specified: glow_blue, glow_#ff0000
+            parts = preset_lower.split("_")
+            color = "#ffffff"
+            if len(parts) > 1:
+                color_name = parts[1]
+                color_map = {
+                    "blue": "#3B82F6",
+                    "purple": "#8B5CF6",
+                    "pink": "#EC4899",
+                    "green": "#10B981",
+                    "yellow": "#F59E0B",
+                    "red": "#EF4444",
+                    "white": "#FFFFFF",
+                    "cyan": "#06B6D4",
+                }
+                color = color_map.get(color_name, color_name if color_name.startswith("#") else "#ffffff")
+            shadow = EffectPresets.glow(color)
+            obj.shadow = shadow.to_dict()
+            self._save_state()
+            return f"Applied glow preset ({color}) to '{id}'"
+
+        elif preset_lower == "inner_shadow":
+            shadow = EffectPresets.inner_shadow()
+            obj.shadow = shadow.to_dict()
+            self._save_state()
+            return f"Applied inner shadow preset to '{id}'"
+
+        elif preset_lower == "long_shadow":
+            shadow = EffectPresets.long_shadow()
+            obj.shadow = shadow.to_dict()
+            self._save_state()
+            return f"Applied long shadow preset to '{id}'"
+
+        # Glassmorphism
+        elif preset_lower == "glassmorphism" or preset_lower == "glass":
+            effects = EffectPresets.glassmorphism()
+            obj.backdropBlur = effects.backdrop_blur
+            obj.borderRadius = effects.border_radius
+            if effects.shadow:
+                obj.shadow = effects.shadow.to_dict()
+            # Make semi-transparent for glass effect
+            if obj.fill.startswith("#"):
+                obj.fill = hex_to_rgba(obj.fill, 0.7)
+            self._save_state()
+            return f"Applied glassmorphism preset to '{id}'"
+
+        # Gradient presets
+        elif preset_lower in ["blue_purple", "sunset", "ocean", "midnight", "emerald", "fire", "rainbow"]:
+            return self.set_gradient(id, preset=preset_lower)
+
+        # Filter presets
+        elif preset_lower == "grayscale":
+            return self.add_filter(id, "grayscale", 1.0)
+
+        elif preset_lower == "sepia":
+            return self.add_filter(id, "sepia", 1.0)
+
+        elif preset_lower == "blur_light":
+            return self.add_filter(id, "blur", 2)
+
+        elif preset_lower == "blur_medium":
+            return self.add_filter(id, "blur", 5)
+
+        elif preset_lower == "blur_heavy":
+            return self.add_filter(id, "blur", 10)
+
+        elif preset_lower == "brighten":
+            return self.add_filter(id, "brightness", 1.3)
+
+        elif preset_lower == "darken":
+            return self.add_filter(id, "brightness", 0.7)
+
+        elif preset_lower == "high_contrast":
+            return self.add_filter(id, "contrast", 1.5)
+
+        elif preset_lower == "desaturate":
+            return self.add_filter(id, "saturation", 0.5)
+
+        elif preset_lower == "vivid":
+            return self.add_filter(id, "saturation", 1.5)
+
+        else:
+            available = [
+                "soft_shadow", "hard_shadow", "glow", "glow_blue", "glow_purple",
+                "inner_shadow", "long_shadow", "glassmorphism",
+                "blue_purple", "sunset", "ocean", "midnight", "emerald", "fire", "rainbow",
+                "grayscale", "sepia", "blur_light", "blur_medium", "blur_heavy",
+                "brighten", "darken", "high_contrast", "desaturate", "vivid"
+            ]
+            return f"Error: Unknown preset '{preset}'. Available: {', '.join(available)}"
+
+    def get_effect_presets(self) -> str:
+        """Get list of available effect presets."""
+        presets = {
+            "shadows": [
+                "soft_shadow - Subtle, soft drop shadow",
+                "hard_shadow - Sharp, defined drop shadow",
+                "glow - Glowing effect (glow, glow_blue, glow_purple, etc.)",
+                "inner_shadow - Inner shadow for depth",
+                "long_shadow - Flat design long shadow"
+            ],
+            "gradients": [
+                "blue_purple - Popular blue to purple gradient",
+                "sunset - Warm sunset gradient",
+                "ocean - Ocean blue gradient",
+                "midnight - Dark midnight gradient",
+                "emerald - Fresh emerald green gradient",
+                "fire - Hot fire gradient",
+                "rainbow - Full rainbow spectrum"
+            ],
+            "effects": [
+                "glassmorphism - Modern glass effect with blur",
+                "grayscale - Convert to grayscale",
+                "sepia - Sepia tone filter",
+                "blur_light - Light blur (2px)",
+                "blur_medium - Medium blur (5px)",
+                "blur_heavy - Heavy blur (10px)",
+                "brighten - Increase brightness",
+                "darken - Decrease brightness",
+                "high_contrast - High contrast",
+                "desaturate - Reduce saturation",
+                "vivid - Increase saturation"
+            ]
+        }
+        return json.dumps(presets, indent=2)
+
+    def set_background(
+        self, color: str = None,
+        gradient_type: str = None,
+        colors: List[str] = None,
+        angle: float = 0
+    ) -> str:
+        """Set canvas background color or gradient."""
+        if gradient_type and colors and len(colors) >= 2:
+            # Build gradient for background
+            gradient_stops = []
+            for i, c in enumerate(colors):
+                offset = i / (len(colors) - 1) if len(colors) > 1 else 0
+                gradient_stops.append(GradientStop(offset, c))
+
+            if gradient_type == "linear":
+                gradient = LinearGradient(angle=angle, stops=gradient_stops)
+            elif gradient_type == "radial":
+                gradient = RadialGradient(
+                    cx=0.5, cy=0.5, r1=0, r2=0.7,
+                    stops=gradient_stops
+                )
+            else:
+                gradient = LinearGradient(angle=angle, stops=gradient_stops)
+
+            # Store as CSS string for background
+            self.canvas.background = gradient.to_css()
+            self._save_state()
+            return f"Set background to {gradient_type} gradient"
+
+        elif color:
+            self.canvas.background = color
+            self._save_state()
+            return f"Set background to {color}"
+
+        return "Error: Provide either 'color' or 'gradient_type' with 'colors'"

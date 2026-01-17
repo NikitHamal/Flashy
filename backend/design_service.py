@@ -4,6 +4,12 @@ Design Service Module
 This module provides the main service for the Flashy Design Agent.
 It manages sessions, coordinates with Gemini API, and handles
 the design generation loop with screenshot feedback.
+
+Enhanced Features:
+- Precise positioning with smart layout engine
+- Response filtering for clean agentic behavior
+- Canvas state synchronization
+- Screenshot-based feedback loops
 """
 
 import asyncio
@@ -17,6 +23,8 @@ from gemini_webapi.constants import Model
 
 from .config import load_config
 from .design_agent import DesignAgent
+from .design_prompts import get_system_prompt, get_review_prompt, DESIGN_TOOL_RESULT_TEMPLATE
+from .response_filter import ResponseFilter, ThoughtFilter
 
 
 class DesignService:
@@ -33,6 +41,10 @@ class DesignService:
         self.agents: Dict[str, DesignAgent] = {}  # Design agents per session
         self.interrupted_sessions: set = set()
         self.active_tasks: Dict[str, asyncio.Task] = {}
+
+        # Initialize filters
+        self.response_filter = ResponseFilter(aggressive=False)
+        self.thought_filter = ThoughtFilter()
 
     async def get_client(self):
         """Get or initialize Gemini client."""
@@ -97,7 +109,7 @@ class DesignService:
         return session_id in self.interrupted_sessions
 
     def _clean_response_text(self, text: str, tool_call_raw: str = None) -> str:
-        """Clean response text by removing tool call JSON."""
+        """Clean response text by removing tool call JSON and unwanted content."""
         if not text:
             return ""
 
@@ -110,43 +122,17 @@ class DesignService:
         json_block_pattern = r'```json\s*\{[^`]*?"(?:action|tool|name)"\s*:[^`]*?\}\s*```'
         cleaned = re.sub(json_block_pattern, '', cleaned, flags=re.DOTALL).strip()
 
+        # Apply response filter to remove YouTube links and tutorial text
+        cleaned = self.response_filter.filter(cleaned)
+
         return cleaned
 
     def _separate_thinking(self, text: str) -> tuple:
-        """Separate thinking from response text."""
+        """Separate thinking from response text using enhanced filter."""
         if not text:
             return None, ""
 
-        thinking_content = None
-        clean_text = text
-
-        # <think>...</think>
-        think_pattern = r'<think>(.*?)</think>'
-        matches = re.findall(think_pattern, text, re.DOTALL | re.IGNORECASE)
-        if matches:
-            thinking_content = '\n'.join(matches)
-            clean_text = re.sub(
-                think_pattern, '', clean_text,
-                flags=re.DOTALL | re.IGNORECASE
-            ).strip()
-
-        # [Thinking]...[/Thinking]
-        bracket_pattern = r'\[Thinking\](.*?)\[/Thinking\]'
-        bracket_matches = re.findall(
-            bracket_pattern, clean_text,
-            re.DOTALL | re.IGNORECASE
-        )
-        if bracket_matches:
-            if thinking_content:
-                thinking_content += '\n' + '\n'.join(bracket_matches)
-            else:
-                thinking_content = '\n'.join(bracket_matches)
-            clean_text = re.sub(
-                bracket_pattern, '', clean_text,
-                flags=re.DOTALL | re.IGNORECASE
-            ).strip()
-
-        return thinking_content, clean_text
+        return self.thought_filter.extract_thoughts(text)
 
     async def _send_with_retry(
         self, chat, message, files=None,
@@ -187,6 +173,34 @@ class DesignService:
 
         raise Exception(f"Failed after {max_retries} attempts: {last_error}")
 
+    def _build_object_context(self, agent: DesignAgent) -> str:
+        """Build a context string describing current canvas objects for the AI."""
+        state = agent.get_canvas_state()
+        objects = state.get("objects", [])
+
+        if not objects:
+            return "Canvas is empty."
+
+        context_lines = [f"Canvas has {len(objects)} objects:"]
+        for obj in objects[:20]:  # Limit to prevent huge prompts
+            obj_type = obj.get("type", "unknown")
+            obj_id = obj.get("id", "?")
+            x = obj.get("left", 0)
+            y = obj.get("top", 0)
+            width = obj.get("width", 0)
+            height = obj.get("height", 0)
+
+            if obj_type in ("i-text", "text", "textbox"):
+                text_preview = (obj.get("text", "")[:30] + "...") if len(obj.get("text", "")) > 30 else obj.get("text", "")
+                context_lines.append(f"  - Text '{text_preview}' (id: {obj_id}) at ({x}, {y})")
+            elif obj_type == "circle":
+                r = obj.get("radius", 0)
+                context_lines.append(f"  - Circle (id: {obj_id}) at ({x}, {y}), radius={r}")
+            else:
+                context_lines.append(f"  - {obj_type.capitalize()} (id: {obj_id}) at ({x}, {y}), size {width}x{height}")
+
+        return "\n".join(context_lines)
+
     async def generate_design(
         self,
         prompt: str,
@@ -206,6 +220,7 @@ class DesignService:
         - tool_call: Tool being called
         - tool_result: Tool execution result
         - canvas_state: Updated canvas state
+        - canvas_action: Frontend action to execute
         - is_final: Whether this is the final response
         """
         client = await self.get_client()
@@ -225,15 +240,31 @@ class DesignService:
             if canvas_state:
                 agent.tools.load_state(canvas_state)
 
-            # Build full prompt with system context
-            system_context = agent.get_system_prompt()
-            object_summary = agent.get_object_summary()
+            # Get canvas dimensions
+            state = agent.get_canvas_state()
+            canvas_width = state.get("width", 1200)
+            canvas_height = state.get("height", 800)
+            object_count = len(state.get("objects", []))
+
+            # Build full prompt with enhanced system context
+            system_context = get_system_prompt(
+                canvas_width=canvas_width,
+                canvas_height=canvas_height,
+                object_count=object_count
+            )
+
+            # Build object context
+            object_context = self._build_object_context(agent)
 
             full_prompt = f"""{system_context}
 
-Current Canvas State: {object_summary}
+## Current Objects on Canvas
+{object_context}
 
-User Request: {prompt}"""
+## User Request
+{prompt}
+
+Execute the design now. Calculate precise positions and use tool calls."""
 
             # Handle screenshot feedback
             file_paths = files or []
@@ -246,8 +277,9 @@ User Request: {prompt}"""
                         f.write(screenshot_bytes)
                     file_paths.append(screenshot_path)
                     temp_files.append(screenshot_path)
-                    full_prompt += "\n\nI'm attaching a screenshot of the current canvas for visual reference."
+                    full_prompt += "\n\n[Screenshot of current canvas attached for visual reference]"
 
+            # Handle uploaded reference images
             if images:
                 for index, image in enumerate(images):
                     data_url = image.get("data")
@@ -265,7 +297,7 @@ User Request: {prompt}"""
                     file_paths.append(file_path)
                     temp_files.append(file_path)
                 if images:
-                    full_prompt += "\n\nUser attached reference images. Use them for layout and visual cues."
+                    full_prompt += "\n\n[Reference images attached for design inspiration]"
 
             # Send initial request
             response = await self._send_with_retry(
@@ -274,14 +306,14 @@ User Request: {prompt}"""
             )
 
             # Process agent loop
-            max_iterations = 25
+            max_iterations = 30  # Increased for complex designs
             iteration = 0
 
             while iteration < max_iterations:
                 # Check for interruption
                 if self._is_interrupted(session_id):
                     yield {
-                        "text": "\n\n*Design agent interrupted by user.*",
+                        "text": "*Design interrupted.*",
                         "is_final": True,
                         "canvas_state": agent.get_canvas_state()
                     }
@@ -289,7 +321,7 @@ User Request: {prompt}"""
 
                 response_text = response.text or ""
 
-                # Extract thoughts
+                # Extract thoughts using enhanced filter
                 api_thoughts = getattr(response, 'thoughts', None) or ""
                 embedded_thinking, clean_response = self._separate_thinking(response_text)
 
@@ -355,7 +387,7 @@ User Request: {prompt}"""
                 # Check interruption before tool execution
                 if self._is_interrupted(session_id):
                     yield {
-                        "text": "\n\n*Design agent interrupted by user.*",
+                        "text": "*Design interrupted.*",
                         "is_final": True,
                         "canvas_state": agent.get_canvas_state()
                     }
@@ -367,6 +399,8 @@ User Request: {prompt}"""
                         tool_call["name"],
                         tool_call["args"]
                     )
+
+                    # Build canvas action for frontend
                     canvas_action = None
                     if not str(tool_result).lower().startswith("error"):
                         canvas_action = self._build_canvas_action(
@@ -374,31 +408,39 @@ User Request: {prompt}"""
                             tool_call.get("args") or {},
                             tool_result
                         )
+
                     payload = {
                         "tool_result": tool_result,
                         "canvas_state": agent.get_canvas_state()
                     }
                     if canvas_action:
                         payload["canvas_action"] = canvas_action
+
                     yield payload
                     message_parts.append({"type": "tool_result", "content": tool_result})
 
                     # Check interruption before next API call
                     if self._is_interrupted(session_id):
                         yield {
-                            "text": "\n\n*Design agent interrupted by user.*",
+                            "text": "*Design interrupted.*",
                             "is_final": True,
                             "canvas_state": agent.get_canvas_state()
                         }
                         break
 
+                    # Build concise result for Gemini
+                    result_prompt = DESIGN_TOOL_RESULT_TEMPLATE.format(
+                        tool_name=tool_call["name"],
+                        output=tool_result
+                    )
+
                     # Feed result back to Gemini
-                    response = await self._send_with_retry(chat, tool_result)
+                    response = await self._send_with_retry(chat, result_prompt)
                     iteration += 1
 
                 except asyncio.CancelledError:
                     yield {
-                        "text": "\n\n*Design agent interrupted by user.*",
+                        "text": "*Design interrupted.*",
                         "is_final": True,
                         "canvas_state": agent.get_canvas_state()
                     }
@@ -410,7 +452,7 @@ User Request: {prompt}"""
 
                     if self._is_interrupted(session_id):
                         yield {
-                            "text": "\n\n*Design agent interrupted by user.*",
+                            "text": "*Design interrupted.*",
                             "is_final": True,
                             "canvas_state": agent.get_canvas_state()
                         }
@@ -423,14 +465,14 @@ User Request: {prompt}"""
             # Check iteration limit
             if iteration >= max_iterations:
                 yield {
-                    "text": "\n\n*Design agent reached maximum iterations.*",
+                    "text": "*Design agent reached maximum iterations. Design may be incomplete.*",
                     "is_final": True,
                     "canvas_state": agent.get_canvas_state()
                 }
 
         except asyncio.CancelledError:
             yield {
-                "text": "\n\n*Design agent interrupted by user.*",
+                "text": "*Design interrupted.*",
                 "is_final": True,
                 "canvas_state": agent.get_canvas_state()
             }
@@ -465,18 +507,19 @@ User Request: {prompt}"""
         Send canvas screenshot to AI for review and iteration.
         This allows the AI to see its work and make improvements.
         """
-        prompt = """Please review the current canvas design shown in the screenshot.
+        agent = self.get_agent(session_id)
+        state = agent.get_canvas_state()
+        canvas_width = state.get("width", 1200)
+        canvas_height = state.get("height", 800)
+        object_count = len(state.get("objects", []))
 
-Analyze the design and provide:
-1. What's working well
-2. Specific suggestions for improvement
-3. Any issues with alignment, spacing, or visual hierarchy
-4. Recommendations for colors, typography, or layout
-
-If there are clear improvements to make, use your tools to implement them directly."""
-
-        if additional_feedback:
-            prompt += f"\n\nAdditional user feedback: {additional_feedback}"
+        # Use the enhanced review prompt
+        prompt = get_review_prompt(
+            canvas_width=canvas_width,
+            canvas_height=canvas_height,
+            object_count=object_count,
+            feedback=additional_feedback
+        )
 
         async for chunk in self.generate_design(
             prompt=prompt,
@@ -526,6 +569,7 @@ If there are clear improvements to make, use your tools to implement them direct
 
         action_args = dict(args or {})
         new_id = self._extract_id_from_result(tool_result)
+
         if new_id and tool_name.startswith("add_") and "id" not in action_args:
             action_args["id"] = new_id
         if tool_name == "group_objects" and new_id:

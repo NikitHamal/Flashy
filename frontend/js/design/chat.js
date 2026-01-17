@@ -100,6 +100,11 @@ const DesignChat = {
         if (reviewBtn) {
             reviewBtn.disabled = isGenerating;
         }
+
+        // Add sending state to send button for animation
+        if (this.sendButton) {
+            this.sendButton.classList.toggle('sending', isGenerating);
+        }
     },
 
     handleFileUpload(files) {
@@ -448,6 +453,74 @@ const DesignChat = {
                 case 'redo':
                     DesignCanvas.redo();
                     break;
+
+                // Advanced effect tools
+                case 'add_shadow':
+                    DesignTools.addShadow(
+                        args.id,
+                        args.offset_x ?? args.offsetX,
+                        args.offset_y ?? args.offsetY,
+                        args.blur,
+                        args.color,
+                        args.spread,
+                        args.inset
+                    );
+                    break;
+                case 'remove_shadow':
+                    DesignTools.removeShadow(args.id);
+                    break;
+                case 'set_gradient':
+                    DesignTools.setGradient(
+                        args.id,
+                        args.gradient_type ?? args.gradientType ?? 'linear',
+                        args.colors,
+                        args.angle,
+                        args.stops,
+                        args.cx,
+                        args.cy,
+                        args.preset
+                    );
+                    break;
+                case 'remove_gradient':
+                    DesignTools.removeGradient(args.id, args.restore_color ?? args.restoreColor);
+                    break;
+                case 'set_border_radius':
+                    DesignTools.setBorderRadius(args.id, args.radius);
+                    break;
+                case 'style_text':
+                    DesignTools.styleText(args.id, {
+                        letterSpacing: args.letter_spacing ?? args.letterSpacing,
+                        lineHeight: args.line_height ?? args.lineHeight,
+                        textDecoration: args.text_decoration ?? args.textDecoration,
+                        textTransform: args.text_transform ?? args.textTransform,
+                        textShadowX: args.text_shadow_x ?? args.textShadowX,
+                        textShadowY: args.text_shadow_y ?? args.textShadowY,
+                        textShadowBlur: args.text_shadow_blur ?? args.textShadowBlur,
+                        textShadowColor: args.text_shadow_color ?? args.textShadowColor
+                    });
+                    break;
+                case 'set_blend_mode':
+                    DesignTools.setBlendMode(args.id, args.mode);
+                    break;
+                case 'set_backdrop_blur':
+                    DesignTools.setBackdropBlur(args.id, args.blur);
+                    break;
+                case 'apply_effect_preset':
+                    DesignTools.applyEffectPreset(args.id, args.preset);
+                    break;
+                case 'add_filter':
+                    DesignTools.addFilter(args.id, args.filter_type ?? args.filterType, args.value);
+                    break;
+                case 'remove_filters':
+                    DesignTools.removeFilters(args.id, args.filter_type ?? args.filterType);
+                    break;
+                case 'set_gradient_background':
+                    DesignTools.setGradientBackground(
+                        args.gradient_type ?? args.gradientType ?? 'linear',
+                        args.colors,
+                        args.angle
+                    );
+                    break;
             }
         } catch (error) {
             console.error('Error executing canvas action:', error);
@@ -491,7 +564,20 @@ const DesignChat = {
             'send_backward': 'move_down',
             'duplicate_object': 'content_copy',
             'align_objects': 'align_horizontal_center',
-            'distribute_objects': 'view_week'
+            'distribute_objects': 'view_week',
+            // Advanced effect tools
+            'add_shadow': 'blur_on',
+            'remove_shadow': 'blur_off',
+            'set_gradient': 'gradient',
+            'remove_gradient': 'format_color_reset',
+            'set_border_radius': 'rounded_corner',
+            'style_text': 'text_format',
+            'set_blend_mode': 'blend_on',
+            'set_backdrop_blur': 'blur_linear',
+            'apply_effect_preset': 'auto_awesome',
+            'add_filter': 'filter',
+            'remove_filters': 'filter_alt_off',
+            'set_gradient_background': 'wallpaper'
         };
 
         const icon = toolIcons[toolCall.name] || 'build';
@@ -616,6 +702,17 @@ const DesignChat = {
         const messageDiv = document.createElement('div');
         messageDiv.className = `design-message ${role}`;
 
+        // Add avatar for AI messages
+        if (role === 'ai') {
+            const avatarDiv = document.createElement('div');
+            avatarDiv.className = 'message-avatar';
+            avatarDiv.innerHTML = '<span class="material-symbols-outlined">auto_awesome</span>';
+            messageDiv.appendChild(avatarDiv);
+        }
+
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'message-wrapper';
+
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
 
@@ -627,11 +724,23 @@ const DesignChat = {
             }
         }
 
-        messageDiv.appendChild(contentDiv);
+        contentWrapper.appendChild(contentDiv);
+
+        // Add timestamp
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = this.formatTime(new Date());
+        contentWrapper.appendChild(timeDiv);
+
+        messageDiv.appendChild(contentWrapper);
         this.chatHistory?.appendChild(messageDiv);
         this.scrollToBottom();
 
         return messageDiv;
+    },
+
+    formatTime(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     },
 
     addLoadingDots(container) {
