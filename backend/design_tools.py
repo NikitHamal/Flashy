@@ -1,0 +1,803 @@
+"""
+Design Tools Module
+
+This module provides the tool definitions and execution logic for the
+Flashy Design Agent. It handles canvas manipulation commands and
+translates them into canvas state updates.
+"""
+
+import uuid
+from typing import Dict, Any, List, Optional, Tuple
+from dataclasses import dataclass, field, asdict
+from enum import Enum
+import json
+import copy
+
+
+class ObjectType(Enum):
+    RECTANGLE = "rectangle"
+    CIRCLE = "circle"
+    ELLIPSE = "ellipse"
+    TRIANGLE = "triangle"
+    LINE = "line"
+    POLYGON = "polygon"
+    PATH = "path"
+    TEXT = "text"
+    IMAGE = "image"
+    GROUP = "group"
+
+
+@dataclass
+class CanvasObject:
+    """Represents a single object on the canvas."""
+    id: str
+    type: ObjectType
+    x: float = 0
+    y: float = 0
+    width: float = 100
+    height: float = 100
+    fill: str = "#000000"
+    stroke: str = "transparent"
+    strokeWidth: float = 0
+    opacity: float = 1.0
+    angle: float = 0
+    scaleX: float = 1.0
+    scaleY: float = 1.0
+    visible: bool = True
+    locked: bool = False
+
+    # Type-specific properties stored here
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        data = {
+            "id": self.id,
+            "type": self.type.value,
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+            "fill": self.fill,
+            "stroke": self.stroke,
+            "strokeWidth": self.strokeWidth,
+            "opacity": self.opacity,
+            "angle": self.angle,
+            "scaleX": self.scaleX,
+            "scaleY": self.scaleY,
+            "visible": self.visible,
+            "locked": self.locked,
+            **self.properties
+        }
+        return data
+
+
+@dataclass
+class CanvasState:
+    """Represents the complete state of the canvas."""
+    width: int = 1200
+    height: int = 800
+    background: str = "#FFFFFF"
+    objects: List[CanvasObject] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "width": self.width,
+            "height": self.height,
+            "background": self.background,
+            "objects": [obj.to_dict() for obj in self.objects]
+        }
+
+    def find_object(self, obj_id: str) -> Optional[CanvasObject]:
+        """Find an object by ID."""
+        for obj in self.objects:
+            if obj.id == obj_id:
+                return obj
+            # Check inside groups
+            if obj.type == ObjectType.GROUP:
+                for child in obj.properties.get("objects", []):
+                    if child.id == obj_id:
+                        return child
+        return None
+
+    def remove_object(self, obj_id: str) -> bool:
+        """Remove an object by ID."""
+        for i, obj in enumerate(self.objects):
+            if obj.id == obj_id:
+                self.objects.pop(i)
+                return True
+        return False
+
+
+class DesignTools:
+    """
+    Manages design tools and canvas state.
+    Provides methods for all design operations.
+    """
+
+    def __init__(self, canvas_width: int = 1200, canvas_height: int = 800):
+        self.canvas = CanvasState(width=canvas_width, height=canvas_height)
+        self.history: List[CanvasState] = []
+        self.history_index: int = -1
+        self.max_history: int = 50
+        self._save_state()
+
+    def _generate_id(self) -> str:
+        """Generate unique object ID."""
+        return f"obj_{uuid.uuid4().hex[:8]}"
+
+    def _save_state(self):
+        """Save current state to history for undo/redo."""
+        # Remove any redo states
+        if self.history_index < len(self.history) - 1:
+            self.history = self.history[:self.history_index + 1]
+
+        # Deep copy current state
+        state_copy = CanvasState(
+            width=self.canvas.width,
+            height=self.canvas.height,
+            background=self.canvas.background,
+            objects=[copy.deepcopy(obj) for obj in self.canvas.objects]
+        )
+
+        self.history.append(state_copy)
+
+        # Limit history size
+        if len(self.history) > self.max_history:
+            self.history.pop(0)
+        else:
+            self.history_index += 1
+
+    def get_available_tools(self) -> List[Dict[str, str]]:
+        """Get list of available design tools with descriptions."""
+        return [
+            {"name": "add_rectangle", "description": "Add a rectangle shape"},
+            {"name": "add_circle", "description": "Add a circle shape"},
+            {"name": "add_ellipse", "description": "Add an ellipse shape"},
+            {"name": "add_triangle", "description": "Add a triangle shape"},
+            {"name": "add_line", "description": "Add a line"},
+            {"name": "add_polygon", "description": "Add a polygon with custom points"},
+            {"name": "add_path", "description": "Add an SVG path"},
+            {"name": "add_text", "description": "Add text to the canvas"},
+            {"name": "update_text", "description": "Update text content"},
+            {"name": "add_image", "description": "Add an image from URL"},
+            {"name": "select_object", "description": "Select an object by ID"},
+            {"name": "delete_object", "description": "Delete an object"},
+            {"name": "move_object", "description": "Move an object"},
+            {"name": "resize_object", "description": "Resize an object"},
+            {"name": "rotate_object", "description": "Rotate an object"},
+            {"name": "scale_object", "description": "Scale an object"},
+            {"name": "set_fill", "description": "Change fill color"},
+            {"name": "set_stroke", "description": "Change stroke color and width"},
+            {"name": "set_opacity", "description": "Change opacity"},
+            {"name": "bring_to_front", "description": "Bring object to front"},
+            {"name": "send_to_back", "description": "Send object to back"},
+            {"name": "duplicate_object", "description": "Duplicate an object"},
+            {"name": "set_background", "description": "Set canvas background"},
+            {"name": "set_canvas_size", "description": "Set canvas dimensions"},
+            {"name": "clear_canvas", "description": "Clear all objects"},
+            {"name": "get_canvas_state", "description": "Get current canvas state"},
+            {"name": "undo", "description": "Undo last action"},
+            {"name": "redo", "description": "Redo last undone action"},
+            {"name": "group_objects", "description": "Group multiple objects"},
+            {"name": "ungroup_object", "description": "Ungroup a group"},
+            {"name": "align_objects", "description": "Align multiple objects"},
+            {"name": "distribute_objects", "description": "Distribute objects evenly"},
+            {"name": "list_objects", "description": "List all objects"},
+            {"name": "get_object_properties", "description": "Get object properties"},
+        ]
+
+    async def execute(self, tool_name: str, **kwargs) -> str:
+        """Execute a design tool and return result."""
+        method = getattr(self, tool_name, None)
+        if method is None:
+            return f"Error: Unknown tool '{tool_name}'"
+
+        try:
+            result = method(**kwargs)
+            return result
+        except Exception as e:
+            return f"Error executing {tool_name}: {str(e)}"
+
+    # === Shape Tools ===
+
+    def add_rectangle(
+        self, x: float = 100, y: float = 100,
+        width: float = 200, height: float = 100,
+        fill: str = "#4A90D9", stroke: str = "transparent",
+        strokeWidth: float = 0, opacity: float = 1.0,
+        rx: float = 0, ry: float = 0, angle: float = 0
+    ) -> str:
+        """Add a rectangle to the canvas."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.RECTANGLE,
+            x=x, y=y, width=width, height=height,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity, angle=angle,
+            properties={"rx": rx, "ry": ry}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added rectangle with ID: {obj_id}"
+
+    def add_circle(
+        self, x: float = 100, y: float = 100,
+        radius: float = 50, fill: str = "#4A90D9",
+        stroke: str = "transparent", strokeWidth: float = 0,
+        opacity: float = 1.0
+    ) -> str:
+        """Add a circle to the canvas."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.CIRCLE,
+            x=x, y=y, width=radius * 2, height=radius * 2,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity,
+            properties={"radius": radius}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added circle with ID: {obj_id}"
+
+    def add_ellipse(
+        self, x: float = 100, y: float = 100,
+        rx: float = 100, ry: float = 50, fill: str = "#4A90D9",
+        stroke: str = "transparent", strokeWidth: float = 0,
+        opacity: float = 1.0, angle: float = 0
+    ) -> str:
+        """Add an ellipse to the canvas."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.ELLIPSE,
+            x=x, y=y, width=rx * 2, height=ry * 2,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity, angle=angle,
+            properties={"rx": rx, "ry": ry}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added ellipse with ID: {obj_id}"
+
+    def add_triangle(
+        self, x: float = 100, y: float = 100,
+        width: float = 100, height: float = 100,
+        fill: str = "#4A90D9", stroke: str = "transparent",
+        strokeWidth: float = 0, opacity: float = 1.0,
+        angle: float = 0
+    ) -> str:
+        """Add a triangle to the canvas."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.TRIANGLE,
+            x=x, y=y, width=width, height=height,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity, angle=angle
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added triangle with ID: {obj_id}"
+
+    def add_line(
+        self, x1: float = 0, y1: float = 0,
+        x2: float = 100, y2: float = 100,
+        stroke: str = "#000000", strokeWidth: float = 2,
+        opacity: float = 1.0
+    ) -> str:
+        """Add a line to the canvas."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.LINE,
+            x=min(x1, x2), y=min(y1, y2),
+            width=abs(x2 - x1), height=abs(y2 - y1),
+            fill="transparent", stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity,
+            properties={"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added line with ID: {obj_id}"
+
+    def add_polygon(
+        self, points: List[List[float]],
+        fill: str = "#4A90D9", stroke: str = "transparent",
+        strokeWidth: float = 0, opacity: float = 1.0
+    ) -> str:
+        """Add a polygon with custom points."""
+        obj_id = self._generate_id()
+
+        # Calculate bounding box
+        if points:
+            xs = [p[0] for p in points]
+            ys = [p[1] for p in points]
+            x, y = min(xs), min(ys)
+            width = max(xs) - x
+            height = max(ys) - y
+        else:
+            x, y, width, height = 0, 0, 0, 0
+
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.POLYGON,
+            x=x, y=y, width=width, height=height,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity,
+            properties={"points": points}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added polygon with ID: {obj_id}"
+
+    def add_path(
+        self, path: str, fill: str = "#4A90D9",
+        stroke: str = "transparent", strokeWidth: float = 0,
+        opacity: float = 1.0
+    ) -> str:
+        """Add an SVG path."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.PATH,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity,
+            properties={"path": path}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added path with ID: {obj_id}"
+
+    # === Text Tools ===
+
+    def add_text(
+        self, x: float = 100, y: float = 100,
+        text: str = "Text", fontSize: int = 24,
+        fontFamily: str = "Arial", fill: str = "#000000",
+        fontWeight: str = "normal", fontStyle: str = "normal",
+        textAlign: str = "left", angle: float = 0
+    ) -> str:
+        """Add text to the canvas."""
+        obj_id = self._generate_id()
+        # Estimate text dimensions
+        estimated_width = len(text) * fontSize * 0.6
+        estimated_height = fontSize * 1.2
+
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.TEXT,
+            x=x, y=y, width=estimated_width, height=estimated_height,
+            fill=fill, angle=angle,
+            properties={
+                "text": text,
+                "fontSize": fontSize,
+                "fontFamily": fontFamily,
+                "fontWeight": fontWeight,
+                "fontStyle": fontStyle,
+                "textAlign": textAlign
+            }
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added text '{text}' with ID: {obj_id}"
+
+    def update_text(self, id: str, text: str) -> str:
+        """Update text content of an existing text object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+        if obj.type != ObjectType.TEXT:
+            return f"Error: Object '{id}' is not a text object"
+
+        obj.properties["text"] = text
+        # Update estimated dimensions
+        fontSize = obj.properties.get("fontSize", 24)
+        obj.width = len(text) * fontSize * 0.6
+
+        self._save_state()
+        return f"Updated text of object '{id}'"
+
+    # === Image Tools ===
+
+    def add_image(
+        self, x: float = 100, y: float = 100,
+        url: str = "", width: float = 200, height: float = 200,
+        opacity: float = 1.0, angle: float = 0
+    ) -> str:
+        """Add an image from URL."""
+        obj_id = self._generate_id()
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.IMAGE,
+            x=x, y=y, width=width, height=height,
+            opacity=opacity, angle=angle,
+            properties={"src": url}
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added image with ID: {obj_id}"
+
+    # === Object Manipulation ===
+
+    def select_object(self, id: str) -> str:
+        """Select an object by ID (informational)."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+        return f"Selected object '{id}' ({obj.type.value})"
+
+    def delete_object(self, id: str) -> str:
+        """Delete an object by ID."""
+        if self.canvas.remove_object(id):
+            self._save_state()
+            return f"Deleted object '{id}'"
+        return f"Error: Object '{id}' not found"
+
+    def move_object(self, id: str, x: float, y: float) -> str:
+        """Move an object to a new position."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.x = x
+        obj.y = y
+        self._save_state()
+        return f"Moved object '{id}' to ({x}, {y})"
+
+    def resize_object(self, id: str, width: float, height: float) -> str:
+        """Resize an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.width = width
+        obj.height = height
+
+        # Update type-specific properties
+        if obj.type == ObjectType.CIRCLE:
+            obj.properties["radius"] = width / 2
+        elif obj.type == ObjectType.ELLIPSE:
+            obj.properties["rx"] = width / 2
+            obj.properties["ry"] = height / 2
+
+        self._save_state()
+        return f"Resized object '{id}' to {width}x{height}"
+
+    def rotate_object(self, id: str, angle: float) -> str:
+        """Rotate an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.angle = angle
+        self._save_state()
+        return f"Rotated object '{id}' to {angle} degrees"
+
+    def scale_object(self, id: str, scaleX: float, scaleY: float) -> str:
+        """Scale an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.scaleX = scaleX
+        obj.scaleY = scaleY
+        self._save_state()
+        return f"Scaled object '{id}' to ({scaleX}, {scaleY})"
+
+    def set_fill(self, id: str, color: str) -> str:
+        """Change fill color."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.fill = color
+        self._save_state()
+        return f"Set fill of '{id}' to {color}"
+
+    def set_stroke(self, id: str, color: str, width: float = 1) -> str:
+        """Change stroke."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.stroke = color
+        obj.strokeWidth = width
+        self._save_state()
+        return f"Set stroke of '{id}' to {color} with width {width}"
+
+    def set_opacity(self, id: str, opacity: float) -> str:
+        """Change opacity."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        obj.opacity = max(0, min(1, opacity))
+        self._save_state()
+        return f"Set opacity of '{id}' to {opacity}"
+
+    def bring_to_front(self, id: str) -> str:
+        """Bring object to front."""
+        for i, obj in enumerate(self.canvas.objects):
+            if obj.id == id:
+                self.canvas.objects.append(self.canvas.objects.pop(i))
+                self._save_state()
+                return f"Brought '{id}' to front"
+        return f"Error: Object '{id}' not found"
+
+    def send_to_back(self, id: str) -> str:
+        """Send object to back."""
+        for i, obj in enumerate(self.canvas.objects):
+            if obj.id == id:
+                self.canvas.objects.insert(0, self.canvas.objects.pop(i))
+                self._save_state()
+                return f"Sent '{id}' to back"
+        return f"Error: Object '{id}' not found"
+
+    def duplicate_object(self, id: str) -> str:
+        """Duplicate an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        new_id = self._generate_id()
+        new_obj = copy.deepcopy(obj)
+        new_obj.id = new_id
+        new_obj.x += 20  # Offset for visibility
+        new_obj.y += 20
+
+        self.canvas.objects.append(new_obj)
+        self._save_state()
+        return f"Duplicated '{id}' as '{new_id}'"
+
+    # === Canvas Operations ===
+
+    def set_background(self, color: str) -> str:
+        """Set canvas background color."""
+        self.canvas.background = color
+        self._save_state()
+        return f"Set background to {color}"
+
+    def set_canvas_size(self, width: int, height: int) -> str:
+        """Set canvas dimensions."""
+        self.canvas.width = width
+        self.canvas.height = height
+        self._save_state()
+        return f"Set canvas size to {width}x{height}"
+
+    def clear_canvas(self) -> str:
+        """Clear all objects from canvas."""
+        self.canvas.objects = []
+        self._save_state()
+        return "Cleared all objects from canvas"
+
+    def get_canvas_state(self) -> str:
+        """Get current canvas state as JSON."""
+        return json.dumps(self.canvas.to_dict(), indent=2)
+
+    def undo(self) -> str:
+        """Undo last action."""
+        if self.history_index > 0:
+            self.history_index -= 1
+            state = self.history[self.history_index]
+            self.canvas = CanvasState(
+                width=state.width,
+                height=state.height,
+                background=state.background,
+                objects=[copy.deepcopy(obj) for obj in state.objects]
+            )
+            return "Undone last action"
+        return "Nothing to undo"
+
+    def redo(self) -> str:
+        """Redo last undone action."""
+        if self.history_index < len(self.history) - 1:
+            self.history_index += 1
+            state = self.history[self.history_index]
+            self.canvas = CanvasState(
+                width=state.width,
+                height=state.height,
+                background=state.background,
+                objects=[copy.deepcopy(obj) for obj in state.objects]
+            )
+            return "Redone action"
+        return "Nothing to redo"
+
+    # === Grouping ===
+
+    def group_objects(self, ids: List[str]) -> str:
+        """Group multiple objects."""
+        objects_to_group = []
+        for obj_id in ids:
+            obj = self.canvas.find_object(obj_id)
+            if obj:
+                objects_to_group.append(obj)
+
+        if len(objects_to_group) < 2:
+            return "Error: Need at least 2 objects to group"
+
+        # Remove objects from main list
+        for obj in objects_to_group:
+            self.canvas.remove_object(obj.id)
+
+        # Calculate group bounds
+        xs = [obj.x for obj in objects_to_group]
+        ys = [obj.y for obj in objects_to_group]
+        x2s = [obj.x + obj.width for obj in objects_to_group]
+        y2s = [obj.y + obj.height for obj in objects_to_group]
+
+        group_id = self._generate_id()
+        group = CanvasObject(
+            id=group_id,
+            type=ObjectType.GROUP,
+            x=min(xs), y=min(ys),
+            width=max(x2s) - min(xs),
+            height=max(y2s) - min(ys),
+            properties={"objects": objects_to_group}
+        )
+
+        self.canvas.objects.append(group)
+        self._save_state()
+        return f"Created group '{group_id}' with {len(objects_to_group)} objects"
+
+    def ungroup_object(self, id: str) -> str:
+        """Ungroup a group."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+        if obj.type != ObjectType.GROUP:
+            return f"Error: Object '{id}' is not a group"
+
+        children = obj.properties.get("objects", [])
+        self.canvas.remove_object(id)
+
+        for child in children:
+            self.canvas.objects.append(child)
+
+        self._save_state()
+        return f"Ungrouped '{id}', released {len(children)} objects"
+
+    # === Alignment & Distribution ===
+
+    def align_objects(self, ids: List[str], alignment: str) -> str:
+        """Align objects."""
+        objects = [self.canvas.find_object(obj_id) for obj_id in ids]
+        objects = [obj for obj in objects if obj is not None]
+
+        if len(objects) < 2:
+            return "Error: Need at least 2 objects to align"
+
+        if alignment == "left":
+            min_x = min(obj.x for obj in objects)
+            for obj in objects:
+                obj.x = min_x
+        elif alignment == "center":
+            center_x = sum(obj.x + obj.width / 2 for obj in objects) / len(objects)
+            for obj in objects:
+                obj.x = center_x - obj.width / 2
+        elif alignment == "right":
+            max_x = max(obj.x + obj.width for obj in objects)
+            for obj in objects:
+                obj.x = max_x - obj.width
+        elif alignment == "top":
+            min_y = min(obj.y for obj in objects)
+            for obj in objects:
+                obj.y = min_y
+        elif alignment == "middle":
+            center_y = sum(obj.y + obj.height / 2 for obj in objects) / len(objects)
+            for obj in objects:
+                obj.y = center_y - obj.height / 2
+        elif alignment == "bottom":
+            max_y = max(obj.y + obj.height for obj in objects)
+            for obj in objects:
+                obj.y = max_y - obj.height
+        else:
+            return f"Error: Unknown alignment '{alignment}'"
+
+        self._save_state()
+        return f"Aligned {len(objects)} objects to {alignment}"
+
+    def distribute_objects(self, ids: List[str], direction: str) -> str:
+        """Distribute objects evenly."""
+        objects = [self.canvas.find_object(obj_id) for obj_id in ids]
+        objects = [obj for obj in objects if obj is not None]
+
+        if len(objects) < 3:
+            return "Error: Need at least 3 objects to distribute"
+
+        if direction == "horizontal":
+            objects.sort(key=lambda o: o.x)
+            total_width = sum(obj.width for obj in objects)
+            start = objects[0].x
+            end = objects[-1].x + objects[-1].width
+            spacing = (end - start - total_width) / (len(objects) - 1)
+
+            current_x = start
+            for obj in objects:
+                obj.x = current_x
+                current_x += obj.width + spacing
+
+        elif direction == "vertical":
+            objects.sort(key=lambda o: o.y)
+            total_height = sum(obj.height for obj in objects)
+            start = objects[0].y
+            end = objects[-1].y + objects[-1].height
+            spacing = (end - start - total_height) / (len(objects) - 1)
+
+            current_y = start
+            for obj in objects:
+                obj.y = current_y
+                current_y += obj.height + spacing
+        else:
+            return f"Error: Unknown direction '{direction}'"
+
+        self._save_state()
+        return f"Distributed {len(objects)} objects {direction}ly"
+
+    # === Information ===
+
+    def list_objects(self) -> str:
+        """List all objects with their IDs and types."""
+        if not self.canvas.objects:
+            return "Canvas is empty"
+
+        lines = ["Objects on canvas:"]
+        for obj in self.canvas.objects:
+            lines.append(f"  - {obj.id}: {obj.type.value} at ({obj.x:.0f}, {obj.y:.0f})")
+
+        return "\n".join(lines)
+
+    def get_object_properties(self, id: str) -> str:
+        """Get all properties of an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        return json.dumps(obj.to_dict(), indent=2)
+
+    def load_state(self, state_dict: Dict[str, Any]) -> str:
+        """Load canvas state from dictionary."""
+        try:
+            self.canvas.width = state_dict.get("width", 1200)
+            self.canvas.height = state_dict.get("height", 800)
+            self.canvas.background = state_dict.get("background", "#FFFFFF")
+            self.canvas.objects = []
+
+            for obj_data in state_dict.get("objects", []):
+                obj_type = ObjectType(obj_data.get("type", "rectangle"))
+                obj = CanvasObject(
+                    id=obj_data.get("id", self._generate_id()),
+                    type=obj_type,
+                    x=obj_data.get("x", 0),
+                    y=obj_data.get("y", 0),
+                    width=obj_data.get("width", 100),
+                    height=obj_data.get("height", 100),
+                    fill=obj_data.get("fill", "#000000"),
+                    stroke=obj_data.get("stroke", "transparent"),
+                    strokeWidth=obj_data.get("strokeWidth", 0),
+                    opacity=obj_data.get("opacity", 1.0),
+                    angle=obj_data.get("angle", 0),
+                    scaleX=obj_data.get("scaleX", 1.0),
+                    scaleY=obj_data.get("scaleY", 1.0),
+                    visible=obj_data.get("visible", True),
+                    locked=obj_data.get("locked", False)
+                )
+                # Copy extra properties
+                standard_keys = {
+                    "id", "type", "x", "y", "width", "height",
+                    "fill", "stroke", "strokeWidth", "opacity",
+                    "angle", "scaleX", "scaleY", "visible", "locked"
+                }
+                for key, value in obj_data.items():
+                    if key not in standard_keys:
+                        obj.properties[key] = value
+
+                self.canvas.objects.append(obj)
+
+            self._save_state()
+            return f"Loaded canvas with {len(self.canvas.objects)} objects"
+        except Exception as e:
+            return f"Error loading state: {str(e)}"
