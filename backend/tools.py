@@ -39,6 +39,21 @@ class Tools:
             return f"Error: File not found: {path}"
         except Exception as e:
             return f"Error reading file: {str(e)}"
+
+    def read_files(self, paths: List[str], max_bytes: int = 200000) -> str:
+        """Read multiple files with a per-file byte limit."""
+        outputs = []
+        for path in paths:
+            try:
+                full_path = self._resolve_path(path)
+                with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read(max_bytes)
+                outputs.append(f"Content of {path}:\n```\n{content}\n```")
+            except FileNotFoundError:
+                outputs.append(f"Error: File not found: {path}")
+            except Exception as e:
+                outputs.append(f"Error reading {path}: {str(e)}")
+        return "\n\n".join(outputs)
     
     def write_file(self, path: str, content: str) -> str:
         """Write content to a file, creating directories if needed."""
@@ -50,6 +65,55 @@ class Tools:
             return f"Successfully wrote {len(content)} characters to {path}"
         except Exception as e:
             return f"Error writing file: {str(e)}"
+
+    def write_files(self, files: List[dict]) -> str:
+        """Write multiple files. Each entry: {path, content}."""
+        results = []
+        for entry in files:
+            path = entry.get("path")
+            content = entry.get("content", "")
+            if not path:
+                results.append("Error: Missing path in write_files entry.")
+                continue
+            results.append(self.write_file(path, content))
+        return "\n".join(results)
+
+    def apply_patch(self, patch: str) -> str:
+        """Apply a unified diff patch to the workspace."""
+        import tempfile
+        if not patch or not patch.strip():
+            return "Error: Patch content is empty."
+
+        temp_file = None
+        try:
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".patch")
+            temp_file.write(patch.encode("utf-8"))
+            temp_file.close()
+
+            commands = [
+                ["patch", "-p0", "-i", temp_file.name],
+                ["git", "apply", temp_file.name]
+            ]
+            for cmd in commands:
+                result = subprocess.run(
+                    cmd,
+                    cwd=self.workspace_path,
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0:
+                    return f"Patch applied successfully.\n{result.stdout.strip()}"
+                error = result.stderr.strip() or result.stdout.strip()
+
+            return f"Error applying patch: {error or 'Unknown error'}"
+        except Exception as e:
+            return f"Error applying patch: {str(e)}"
+        finally:
+            if temp_file:
+                try:
+                    os.unlink(temp_file.name)
+                except Exception:
+                    pass
 
     def patch_file(self, path: str, target: str, replacement: str) -> str:
         """Replace a specific block of text in a file with new content."""
@@ -388,8 +452,11 @@ class Tools:
         """Return list of available tools with descriptions."""
         return [
             {"name": "read_file", "description": "Read file contents. Args: path (str)"},
+            {"name": "read_files", "description": "Read multiple files. Args: paths (list[str]), max_bytes (int, optional)"},
             {"name": "write_file", "description": "Write/create file. Args: path (str), content (str)"},
+            {"name": "write_files", "description": "Write multiple files. Args: files (list of {path, content})"},
             {"name": "patch_file", "description": "Replace a specific block of text. Args: path (str), target (str), replacement (str)"},
+            {"name": "apply_patch", "description": "Apply a unified diff patch. Args: patch (str)"},
             {"name": "list_dir", "description": "List directory contents. Args: path (str, optional)"},
             {"name": "get_file_tree", "description": "Get recursive tree view text. Args: path (str, optional), max_depth (int, default 2)"},
             {"name": "get_explorer_data", "description": "Get recursive directory structure as JSON for UI. Args: path (str, optional)"},
@@ -417,8 +484,11 @@ class Tools:
         tool_map = {
             # File System Tools
             "read_file": self.read_file,
+            "read_files": self.read_files,
             "write_file": self.write_file,
+            "write_files": self.write_files,
             "patch_file": self.patch_file,
+            "apply_patch": self.apply_patch,
             "list_dir": self.list_dir,
             "get_file_tree": self.get_file_tree,
             "get_explorer_data": self.get_explorer_data,

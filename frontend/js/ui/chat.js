@@ -103,20 +103,43 @@ Object.assign(UI, {
         toolPill.className = 'tool-pill';
 
         const toolMap = {
-            'write_file': { icon: 'edit_document', label: 'Write File' },
             'read_file': { icon: 'visibility', label: 'Read File' },
+            'read_files': { icon: 'library_books', label: 'Read Files' },
+            'write_file': { icon: 'edit_document', label: 'Write File' },
+            'write_files': { icon: 'file_copy', label: 'Write Files' },
             'patch_file': { icon: 'build', label: 'Patch File' },
-            'run_shell_command': { icon: 'terminal', label: 'Run Command' },
-            'list_directory': { icon: 'folder', label: 'List Dir' },
-            'search_file_content': { icon: 'search', label: 'Search Files' },
-            'delegate_to_agent': { icon: 'groups', label: 'Delegate' }
+            'apply_patch': { icon: 'difference', label: 'Apply Patch' },
+            'list_dir': { icon: 'folder', label: 'List Dir' },
+            'get_file_tree': { icon: 'account_tree', label: 'File Tree' },
+            'get_explorer_data': { icon: 'schema', label: 'Explorer Data' },
+            'search_files': { icon: 'find_in_page', label: 'Find Files' },
+            'grep_search': { icon: 'search', label: 'Grep Search' },
+            'run_command': { icon: 'terminal', label: 'Run Command' },
+            'delete_path': { icon: 'delete', label: 'Delete Path' },
+            'get_dependencies': { icon: 'inventory', label: 'Dependencies' },
+            'get_symbol_info': { icon: 'code', label: 'Symbol Info' },
+            'web_search': { icon: 'public', label: 'Web Search' },
+            'web_browse': { icon: 'travel_explore', label: 'Web Browse' },
+            'git_status': { icon: 'fact_check', label: 'Git Status' },
+            'git_commit': { icon: 'commit', label: 'Git Commit' },
+            'git_push': { icon: 'cloud_upload', label: 'Git Push' },
+            'git_pull': { icon: 'cloud_download', label: 'Git Pull' },
+            'git_branches': { icon: 'fork_right', label: 'Git Branches' },
+            'git_checkout': { icon: 'call_split', label: 'Git Checkout' },
+            'git_log': { icon: 'history', label: 'Git Log' },
+            'git_clone': { icon: 'download', label: 'Git Clone' },
+            'git_init': { icon: 'auto_fix_high', label: 'Git Init' },
+            'delegate_task': { icon: 'groups', label: 'Delegate' }
         };
 
         const info = toolMap[toolCall.name] || { icon: 'code', label: toolCall.name };
 
         let argsDisplay = '';
         if (toolCall.args) {
-            argsDisplay = toolCall.args.file_path || toolCall.args.path || toolCall.args.command || toolCall.args.query || '...';
+            argsDisplay = toolCall.args.path || toolCall.args.command || toolCall.args.query || toolCall.args.symbol_name || toolCall.args.url || '...';
+            if (toolCall.args.paths && Array.isArray(toolCall.args.paths)) {
+                argsDisplay = toolCall.args.paths.slice(0, 2).join(', ') + (toolCall.args.paths.length > 2 ? '…' : '');
+            }
         }
 
         toolPill.innerHTML = `

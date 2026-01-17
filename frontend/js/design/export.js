@@ -67,7 +67,11 @@ const DesignExport = {
 
         const settingsDiv = document.getElementById('export-settings');
         if (settingsDiv) {
-            settingsDiv.style.display = format === 'png' ? 'block' : 'none';
+            settingsDiv.style.display = ['png', 'jpg', 'webp'].includes(format) ? 'block' : 'none';
+            const qualityField = document.getElementById('export-quality')?.closest('.property-field');
+            if (qualityField) {
+                qualityField.style.display = format === 'png' ? 'none' : 'block';
+            }
         }
     },
 
@@ -77,6 +81,12 @@ const DesignExport = {
         switch (format) {
             case 'png':
                 await this.exportPNG();
+                break;
+            case 'jpg':
+                await this.exportJPG();
+                break;
+            case 'webp':
+                await this.exportWebP();
                 break;
             case 'svg':
                 await this.exportSVG();
@@ -99,6 +109,32 @@ const DesignExport = {
         });
 
         this.downloadFile(dataURL, `design_${Date.now()}.png`);
+    },
+
+    async exportJPG() {
+        const scale = parseFloat(document.getElementById('export-scale')?.value || 2);
+        const quality = parseFloat(document.getElementById('export-quality')?.value || 0.8);
+
+        const dataURL = DesignCanvas.toDataURL({
+            format: 'jpeg',
+            quality: quality,
+            multiplier: scale
+        });
+
+        this.downloadFile(dataURL, `design_${Date.now()}.jpg`);
+    },
+
+    async exportWebP() {
+        const scale = parseFloat(document.getElementById('export-scale')?.value || 2);
+        const quality = parseFloat(document.getElementById('export-quality')?.value || 0.8);
+
+        const dataURL = DesignCanvas.toDataURL({
+            format: 'webp',
+            quality: quality,
+            multiplier: scale
+        });
+
+        this.downloadFile(dataURL, `design_${Date.now()}.webp`);
     },
 
     async exportSVG() {
@@ -124,6 +160,12 @@ const DesignExport = {
         switch (format) {
             case 'png':
                 this.exportPNG();
+                break;
+            case 'jpg':
+                this.exportJPG();
+                break;
+            case 'webp':
+                this.exportWebP();
                 break;
             case 'svg':
                 this.exportSVG();

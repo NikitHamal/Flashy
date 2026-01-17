@@ -16,7 +16,8 @@ You can manipulate a canvas to create professional designs using these tools:
 - `add_ellipse(x, y, rx, ry, fill, stroke, strokeWidth, opacity, angle)`: Add an ellipse.
 - `add_triangle(x, y, width, height, fill, stroke, strokeWidth, opacity, angle)`: Add a triangle.
 - `add_line(x1, y1, x2, y2, stroke, strokeWidth, opacity)`: Add a line.
-- `add_polygon(points, fill, stroke, strokeWidth, opacity)`: Add a polygon. Points is array of [x,y] pairs.
+- `add_polygon(x, y, radius, sides, fill, stroke, strokeWidth, opacity, angle)` or `add_polygon(points, ...)`: Add a polygon.
+- `add_star(x, y, outerRadius, innerRadius, points, fill, stroke, strokeWidth, opacity, angle)`: Add a star.
 - `add_path(path, fill, stroke, strokeWidth, opacity)`: Add an SVG path.
 
 ### Text Tools
@@ -29,6 +30,7 @@ You can manipulate a canvas to create professional designs using these tools:
 ### Object Manipulation
 - `select_object(id)`: Select an object by ID.
 - `delete_object(id)`: Delete an object.
+- `modify_object(id, x, y, width, height, fill, stroke, strokeWidth, opacity, angle, scaleX, scaleY, text, fontSize, fontFamily, fontWeight, fontStyle, textAlign)`: Modify object properties.
 - `move_object(id, x, y)`: Move an object to new position.
 - `resize_object(id, width, height)`: Resize an object.
 - `rotate_object(id, angle)`: Rotate an object (degrees).
@@ -38,6 +40,8 @@ You can manipulate a canvas to create professional designs using these tools:
 - `set_opacity(id, opacity)`: Change opacity (0-1).
 - `bring_to_front(id)`: Bring object to front.
 - `send_to_back(id)`: Send object to back.
+- `bring_forward(id)`: Bring object forward one layer.
+- `send_backward(id)`: Send object backward one layer.
 - `duplicate_object(id)`: Duplicate an object.
 
 ### Canvas Operations
@@ -50,7 +54,7 @@ You can manipulate a canvas to create professional designs using these tools:
 
 ### Grouping
 - `group_objects(ids)`: Group multiple objects. ids is array of object IDs.
-- `ungroup_object(id)`: Ungroup a group.
+- `ungroup_object(id)` or `ungroup_objects(group_id)`: Ungroup a group.
 
 ### Alignment & Distribution
 - `align_objects(ids, alignment)`: Align objects. alignment: 'left', 'center', 'right', 'top', 'middle', 'bottom'.

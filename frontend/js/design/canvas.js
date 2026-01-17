@@ -17,6 +17,9 @@ const DesignCanvas = {
     canvasWidth: 1200,
     canvasHeight: 800,
     backgroundColor: '#FFFFFF',
+    showGrid: false,
+    snapToGrid: false,
+    gridSize: 24,
 
     init() {
         this.canvasContainer = document.getElementById('canvas-container');
@@ -70,6 +73,7 @@ const DesignCanvas = {
         this.canvas.on('object:removed', () => {
             if (this.isRecordingHistory) this.saveHistory();
         });
+        this.canvas.on('object:moving', (opt) => this.handleObjectSnapping(opt));
 
         this.canvas.on('selection:created', () => this.onSelectionChange());
         this.canvas.on('selection:updated', () => this.onSelectionChange());
@@ -85,6 +89,8 @@ const DesignCanvas = {
         document.getElementById('btn-zoom-in')?.addEventListener('click', () => this.zoomIn());
         document.getElementById('btn-zoom-out')?.addEventListener('click', () => this.zoomOut());
         document.getElementById('btn-zoom-fit')?.addEventListener('click', () => this.zoomToFit());
+        document.getElementById('btn-toggle-grid')?.addEventListener('click', () => this.toggleGrid());
+        document.getElementById('btn-toggle-snap')?.addEventListener('click', () => this.toggleSnap());
     },
 
     onSelectionChange() {
@@ -151,6 +157,16 @@ const DesignCanvas = {
         this.lastPanPoint = null;
         this.canvas.selection = true;
         this.canvas.defaultCursor = 'default';
+    },
+
+    handleObjectSnapping(opt) {
+        if (!this.snapToGrid || !opt.target) return;
+        const obj = opt.target;
+        const grid = this.gridSize;
+        obj.set({
+            left: Math.round(obj.left / grid) * grid,
+            top: Math.round(obj.top / grid) * grid
+        });
     },
 
     handleKeyDown(e) {
@@ -252,6 +268,26 @@ const DesignCanvas = {
         const info = document.getElementById('canvas-dimensions');
         if (info) {
             info.textContent = `${this.canvasWidth} × ${this.canvasHeight}`;
+        }
+    },
+
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        const grid = document.getElementById('canvas-grid');
+        const btn = document.getElementById('btn-toggle-grid');
+        if (grid) {
+            grid.classList.toggle('hidden', !this.showGrid);
+        }
+        if (btn) {
+            btn.classList.toggle('active', this.showGrid);
+        }
+    },
+
+    toggleSnap() {
+        this.snapToGrid = !this.snapToGrid;
+        const btn = document.getElementById('btn-toggle-snap');
+        if (btn) {
+            btn.classList.toggle('active', this.snapToGrid);
         }
     },
 
@@ -448,13 +484,25 @@ const DesignCanvas = {
     },
 
     getObjectById(id) {
-        return this.canvas.getObjects().find(obj => obj.id === id);
+        const objects = this.canvas.getObjects();
+        for (const obj of objects) {
+            if (obj.id === id) return obj;
+            if (obj.type === 'group' && obj._objects) {
+                const child = obj._objects.find(item => item.id === id);
+                if (child) return child;
+            }
+        }
+        return null;
     },
 
     removeObjectById(id) {
         const obj = this.getObjectById(id);
         if (obj) {
-            this.canvas.remove(obj);
+            if (obj.group) {
+                obj.group.removeWithUpdate(obj);
+            } else {
+                this.canvas.remove(obj);
+            }
             this.canvas.requestRenderAll();
         }
     },
@@ -464,6 +512,9 @@ const DesignCanvas = {
         if (obj) {
             obj.set(properties);
             obj.setCoords();
+            if (obj.group) {
+                obj.group.addWithUpdate();
+            }
             this.canvas.requestRenderAll();
             this.saveHistory();
         }

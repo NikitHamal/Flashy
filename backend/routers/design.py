@@ -25,6 +25,7 @@ class DesignRequest(BaseModel):
     session_id: str
     canvas_state: Optional[Dict[str, Any]] = None
     screenshot_base64: Optional[str] = None
+    images: Optional[List[Dict[str, str]]] = None
 
 
 class CanvasStateUpdate(BaseModel):
@@ -61,7 +62,8 @@ async def generate_design(request: Request, data: DesignRequest):
                 prompt=data.prompt,
                 session_id=data.session_id,
                 canvas_state=data.canvas_state,
-                screenshot_base64=data.screenshot_base64
+                screenshot_base64=data.screenshot_base64,
+                images=data.images
             ):
                 yield json.dumps(chunk) + "\n"
         except Exception as e:

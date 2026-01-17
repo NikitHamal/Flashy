@@ -21,6 +21,7 @@ class ObjectType(Enum):
     TRIANGLE = "triangle"
     LINE = "line"
     POLYGON = "polygon"
+    STAR = "star"
     PATH = "path"
     TEXT = "text"
     IMAGE = "image"
@@ -157,13 +158,15 @@ class DesignTools:
             {"name": "add_ellipse", "description": "Add an ellipse shape"},
             {"name": "add_triangle", "description": "Add a triangle shape"},
             {"name": "add_line", "description": "Add a line"},
-            {"name": "add_polygon", "description": "Add a polygon with custom points"},
+            {"name": "add_polygon", "description": "Add a polygon (points or center/radius/sides)"},
+            {"name": "add_star", "description": "Add a star shape"},
             {"name": "add_path", "description": "Add an SVG path"},
             {"name": "add_text", "description": "Add text to the canvas"},
             {"name": "update_text", "description": "Update text content"},
             {"name": "add_image", "description": "Add an image from URL"},
             {"name": "select_object", "description": "Select an object by ID"},
             {"name": "delete_object", "description": "Delete an object"},
+            {"name": "modify_object", "description": "Modify object properties"},
             {"name": "move_object", "description": "Move an object"},
             {"name": "resize_object", "description": "Resize an object"},
             {"name": "rotate_object", "description": "Rotate an object"},
@@ -173,6 +176,8 @@ class DesignTools:
             {"name": "set_opacity", "description": "Change opacity"},
             {"name": "bring_to_front", "description": "Bring object to front"},
             {"name": "send_to_back", "description": "Send object to back"},
+            {"name": "bring_forward", "description": "Bring object forward"},
+            {"name": "send_backward", "description": "Send object backward"},
             {"name": "duplicate_object", "description": "Duplicate an object"},
             {"name": "set_background", "description": "Set canvas background"},
             {"name": "set_canvas_size", "description": "Set canvas dimensions"},
@@ -182,6 +187,7 @@ class DesignTools:
             {"name": "redo", "description": "Redo last undone action"},
             {"name": "group_objects", "description": "Group multiple objects"},
             {"name": "ungroup_object", "description": "Ungroup a group"},
+            {"name": "ungroup_objects", "description": "Ungroup a group (alias)"},
             {"name": "align_objects", "description": "Align multiple objects"},
             {"name": "distribute_objects", "description": "Distribute objects evenly"},
             {"name": "list_objects", "description": "List all objects"},
@@ -305,22 +311,25 @@ class DesignTools:
         return f"Added line with ID: {obj_id}"
 
     def add_polygon(
-        self, points: List[List[float]],
+        self, x: float = 100, y: float = 100,
+        radius: float = 60, sides: int = 6,
         fill: str = "#4A90D9", stroke: str = "transparent",
-        strokeWidth: float = 0, opacity: float = 1.0
+        strokeWidth: float = 0, opacity: float = 1.0,
+        angle: float = 0, points: Optional[List[List[float]]] = None
     ) -> str:
-        """Add a polygon with custom points."""
+        """Add a polygon with points or a regular polygon."""
         obj_id = self._generate_id()
 
-        # Calculate bounding box
-        if points:
-            xs = [p[0] for p in points]
-            ys = [p[1] for p in points]
-            x, y = min(xs), min(ys)
-            width = max(xs) - x
-            height = max(ys) - y
+        polygon_points = points or self._build_polygon_points(x, y, radius, sides)
+        if polygon_points:
+            xs = [p[0] for p in polygon_points]
+            ys = [p[1] for p in polygon_points]
+            min_x, min_y = min(xs), min(ys)
+            width = max(xs) - min_x
+            height = max(ys) - min_y
+            x, y = min_x, min_y
         else:
-            x, y, width, height = 0, 0, 0, 0
+            width, height = 0, 0
 
         obj = CanvasObject(
             id=obj_id,
@@ -328,11 +337,49 @@ class DesignTools:
             x=x, y=y, width=width, height=height,
             fill=fill, stroke=stroke, strokeWidth=strokeWidth,
             opacity=opacity,
-            properties={"points": points}
+            angle=angle,
+            properties={"points": polygon_points}
         )
         self.canvas.objects.append(obj)
         self._save_state()
         return f"Added polygon with ID: {obj_id}"
+
+    def add_star(
+        self, x: float = 100, y: float = 100,
+        outerRadius: float = 80, innerRadius: float = 40,
+        points: int = 5, fill: str = "#4A90D9",
+        stroke: str = "transparent", strokeWidth: float = 0,
+        opacity: float = 1.0, angle: float = 0
+    ) -> str:
+        """Add a star shape."""
+        obj_id = self._generate_id()
+        star_points = self._build_star_points(x, y, outerRadius, innerRadius, points)
+        if star_points:
+            xs = [p[0] for p in star_points]
+            ys = [p[1] for p in star_points]
+            min_x, min_y = min(xs), min(ys)
+            width = max(xs) - min_x
+            height = max(ys) - min_y
+            x, y = min_x, min_y
+        else:
+            width, height = 0, 0
+
+        obj = CanvasObject(
+            id=obj_id,
+            type=ObjectType.STAR,
+            x=x, y=y, width=width, height=height,
+            fill=fill, stroke=stroke, strokeWidth=strokeWidth,
+            opacity=opacity, angle=angle,
+            properties={
+                "points": star_points,
+                "outerRadius": outerRadius,
+                "innerRadius": innerRadius,
+                "pointCount": points
+            }
+        )
+        self.canvas.objects.append(obj)
+        self._save_state()
+        return f"Added star with ID: {obj_id}"
 
     def add_path(
         self, path: str, fill: str = "#4A90D9",
@@ -400,6 +447,52 @@ class DesignTools:
 
         self._save_state()
         return f"Updated text of object '{id}'"
+
+    def modify_object(self, id: str, **kwargs) -> str:
+        """Modify multiple properties of an object."""
+        obj = self.canvas.find_object(id)
+        if not obj:
+            return f"Error: Object '{id}' not found"
+
+        if "x" in kwargs:
+            obj.x = kwargs["x"]
+        if "y" in kwargs:
+            obj.y = kwargs["y"]
+        if "width" in kwargs:
+            obj.width = kwargs["width"]
+            if obj.type == ObjectType.CIRCLE:
+                obj.properties["radius"] = obj.width / 2
+        if "height" in kwargs:
+            obj.height = kwargs["height"]
+            if obj.type == ObjectType.ELLIPSE:
+                obj.properties["ry"] = obj.height / 2
+        if "fill" in kwargs:
+            obj.fill = kwargs["fill"]
+        if "stroke" in kwargs:
+            obj.stroke = kwargs["stroke"]
+        if "strokeWidth" in kwargs:
+            obj.strokeWidth = kwargs["strokeWidth"]
+        if "opacity" in kwargs:
+            obj.opacity = max(0, min(1, kwargs["opacity"]))
+        if "angle" in kwargs:
+            obj.angle = kwargs["angle"]
+        if "scaleX" in kwargs:
+            obj.scaleX = kwargs["scaleX"]
+        if "scaleY" in kwargs:
+            obj.scaleY = kwargs["scaleY"]
+
+        text_fields = {"text", "fontSize", "fontFamily", "fontWeight", "fontStyle", "textAlign"}
+        for key in text_fields:
+            if key in kwargs:
+                obj.properties[key] = kwargs[key]
+
+        if "rx" in kwargs:
+            obj.properties["rx"] = kwargs["rx"]
+        if "ry" in kwargs:
+            obj.properties["ry"] = kwargs["ry"]
+
+        self._save_state()
+        return f"Modified object '{id}'"
 
     # === Image Tools ===
 
@@ -537,6 +630,26 @@ class DesignTools:
                 return f"Sent '{id}' to back"
         return f"Error: Object '{id}' not found"
 
+    def bring_forward(self, id: str) -> str:
+        """Bring object forward by one layer."""
+        for i, obj in enumerate(self.canvas.objects):
+            if obj.id == id:
+                new_index = min(i + 1, len(self.canvas.objects) - 1)
+                self.canvas.objects.insert(new_index, self.canvas.objects.pop(i))
+                self._save_state()
+                return f"Brought '{id}' forward"
+        return f"Error: Object '{id}' not found"
+
+    def send_backward(self, id: str) -> str:
+        """Send object backward by one layer."""
+        for i, obj in enumerate(self.canvas.objects):
+            if obj.id == id:
+                new_index = max(i - 1, 0)
+                self.canvas.objects.insert(new_index, self.canvas.objects.pop(i))
+                self._save_state()
+                return f"Sent '{id}' backward"
+        return f"Error: Object '{id}' not found"
+
     def duplicate_object(self, id: str) -> str:
         """Duplicate an object."""
         obj = self.canvas.find_object(id)
@@ -660,6 +773,10 @@ class DesignTools:
         self._save_state()
         return f"Ungrouped '{id}', released {len(children)} objects"
 
+    def ungroup_objects(self, group_id: str) -> str:
+        """Alias for ungroup_object for compatibility."""
+        return self.ungroup_object(group_id)
+
     # === Alignment & Distribution ===
 
     def align_objects(self, ids: List[str], alignment: str) -> str:
@@ -766,38 +883,128 @@ class DesignTools:
             self.canvas.background = state_dict.get("background", "#FFFFFF")
             self.canvas.objects = []
 
-            for obj_data in state_dict.get("objects", []):
-                obj_type = ObjectType(obj_data.get("type", "rectangle"))
+            def build_object(data: Dict[str, Any]) -> CanvasObject:
+                obj_type = self._map_object_type(data.get("type"))
+                x = data.get("x", data.get("left", 0))
+                y = data.get("y", data.get("top", 0))
+                width = data.get("width", 100)
+                height = data.get("height", 100)
+                scale_x = data.get("scaleX", 1.0)
+                scale_y = data.get("scaleY", 1.0)
+
+                if data.get("type") == "circle" and data.get("radius") is not None:
+                    radius = data.get("radius")
+                    width = radius * 2 * scale_x
+                    height = radius * 2 * scale_y
+                else:
+                    width = width * scale_x
+                    height = height * scale_y
+
                 obj = CanvasObject(
-                    id=obj_data.get("id", self._generate_id()),
+                    id=data.get("id", self._generate_id()),
                     type=obj_type,
-                    x=obj_data.get("x", 0),
-                    y=obj_data.get("y", 0),
-                    width=obj_data.get("width", 100),
-                    height=obj_data.get("height", 100),
-                    fill=obj_data.get("fill", "#000000"),
-                    stroke=obj_data.get("stroke", "transparent"),
-                    strokeWidth=obj_data.get("strokeWidth", 0),
-                    opacity=obj_data.get("opacity", 1.0),
-                    angle=obj_data.get("angle", 0),
-                    scaleX=obj_data.get("scaleX", 1.0),
-                    scaleY=obj_data.get("scaleY", 1.0),
-                    visible=obj_data.get("visible", True),
-                    locked=obj_data.get("locked", False)
+                    x=x,
+                    y=y,
+                    width=width,
+                    height=height,
+                    fill=data.get("fill", "#000000"),
+                    stroke=data.get("stroke", "transparent"),
+                    strokeWidth=data.get("strokeWidth", 0),
+                    opacity=data.get("opacity", 1.0),
+                    angle=data.get("angle", 0),
+                    scaleX=scale_x,
+                    scaleY=scale_y,
+                    visible=data.get("visible", True),
+                    locked=data.get("locked", False)
                 )
-                # Copy extra properties
                 standard_keys = {
                     "id", "type", "x", "y", "width", "height",
                     "fill", "stroke", "strokeWidth", "opacity",
                     "angle", "scaleX", "scaleY", "visible", "locked"
                 }
-                for key, value in obj_data.items():
+                for key, value in data.items():
                     if key not in standard_keys:
                         obj.properties[key] = value
 
-                self.canvas.objects.append(obj)
+                if obj_type == ObjectType.LINE and "x1" in data:
+                    obj.properties["x1"] = data.get("x1")
+                    obj.properties["y1"] = data.get("y1")
+                    obj.properties["x2"] = data.get("x2")
+                    obj.properties["y2"] = data.get("y2")
+                if obj_type == ObjectType.TEXT and "text" in data:
+                    obj.properties["text"] = data.get("text")
+                    obj.properties["fontSize"] = data.get("fontSize", 24)
+                    obj.properties["fontFamily"] = data.get("fontFamily", "Inter")
+                    obj.properties["fontWeight"] = data.get("fontWeight", "normal")
+                    obj.properties["fontStyle"] = data.get("fontStyle", "normal")
+                    obj.properties["textAlign"] = data.get("textAlign", "left")
+                if obj_type == ObjectType.IMAGE:
+                    obj.properties["src"] = data.get("src") or data.get("url") or data.get("image") or ""
+
+                if obj_type == ObjectType.GROUP and isinstance(data.get("objects"), list):
+                    children = [build_object(child) for child in data.get("objects", [])]
+                    obj.properties["objects"] = children
+
+                return obj
+
+            for obj_data in state_dict.get("objects", []):
+                self.canvas.objects.append(build_object(obj_data))
 
             self._save_state()
             return f"Loaded canvas with {len(self.canvas.objects)} objects"
         except Exception as e:
             return f"Error loading state: {str(e)}"
+
+    def _map_object_type(self, type_name: Optional[str]) -> ObjectType:
+        """Map fabric/object types to internal enum."""
+        if not type_name:
+            return ObjectType.RECTANGLE
+
+        mapping = {
+            "rect": ObjectType.RECTANGLE,
+            "rectangle": ObjectType.RECTANGLE,
+            "circle": ObjectType.CIRCLE,
+            "ellipse": ObjectType.ELLIPSE,
+            "triangle": ObjectType.TRIANGLE,
+            "line": ObjectType.LINE,
+            "polygon": ObjectType.POLYGON,
+            "path": ObjectType.PATH,
+            "i-text": ObjectType.TEXT,
+            "text": ObjectType.TEXT,
+            "textbox": ObjectType.TEXT,
+            "image": ObjectType.IMAGE,
+            "group": ObjectType.GROUP,
+            "activeSelection": ObjectType.GROUP,
+            "star": ObjectType.STAR
+        }
+        return mapping.get(type_name, ObjectType.RECTANGLE)
+
+    def _build_polygon_points(self, x: float, y: float, radius: float, sides: int) -> List[List[float]]:
+        """Generate points for a regular polygon."""
+        if sides < 3:
+            return []
+        import math
+        points = []
+        for i in range(sides):
+            angle = (2 * math.pi * i) / sides - math.pi / 2
+            px = x + radius * math.cos(angle)
+            py = y + radius * math.sin(angle)
+            points.append([px, py])
+        return points
+
+    def _build_star_points(
+        self, x: float, y: float, outer_radius: float, inner_radius: float, points: int
+    ) -> List[List[float]]:
+        """Generate points for a star polygon."""
+        if points < 3:
+            return []
+        import math
+        coords = []
+        step = math.pi / points
+        for i in range(points * 2):
+            radius = outer_radius if i % 2 == 0 else inner_radius
+            angle = i * step - math.pi / 2
+            px = x + radius * math.cos(angle)
+            py = y + radius * math.sin(angle)
+            coords.append([px, py])
+        return coords
