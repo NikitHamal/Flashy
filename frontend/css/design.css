@@ -208,6 +208,29 @@
     font-size: 16px;
 }
 
+.btn-icon-xs {
+    width: 34px;
+    height: 34px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.btn-icon-xs:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+.btn-icon-xs .material-symbols-outlined {
+    font-size: 16px;
+}
+
 .canvas-controls {
     display: flex;
     align-items: center;
