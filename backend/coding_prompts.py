@@ -548,7 +548,7 @@ CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. 
 | `read_file` | Read single file | path |
 | `read_files` | Read multiple files | paths[], max_bytes |
 | `write_file` | Create/overwrite file | path, content |
-| `write_files` | Write multiple files | files[{path, content}] |
+| `write_files` | Write multiple files | files[{{path, content}}] |
 | `patch_file` | Surgical text replacement | path, target, replacement |
 | `apply_patch` | Apply unified diff | patch |
 | `list_dir` | List directory | path |

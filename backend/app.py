@@ -223,6 +223,9 @@ async def handle_ws_chat(connection_id: str, session_id: str, message: str, work
         except asyncio.CancelledError:
             await ws_manager.send_to_session(session_id, MessageType.TEXT, {"content": "\n\n*Cancelled.*", "is_final": True})
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"[WS] Error in handle_ws_chat: {e}")
             await ws_manager.send_to_session(session_id, MessageType.ERROR, {"message": str(e)})
         finally:
             ws_manager.unregister_session_task(session_id)

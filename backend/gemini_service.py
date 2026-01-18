@@ -444,7 +444,10 @@ class GeminiService:
             message_parts.append({"type": "text", "content": "*Interrupted*"})
 
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
+
+            import traceback
+            traceback.print_exc()
+            error_msg = f"Error ({type(e).__name__}): {str(e)}"
             yield {"error": error_msg, "is_final": True}
             message_parts.append({"type": "error", "content": error_msg})
             raise
