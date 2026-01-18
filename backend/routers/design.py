@@ -27,6 +27,23 @@ from ..design_templates import (
 router = APIRouter(prefix="/design", tags=["design"])
 
 
+def _to_fabric_state(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert backend canvas state to Fabric.js compatible state."""
+    if not state or "objects" not in state:
+        return state
+    
+    fabric_objects = []
+    for obj in state["objects"]:
+        fab_obj = _convert_template_element_to_canvas_object(obj)
+        if fab_obj:
+            fabric_objects.append(fab_obj)
+    
+    return {
+        **state,
+        "objects": fabric_objects
+    }
+
+
 class DesignRequest(BaseModel):
     """Request model for design generation."""
     prompt: str
@@ -132,7 +149,7 @@ async def get_canvas_state(request: Request, session_id: str):
     """Get current canvas state for a session."""
     design_service = request.app.state.design_service
     state = design_service.get_canvas_state(session_id)
-    return state
+    return _to_fabric_state(state)
 
 
 @router.post("/canvas")
@@ -142,7 +159,7 @@ async def set_canvas_state(request: Request, data: CanvasStateUpdate):
     result = design_service.set_canvas_state(data.session_id, data.state)
     return {
         "message": result,
-        "canvas_state": design_service.get_canvas_state(data.session_id)
+        "canvas_state": _to_fabric_state(design_service.get_canvas_state(data.session_id))
     }
 
 
@@ -247,7 +264,7 @@ async def import_from_json(
     result = design_service.set_canvas_state(session_id, state)
     return {
         "message": result,
-        "canvas_state": design_service.get_canvas_state(session_id)
+        "canvas_state": _to_fabric_state(design_service.get_canvas_state(session_id))
     }
 
 
@@ -395,7 +412,7 @@ async def apply_template(
 
         return {
             "message": f"Applied template: {full_template.name}",
-            "canvas_state": design_service.get_canvas_state(session_id)
+            "canvas_state": _to_fabric_state(design_service.get_canvas_state(session_id))
         }
 
     # Check for canvas preset
@@ -410,7 +427,7 @@ async def apply_template(
         design_service.set_canvas_state(session_id, state)
         return {
             "message": f"Applied preset: {preset['name']}",
-            "canvas_state": design_service.get_canvas_state(session_id)
+            "canvas_state": _to_fabric_state(design_service.get_canvas_state(session_id))
         }
 
     # Fallback to blank canvas
@@ -424,60 +441,82 @@ async def apply_template(
 
     return {
         "message": "Applied blank canvas",
-        "canvas_state": design_service.get_canvas_state(session_id)
+        "canvas_state": _to_fabric_state(design_service.get_canvas_state(session_id))
     }
 
 
 def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Convert a template element definition to a Fabric.js canvas object."""
-    element_type = element.get("type", "")
+    element_type = element.get("type", "").lower()
 
-    if element_type == "rectangle":
+    # Base properties common to all objects
+    base_props = {
+        "left": element.get("x", 0),
+        "top": element.get("y", 0),
+        "fill": element.get("fill", "#000000"),
+        "stroke": element.get("stroke", "transparent"),
+        "strokeWidth": element.get("strokeWidth", 0),
+        "opacity": element.get("opacity", 1),
+        "angle": element.get("angle", 0),
+        "selectable": element.get("selectable", True),
+        "id": element.get("id"),
+        "name": element.get("name")
+    }
+
+    if element_type == "rectangle" or element_type == "rect":
         return {
             "type": "rect",
-            "left": element.get("x", 0),
-            "top": element.get("y", 0),
+            **base_props,
             "width": element.get("width", 100),
             "height": element.get("height", 50),
-            "fill": element.get("fill", "#000000"),
-            "stroke": element.get("stroke", "transparent"),
-            "strokeWidth": element.get("strokeWidth", 0),
-            "opacity": element.get("opacity", 1),
             "rx": element.get("rx", 0),
             "ry": element.get("ry", 0),
-            "angle": element.get("angle", 0),
         }
 
     elif element_type == "circle":
         radius = element.get("radius", element.get("width", 50) / 2)
         return {
             "type": "circle",
-            "left": element.get("x", 0),
-            "top": element.get("y", 0),
+            **base_props,
             "radius": radius,
-            "fill": element.get("fill", "#000000"),
-            "stroke": element.get("stroke", "transparent"),
-            "strokeWidth": element.get("strokeWidth", 0),
-            "opacity": element.get("opacity", 1),
         }
 
-    elif element_type == "text":
+    elif element_type == "text" or element_type == "i-text" or element_type == "itext":
         return {
-            "type": "i-text",
-            "left": element.get("x", 0),
-            "top": element.get("y", 0),
+            "type": "textbox",
+            **base_props,
             "text": element.get("text", "Text"),
             "fontSize": element.get("fontSize", 24),
             "fontFamily": element.get("fontFamily", "Inter"),
             "fontWeight": element.get("fontWeight", "normal"),
-            "fill": element.get("fill", "#000000"),
             "textAlign": element.get("textAlign", "left"),
-            "angle": element.get("angle", 0),
+            "width": element.get("width", 200),
+        }
+    
+    elif element_type == "textbox":
+        return {
+            "type": "textbox",
+            **base_props,
+            "width": element.get("width", 200),
+            "text": element.get("text", "Text"),
+            "fontSize": element.get("fontSize", 24),
+            "fontFamily": element.get("fontFamily", "Inter"),
+            "fontWeight": element.get("fontWeight", "normal"),
+            "textAlign": element.get("textAlign", "left"),
+        }
+
+    elif element_type == "triangle":
+        return {
+            "type": "triangle",
+            **base_props,
+            "width": element.get("width", 100),
+            "height": element.get("height", 100),
         }
 
     elif element_type == "line":
         return {
             "type": "line",
+            **base_props,
             "x1": element.get("x1", 0),
             "y1": element.get("y1", 0),
             "x2": element.get("x2", 100),
@@ -492,14 +531,27 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
             if not src.startswith("/proxy_image"):
                 src = f"/proxy_image?url={src}"
                 
+        # Image objects in Fabric often need scaleX/scaleY rather than width/height
+        # unless they are already resized. For templates, we'll pass both.
         return {
             "type": "image",
-            "left": element.get("x", 0),
-            "top": element.get("y", 0),
+            **base_props,
             "width": element.get("width", 200),
             "height": element.get("height", 200),
             "src": src,
-            "opacity": element.get("opacity", 1),
+        }
+
+    elif element_type == "group":
+        objects = []
+        for child in element.get("objects", []):
+            fab_child = _convert_template_element_to_canvas_object(child)
+            if fab_child:
+                objects.append(fab_child)
+                
+        return {
+            "type": "group",
+            **base_props,
+            "objects": objects
         }
 
     return None
