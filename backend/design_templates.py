@@ -25,6 +25,9 @@ class TemplateCategory(Enum):
     WEB = "web"
     PRESENTATION = "presentation"
     PRINT = "print"
+    FESTIVAL = "festival"
+    NEPALI_FESTIVAL = "nepali_festival"
+    LOCAL_BUSINESS = "local_business"
 
 
 @dataclass
@@ -209,6 +212,121 @@ PALETTES = {
         surface="#FFFFFF",
         text="#164E63",
         text_secondary="#0E7490"
+    ),
+    
+    # ==========================================================================
+    # NEPALI FESTIVAL PALETTES
+    # ==========================================================================
+    
+    "saraswoti_puja": ColorPalette(
+        name="Saraswoti Puja",
+        primary="#FFD700",  # Golden yellow (Basanta Panchami)
+        secondary="#FFFFFF",  # White (purity, knowledge)
+        accent="#FF6B35",  # Warm orange
+        background="#FFFEF0",  # Soft cream
+        surface="#FFF8DC",  # Cornsilk
+        text="#5D4E37",  # Deep brown
+        text_secondary="#8B7355"  # Medium brown
+    ),
+    "dashain": ColorPalette(
+        name="Dashain",
+        primary="#DC143C",  # Crimson red (tika)
+        secondary="#FFD700",  # Golden (jamara, prosperity)
+        accent="#228B22",  # Green (jamara sprouts)
+        background="#FFF5F5",  # Light red tint
+        surface="#FFFFFF",
+        text="#8B0000",  # Dark red
+        text_secondary="#A0522D"  # Sienna
+    ),
+    "tihar": ColorPalette(
+        name="Tihar/Deepawali",
+        primary="#FF6B00",  # Deep orange (diyo flame)
+        secondary="#FFD700",  # Gold (lights, prosperity)
+        accent="#E91E63",  # Pink (rangoli)
+        background="#1A1A2E",  # Deep night blue
+        surface="#16213E",  # Dark surface
+        text="#FFD700",  # Gold text
+        text_secondary="#FFA500"  # Orange
+    ),
+    "holi": ColorPalette(
+        name="Holi/Fagu Purnima",
+        primary="#FF1493",  # Deep pink
+        secondary="#00BFFF",  # Deep sky blue
+        accent="#FFD700",  # Gold
+        background="#FFFFFF",
+        surface="#FFF0F5",  # Lavender blush
+        text="#4B0082",  # Indigo
+        text_secondary="#8B008B"  # Dark magenta
+    ),
+    "nepali_new_year": ColorPalette(
+        name="Nepali New Year",
+        primary="#DC143C",  # Traditional red
+        secondary="#1E3A8A",  # Deep blue (national color)
+        accent="#FFD700",  # Gold
+        background="#FEFEFE",
+        surface="#F0F4FF",  # Light blue tint
+        text="#1E3A8A",  # Deep blue
+        text_secondary="#374151"
+    ),
+    "teej": ColorPalette(
+        name="Teej",
+        primary="#DC143C",  # Red (sindoor, married women)
+        secondary="#FFD700",  # Gold (jewelry)
+        accent="#228B22",  # Green (bangles, nature)
+        background="#FFF0F5",  # Soft pink
+        surface="#FFE4E1",  # Misty rose
+        text="#8B0000",  # Dark red
+        text_secondary="#A52A2A"  # Brown
+    ),
+    "chhath": ColorPalette(
+        name="Chhath Puja",
+        primary="#FF8C00",  # Dark orange (sunrise/sunset)
+        secondary="#FFD700",  # Gold (sun)
+        accent="#87CEEB",  # Sky blue (water)
+        background="#FFF5E6",  # Warm cream
+        surface="#FFFFFF",
+        text="#8B4513",  # Saddle brown
+        text_secondary="#A0522D"
+    ),
+    "buddha_jayanti": ColorPalette(
+        name="Buddha Jayanti",
+        primary="#FFD700",  # Gold (enlightenment)
+        secondary="#FFFFFF",  # White (purity)
+        accent="#FF6347",  # Tomato (monk robes)
+        background="#F5F5DC",  # Beige
+        surface="#FFFAF0",  # Floral white
+        text="#4A4A4A",  # Dark gray
+        text_secondary="#696969"
+    ),
+    "maha_shivaratri": ColorPalette(
+        name="Maha Shivaratri",
+        primary="#4169E1",  # Royal blue (Shiva)
+        secondary="#FFFFFF",  # White (purity)
+        accent="#FF6347",  # Orange (rudraksha)
+        background="#F0F8FF",  # Alice blue
+        surface="#E6E6FA",  # Lavender
+        text="#191970",  # Midnight blue
+        text_secondary="#4682B4"  # Steel blue
+    ),
+    "dairy_business": ColorPalette(
+        name="Dairy Business",
+        primary="#2E8B57",  # Sea green (fresh)
+        secondary="#FFFFFF",  # White (milk)
+        accent="#FFD700",  # Gold (quality)
+        background="#F0FFF0",  # Honeydew
+        surface="#FFFFFF",
+        text="#1B4332",  # Dark green
+        text_secondary="#40916C"
+    ),
+    "sweets_shop": ColorPalette(
+        name="Sweets Shop",
+        primary="#FF6B35",  # Warm orange (mithai)
+        secondary="#FFD700",  # Gold (premium)
+        accent="#DC143C",  # Red (festive)
+        background="#FFF8F0",  # Seashell
+        surface="#FFFFFF",
+        text="#8B4513",  # Saddle brown
+        text_secondary="#A0522D"
     ),
 }
 
@@ -779,6 +897,1443 @@ MARKETING_POSTER_BOLD = DesignTemplate(
 
 
 # =============================================================================
+# NEPALI FESTIVAL TEMPLATES
+# =============================================================================
+
+SARASWOTI_PUJA_GREETING = DesignTemplate(
+    id="saraswoti_puja_greeting",
+    name="Saraswoti Puja Greeting",
+    description="Elegant Saraswoti Puja/Basanta Panchami greeting with veena and lotus motifs",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#FFFEF0",
+    palette=PALETTES["saraswoti_puja"],
+    tags=["saraswoti", "basanta panchami", "nepal", "festival", "education", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background_gradient",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FFFEF0"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="decorative_circle_top",
+            x=540, y=-200,
+            width=600, height=600,
+            properties={"fill": "#FFD700", "opacity": 0.15, "radius": 300}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="decorative_circle_bottom",
+            x=540, y=1100,
+            width=500, height=500,
+            properties={"fill": "#FFD700", "opacity": 0.1, "radius": 250}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=100,
+            width=120, height=120,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#FFD700",
+                "strokeWidth": 2,
+                "rx": 60, "ry": 60
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="festival_greeting",
+            x=540, y=400,
+            width=900, height=100,
+            properties={
+                "text": "Happy Saraswoti Puja",
+                "fontSize": 56,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#5D4E37",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=480,
+            width=800, height=50,
+            properties={
+                "text": "सरस्वती पूजाको हार्दिक मंगलमय शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#8B7355",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="divider",
+            x=440, y=550, width=200, height=3,
+            properties={"fill": "#FFD700", "rx": 1, "ry": 1}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing_text",
+            x=540, y=620,
+            width=800, height=80,
+            properties={
+                "text": "May Goddess Saraswoti bless you\nwith knowledge and wisdom",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#8B7355",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=950,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 24,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#5D4E37",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact_info",
+            x=540, y=1000,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000 | @yourbusiness",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#8B7355",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+DASHAIN_GREETING = DesignTemplate(
+    id="dashain_greeting",
+    name="Dashain Greeting",
+    description="Traditional Dashain greeting with tika and jamara elements",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#FFF5F5",
+    palette=PALETTES["dashain"],
+    tags=["dashain", "vijaya dashami", "nepal", "festival", "tika", "jamara", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FFF5F5"}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="decorative_corner_tl",
+            x=0, y=0, width=200, height=200,
+            properties={"fill": "#DC143C", "opacity": 0.1}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="decorative_corner_br",
+            x=880, y=880, width=200, height=200,
+            properties={"fill": "#DC143C", "opacity": 0.1}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="tika_symbol",
+            x=540, y=280,
+            width=100, height=100,
+            properties={"fill": "#DC143C", "radius": 50}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=80,
+            width=100, height=100,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#DC143C",
+                "strokeWidth": 2,
+                "rx": 8, "ry": 8
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=420,
+            width=900, height=80,
+            properties={
+                "text": "Happy Dashain",
+                "fontSize": 64,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#8B0000",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=510,
+            width=900, height=50,
+            properties={
+                "text": "विजया दशमीको हार्दिक मंगलमय शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="jamara_accent_left",
+            x=300, y=580, width=4, height=60,
+            properties={"fill": "#228B22", "rx": 2, "ry": 2}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="jamara_accent_center",
+            x=538, y=570, width=4, height=80,
+            properties={"fill": "#228B22", "rx": 2, "ry": 2}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="jamara_accent_right",
+            x=776, y=580, width=4, height=60,
+            properties={"fill": "#228B22", "rx": 2, "ry": 2}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing",
+            x=540, y=700,
+            width=800, height=80,
+            properties={
+                "text": "May this Dashain bring you joy,\nprosperity and good health",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="footer_accent",
+            x=0, y=1040, width=1080, height=40,
+            properties={"fill": "#DC143C", "opacity": 0.2}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=920,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#8B0000",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+TIHAR_GREETING = DesignTemplate(
+    id="tihar_greeting",
+    name="Tihar/Deepawali Greeting",
+    description="Festive Tihar greeting with diyo lights and rangoli patterns",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#1A1A2E",
+    palette=PALETTES["tihar"],
+    tags=["tihar", "deepawali", "diwali", "nepal", "festival", "lights", "diyo", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="dark_background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#1A1A2E"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="glow_1",
+            x=200, y=200,
+            width=300, height=300,
+            properties={"fill": "#FF6B00", "opacity": 0.15, "radius": 150}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="glow_2",
+            x=880, y=300,
+            width=250, height=250,
+            properties={"fill": "#FFD700", "opacity": 0.12, "radius": 125}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="glow_3",
+            x=150, y=800,
+            width=280, height=280,
+            properties={"fill": "#E91E63", "opacity": 0.1, "radius": 140}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="glow_4",
+            x=900, y=850,
+            width=220, height=220,
+            properties={"fill": "#FF6B00", "opacity": 0.12, "radius": 110}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=100,
+            width=100, height=100,
+            properties={
+                "fill": "#16213E",
+                "stroke": "#FFD700",
+                "strokeWidth": 2,
+                "rx": 50, "ry": 50
+            }
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="diyo_flame",
+            x=540, y=320,
+            width=60, height=80,
+            properties={"fill": "#FF6B00", "radius": 30}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=460,
+            width=900, height=80,
+            properties={
+                "text": "Happy Tihar",
+                "fontSize": 68,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#FFD700",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=550,
+            width=900, height=50,
+            properties={
+                "text": "तिहारको हार्दिक मंगलमय शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#FFA500",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="rangoli_line_1",
+            x=340, y=620, width=400, height=2,
+            properties={"fill": "#E91E63", "rx": 1, "ry": 1}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="rangoli_dot_1",
+            x=440, y=621, width=8, height=8,
+            properties={"fill": "#FFD700", "radius": 4}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="rangoli_dot_2",
+            x=540, y=621, width=8, height=8,
+            properties={"fill": "#FFD700", "radius": 4}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="rangoli_dot_3",
+            x=640, y=621, width=8, height=8,
+            properties={"fill": "#FFD700", "radius": 4}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing",
+            x=540, y=700,
+            width=800, height=80,
+            properties={
+                "text": "May the festival of lights\nbring happiness to your life",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#FFA500",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=920,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#FFD700",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000 | @yourbusiness",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#FFA500",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+HOLI_GREETING = DesignTemplate(
+    id="holi_greeting",
+    name="Holi/Fagu Purnima Greeting",
+    description="Colorful Holi greeting with vibrant splash effects",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#FFFFFF",
+    palette=PALETTES["holi"],
+    tags=["holi", "fagu purnima", "nepal", "festival", "colors", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FFFFFF"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="color_splash_pink",
+            x=150, y=150,
+            width=350, height=350,
+            properties={"fill": "#FF1493", "opacity": 0.25, "radius": 175}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="color_splash_blue",
+            x=850, y=200,
+            width=300, height=300,
+            properties={"fill": "#00BFFF", "opacity": 0.25, "radius": 150}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="color_splash_yellow",
+            x=500, y=100,
+            width=280, height=280,
+            properties={"fill": "#FFD700", "opacity": 0.2, "radius": 140}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="color_splash_purple",
+            x=100, y=750,
+            width=320, height=320,
+            properties={"fill": "#8B008B", "opacity": 0.2, "radius": 160}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="color_splash_green",
+            x=900, y=800,
+            width=280, height=280,
+            properties={"fill": "#32CD32", "opacity": 0.2, "radius": 140}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=100,
+            width=100, height=100,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#FF1493",
+                "strokeWidth": 3,
+                "rx": 50, "ry": 50
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=380,
+            width=900, height=100,
+            properties={
+                "text": "Happy Holi",
+                "fontSize": 72,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#4B0082",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=480,
+            width=900, height=50,
+            properties={
+                "text": "फागु पूर्णिमाको हार्दिक शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#8B008B",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing",
+            x=540, y=600,
+            width=800, height=80,
+            properties={
+                "text": "May your life be filled with\ncolors of happiness and joy",
+                "fontSize": 24,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#4B0082",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=920,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#4B0082",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#8B008B",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+NEPALI_NEW_YEAR_GREETING = DesignTemplate(
+    id="nepali_new_year_greeting",
+    name="Nepali New Year Greeting",
+    description="Elegant Nepali New Year (Naya Barsha) greeting",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#FEFEFE",
+    palette=PALETTES["nepali_new_year"],
+    tags=["new year", "naya barsha", "bikram sambat", "nepal", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FEFEFE"}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="top_accent",
+            x=0, y=0, width=1080, height=8,
+            properties={"fill": "#DC143C"}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="bottom_accent",
+            x=0, y=1072, width=1080, height=8,
+            properties={"fill": "#1E3A8A"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="decorative_circle",
+            x=540, y=280,
+            width=160, height=160,
+            properties={
+                "fill": "transparent",
+                "stroke": "#DC143C",
+                "strokeWidth": 3,
+                "radius": 80
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=80,
+            width=100, height=100,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#1E3A8A",
+                "strokeWidth": 2,
+                "rx": 8, "ry": 8
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="year_number",
+            x=540, y=290,
+            width=200, height=60,
+            properties={
+                "text": "2082",
+                "fontSize": 48,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#DC143C",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=440,
+            width=900, height=80,
+            properties={
+                "text": "Happy New Year",
+                "fontSize": 56,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#1E3A8A",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=530,
+            width=900, height=50,
+            properties={
+                "text": "नयाँ वर्ष २०८२ को हार्दिक मंगलमय शुभकामना",
+                "fontSize": 26,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#374151",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="divider",
+            x=440, y=600, width=200, height=3,
+            properties={"fill": "#DC143C", "rx": 1, "ry": 1}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing",
+            x=540, y=680,
+            width=800, height=80,
+            properties={
+                "text": "Wishing you a prosperous and\njoyful year ahead",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#374151",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=920,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#1E3A8A",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#374151",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+TEEJ_GREETING = DesignTemplate(
+    id="teej_greeting",
+    name="Teej Greeting",
+    description="Beautiful Teej festival greeting for women's celebration",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#FFF0F5",
+    palette=PALETTES["teej"],
+    tags=["teej", "haritalika", "nepal", "festival", "women", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FFF0F5"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="decorative_1",
+            x=100, y=100,
+            width=200, height=200,
+            properties={"fill": "#DC143C", "opacity": 0.1, "radius": 100}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="decorative_2",
+            x=950, y=150,
+            width=180, height=180,
+            properties={"fill": "#228B22", "opacity": 0.1, "radius": 90}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="decorative_3",
+            x=80, y=880,
+            width=220, height=220,
+            properties={"fill": "#FFD700", "opacity": 0.15, "radius": 110}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=80,
+            width=100, height=100,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#DC143C",
+                "strokeWidth": 2,
+                "rx": 50, "ry": 50
+            }
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="bindi_symbol",
+            x=540, y=280,
+            width=40, height=40,
+            properties={"fill": "#DC143C", "radius": 20}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=400,
+            width=900, height=80,
+            properties={
+                "text": "Happy Teej",
+                "fontSize": 64,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#8B0000",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=490,
+            width=900, height=50,
+            properties={
+                "text": "हरितालिका तीजको हार्दिक शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#A52A2A",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="bangle_line_1",
+            x=380, y=560, width=60, height=4,
+            properties={"fill": "#228B22", "rx": 2, "ry": 2}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="bangle_line_2",
+            x=510, y=560, width=60, height=4,
+            properties={"fill": "#DC143C", "rx": 2, "ry": 2}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="bangle_line_3",
+            x=640, y=560, width=60, height=4,
+            properties={"fill": "#FFD700", "rx": 2, "ry": 2}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing",
+            x=540, y=650,
+            width=800, height=80,
+            properties={
+                "text": "May this auspicious festival bring\nhappiness and prosperity",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A52A2A",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=920,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#8B0000",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A52A2A",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+CHHATH_PUJA_GREETING = DesignTemplate(
+    id="chhath_puja_greeting",
+    name="Chhath Puja Greeting",
+    description="Chhath Puja greeting with sunrise and water elements",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#FFF5E6",
+    palette=PALETTES["chhath"],
+    tags=["chhath", "surya", "nepal", "festival", "sun", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FFF5E6"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="sun_glow",
+            x=540, y=200,
+            width=400, height=400,
+            properties={"fill": "#FFD700", "opacity": 0.2, "radius": 200}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="sun_core",
+            x=540, y=200,
+            width=150, height=150,
+            properties={"fill": "#FF8C00", "opacity": 0.8, "radius": 75}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="water_reflection",
+            x=0, y=850, width=1080, height=230,
+            properties={"fill": "#87CEEB", "opacity": 0.3}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=60,
+            width=80, height=80,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#FF8C00",
+                "strokeWidth": 2,
+                "rx": 40, "ry": 40
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=420,
+            width=900, height=80,
+            properties={
+                "text": "Happy Chhath Puja",
+                "fontSize": 56,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#8B4513",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=510,
+            width=900, height=50,
+            properties={
+                "text": "छठ पूजाको हार्दिक शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="blessing",
+            x=540, y=620,
+            width=800, height=80,
+            properties={
+                "text": "May the Sun God bless you with\nabundant health and prosperity",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=760,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#8B4513",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=810,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+BUDDHA_JAYANTI_GREETING = DesignTemplate(
+    id="buddha_jayanti_greeting",
+    name="Buddha Jayanti Greeting",
+    description="Peaceful Buddha Jayanti greeting with lotus and enlightenment theme",
+    category=TemplateCategory.NEPALI_FESTIVAL,
+    width=1080,
+    height=1080,
+    background="#F5F5DC",
+    palette=PALETTES["buddha_jayanti"],
+    tags=["buddha", "jayanti", "nepal", "festival", "peace", "greeting"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#F5F5DC"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="enlightenment_glow",
+            x=540, y=280,
+            width=300, height=300,
+            properties={"fill": "#FFD700", "opacity": 0.2, "radius": 150}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="lotus_base",
+            x=540, y=340,
+            width=120, height=60,
+            properties={"fill": "#FFD700", "opacity": 0.5, "radius": 60}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=80,
+            width=80, height=80,
+            properties={
+                "fill": "#FFFAF0",
+                "stroke": "#FFD700",
+                "strokeWidth": 2,
+                "rx": 40, "ry": 40
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="main_greeting",
+            x=540, y=450,
+            width=900, height=80,
+            properties={
+                "text": "Happy Buddha Jayanti",
+                "fontSize": 52,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#4A4A4A",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="nepali_greeting",
+            x=540, y=540,
+            width=900, height=50,
+            properties={
+                "text": "बुद्ध जयन्तीको हार्दिक शुभकामना",
+                "fontSize": 28,
+                "fontFamily": "Noto Sans Devanagari",
+                "fontWeight": "500",
+                "fill": "#696969",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="quote",
+            x=540, y=640,
+            width=800, height=100,
+            properties={
+                "text": "\"Peace comes from within.\nDo not seek it without.\"",
+                "fontSize": 20,
+                "fontFamily": "Inter",
+                "fontStyle": "italic",
+                "fontWeight": "400",
+                "fill": "#696969",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="brand_name",
+            x=540, y=920,
+            width=600, height=36,
+            properties={
+                "text": "Your Business Name",
+                "fontSize": 26,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#4A4A4A",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Contact: 9800000000",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#696969",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+
+# =============================================================================
+# LOCAL BUSINESS TEMPLATES (NEPAL)
+# =============================================================================
+
+DAIRY_BUSINESS_PROMO = DesignTemplate(
+    id="dairy_business_promo",
+    name="Dairy Business Promotion",
+    description="Fresh and clean promotion template for dairy shops",
+    category=TemplateCategory.LOCAL_BUSINESS,
+    width=1080,
+    height=1080,
+    background="#F0FFF0",
+    palette=PALETTES["dairy_business"],
+    tags=["dairy", "milk", "nepal", "business", "local", "promo"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#F0FFF0"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="milk_drop_1",
+            x=150, y=200,
+            width=180, height=180,
+            properties={"fill": "#FFFFFF", "opacity": 0.8, "radius": 90}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="milk_drop_2",
+            x=900, y=300,
+            width=140, height=140,
+            properties={"fill": "#FFFFFF", "opacity": 0.7, "radius": 70}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="header_bar",
+            x=0, y=0, width=1080, height=10,
+            properties={"fill": "#2E8B57"}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=100,
+            width=140, height=140,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#2E8B57",
+                "strokeWidth": 3,
+                "rx": 70, "ry": 70
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="business_name",
+            x=540, y=320,
+            width=800, height=60,
+            properties={
+                "text": "Fresh Dairy Shop",
+                "fontSize": 48,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#1B4332",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="tagline",
+            x=540, y=400,
+            width=700, height=36,
+            properties={
+                "text": "Pure & Fresh - Direct from Farm",
+                "fontSize": 24,
+                "fontFamily": "Inter",
+                "fontWeight": "500",
+                "fill": "#40916C",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="offer_box",
+            x=240, y=480, width=600, height=200,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#2E8B57",
+                "strokeWidth": 2,
+                "rx": 12, "ry": 12
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="offer_title",
+            x=540, y=530,
+            width=550, height=36,
+            properties={
+                "text": "TODAY'S SPECIAL",
+                "fontSize": 18,
+                "fontFamily": "Inter",
+                "fontWeight": "600",
+                "fill": "#2E8B57",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="offer_details",
+            x=540, y=600,
+            width=550, height=60,
+            properties={
+                "text": "Fresh Milk - Rs. 80/L\nCurd - Rs. 100/kg",
+                "fontSize": 28,
+                "fontFamily": "Poppins",
+                "fontWeight": "600",
+                "fill": "#1B4332",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="cta_button",
+            x=390, y=750, width=300, height=60,
+            properties={"fill": "#2E8B57", "rx": 30, "ry": 30}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="cta_text",
+            x=540, y=790,
+            width=280, height=28,
+            properties={
+                "text": "Order Now",
+                "fontSize": 20,
+                "fontFamily": "Inter",
+                "fontWeight": "600",
+                "fill": "#FFFFFF",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact",
+            x=540, y=900,
+            width=600, height=60,
+            properties={
+                "text": "Contact: 9800000000\nLocation: Your Address Here",
+                "fontSize": 16,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#40916C",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="footer_bar",
+            x=0, y=1000, width=1080, height=80,
+            properties={"fill": "#2E8B57", "opacity": 0.1}
+        ),
+    ]
+)
+
+SWEETS_SHOP_PROMO = DesignTemplate(
+    id="sweets_shop_promo",
+    name="Sweets Shop Promotion",
+    description="Warm and inviting promotion template for sweet shops",
+    category=TemplateCategory.LOCAL_BUSINESS,
+    width=1080,
+    height=1080,
+    background="#FFF8F0",
+    palette=PALETTES["sweets_shop"],
+    tags=["sweets", "mithai", "nepal", "business", "local", "promo"],
+    elements=[
+        TemplateElement(
+            element_type="rectangle",
+            name="background",
+            x=0, y=0, width=1080, height=1080,
+            properties={"fill": "#FFF8F0"}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="warm_glow_1",
+            x=100, y=150,
+            width=250, height=250,
+            properties={"fill": "#FF6B35", "opacity": 0.1, "radius": 125}
+        ),
+        TemplateElement(
+            element_type="circle",
+            name="warm_glow_2",
+            x=950, y=200,
+            width=200, height=200,
+            properties={"fill": "#FFD700", "opacity": 0.15, "radius": 100}
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="decorative_border",
+            x=40, y=40, width=1000, height=1000,
+            properties={
+                "fill": "transparent",
+                "stroke": "#FF6B35",
+                "strokeWidth": 2,
+                "rx": 0, "ry": 0
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="logo_placeholder",
+            x=540, y=100,
+            width=120, height=120,
+            properties={
+                "fill": "#FFFFFF",
+                "stroke": "#FF6B35",
+                "strokeWidth": 3,
+                "rx": 60, "ry": 60
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="business_name",
+            x=540, y=300,
+            width=800, height=60,
+            properties={
+                "text": "Nepali Sweets",
+                "fontSize": 52,
+                "fontFamily": "Poppins",
+                "fontWeight": "700",
+                "fill": "#8B4513",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="tagline",
+            x=540, y=380,
+            width=700, height=36,
+            properties={
+                "text": "Traditional Taste, Premium Quality",
+                "fontSize": 22,
+                "fontFamily": "Inter",
+                "fontWeight": "500",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="menu_box",
+            x=190, y=450, width=700, height=280,
+            properties={
+                "fill": "#FFFFFF",
+                "rx": 16, "ry": 16
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="menu_title",
+            x=540, y=490,
+            width=650, height=30,
+            properties={
+                "text": "FESTIVAL SPECIAL MENU",
+                "fontSize": 18,
+                "fontFamily": "Inter",
+                "fontWeight": "600",
+                "fill": "#FF6B35",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="menu_items",
+            x=540, y=600,
+            width=650, height=120,
+            properties={
+                "text": "Laddu - Rs. 600/kg\nBarfi - Rs. 700/kg\nGulab Jamun - Rs. 500/kg",
+                "fontSize": 24,
+                "fontFamily": "Poppins",
+                "fontWeight": "500",
+                "fill": "#8B4513",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="rectangle",
+            name="order_button",
+            x=390, y=780, width=300, height=60,
+            properties={"fill": "#FF6B35", "rx": 30, "ry": 30}
+        ),
+        TemplateElement(
+            element_type="text",
+            name="order_text",
+            x=540, y=820,
+            width=280, height=28,
+            properties={
+                "text": "Order for Festivals",
+                "fontSize": 18,
+                "fontFamily": "Inter",
+                "fontWeight": "600",
+                "fill": "#FFFFFF",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="contact_info",
+            x=540, y=920,
+            width=600, height=60,
+            properties={
+                "text": "Call: 9800000000 | Free Delivery",
+                "fontSize": 18,
+                "fontFamily": "Inter",
+                "fontWeight": "500",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+        TemplateElement(
+            element_type="text",
+            name="location",
+            x=540, y=970,
+            width=600, height=24,
+            properties={
+                "text": "Location: Your Address, City",
+                "fontSize": 14,
+                "fontFamily": "Inter",
+                "fontWeight": "400",
+                "fill": "#A0522D",
+                "textAlign": "center"
+            }
+        ),
+    ]
+)
+
+
+# =============================================================================
 # TEMPLATE REGISTRY
 # =============================================================================
 
@@ -797,6 +2352,20 @@ TEMPLATES: Dict[str, DesignTemplate] = {
 
     # Marketing
     "marketing_poster_bold": MARKETING_POSTER_BOLD,
+    
+    # Nepali Festivals
+    "saraswoti_puja_greeting": SARASWOTI_PUJA_GREETING,
+    "dashain_greeting": DASHAIN_GREETING,
+    "tihar_greeting": TIHAR_GREETING,
+    "holi_greeting": HOLI_GREETING,
+    "nepali_new_year_greeting": NEPALI_NEW_YEAR_GREETING,
+    "teej_greeting": TEEJ_GREETING,
+    "chhath_puja_greeting": CHHATH_PUJA_GREETING,
+    "buddha_jayanti_greeting": BUDDHA_JAYANTI_GREETING,
+    
+    # Local Business
+    "dairy_business_promo": DAIRY_BUSINESS_PROMO,
+    "sweets_shop_promo": SWEETS_SHOP_PROMO,
 }
 
 
