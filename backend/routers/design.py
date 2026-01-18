@@ -463,6 +463,18 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
         "name": element.get("name")
     }
 
+    # Sanitize text properties
+    if "textBaseline" in element.get("properties", {}): 
+        # Although properties are flattened into element usually for the tool, 
+        # here element is the dict from to_dict(). 
+        # But wait, element.to_dict() flattens properties into the top level.
+        pass
+    
+    # Check top level for textBaseline
+    if element.get("textBaseline") == "alphabetical":
+        # fabric.js expects 'alphabetic'
+        base_props["textBaseline"] = "alphabetic"
+
     if element_type == "rectangle" or element_type == "rect":
         return {
             "type": "rect",
@@ -491,6 +503,8 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
             "fontWeight": element.get("fontWeight", "normal"),
             "textAlign": element.get("textAlign", "left"),
             "width": element.get("width", 200),
+            # Ensure no 'alphabetical' creeping in
+            "textBaseline": "alphabetic" if element.get("textBaseline") == "alphabetical" else element.get("textBaseline", "alphabetic"),
         }
     
     elif element_type == "textbox":
@@ -503,6 +517,7 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
             "fontFamily": element.get("fontFamily", "Inter"),
             "fontWeight": element.get("fontWeight", "normal"),
             "textAlign": element.get("textAlign", "left"),
+            "textBaseline": "alphabetic" if element.get("textBaseline") == "alphabetical" else element.get("textBaseline", "alphabetic"),
         }
 
     elif element_type == "triangle":
@@ -514,9 +529,12 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
         }
 
     elif element_type == "line":
+        # Line shouldn't have width/height forced if we want x1/y1/x2/y2 to control it
+        # But base_props has them.
+        line_props = {k: v for k, v in base_props.items() if k not in ["width", "height"]}
         return {
             "type": "line",
-            **base_props,
+            **line_props,
             "x1": element.get("x1", 0),
             "y1": element.get("y1", 0),
             "x2": element.get("x2", 100),
@@ -530,9 +548,8 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
         if src.startswith("http://") or src.startswith("https://"):
             if not src.startswith("/proxy_image"):
                 src = f"/proxy_image?url={src}"
-                
-        # Image objects in Fabric often need scaleX/scaleY rather than width/height
-        # unless they are already resized. For templates, we'll pass both.
+        
+        # Image needs width/height
         return {
             "type": "image",
             **base_props,
@@ -547,7 +564,11 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
             fab_child = _convert_template_element_to_canvas_object(child)
             if fab_child:
                 objects.append(fab_child)
-                
+        
+        if not objects:
+            return None
+
+        # Groups shouldn't necessarily have fixed width/height forced if dynamic
         return {
             "type": "group",
             **base_props,
