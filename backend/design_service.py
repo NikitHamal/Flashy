@@ -23,8 +23,15 @@ from gemini_webapi.constants import Model
 
 from .config import load_config
 from .design_agent import DesignAgent
-from .design_prompts import get_system_prompt, get_review_prompt, DESIGN_TOOL_RESULT_TEMPLATE
+from .design_prompts import (
+    get_system_prompt, get_review_prompt, get_tool_result_message,
+    get_festival_palette, get_composition_template
+)
 from .response_filter import ResponseFilter, ThoughtFilter
+from .composition_engine import (
+    CompositionEngine, get_composition_for_preset,
+    ZoneType, ElementRole
+)
 
 
 class DesignService:
@@ -201,6 +208,99 @@ class DesignService:
 
         return "\n".join(context_lines)
 
+    def _build_composition_context(
+        self, canvas_width: int, canvas_height: int, design_type: str = ""
+    ) -> str:
+        """
+        Build composition context string with zone information for the AI.
+        Uses the composition engine to provide precise positioning guidance.
+        """
+        # Determine appropriate composition based on design type
+        engine = CompositionEngine(canvas_width, canvas_height)
+        
+        # Detect design type and create appropriate composition
+        design_lower = design_type.lower() if design_type else ""
+        
+        if any(word in design_lower for word in [
+            "dashain", "tihar", "saraswoti", "holi", "teej", "chhath",
+            "festival", "greeting", "puja", "diwali", "new year"
+        ]):
+            engine.create_festival_greeting_composition()
+            composition_type = "Festival Greeting"
+        elif any(word in design_lower for word in ["story", "reel", "status"]):
+            engine.create_social_post_composition("story")
+            composition_type = "Vertical Story"
+        elif canvas_width == canvas_height:
+            engine.create_social_post_composition("square")
+            composition_type = "Square Post"
+        elif canvas_width > canvas_height * 1.5:
+            engine.create_banner_composition("centered")
+            composition_type = "Banner"
+        else:
+            engine.create_banner_composition("centered")
+            composition_type = "Standard Layout"
+        
+        # Get composition context
+        context = engine.get_composition_context()
+        
+        # Build context string
+        lines = [
+            f"## Composition: {composition_type}",
+            "",
+            "### Zone Positions (use these for element placement):"
+        ]
+        
+        for zone in context["zones"]:
+            zone_type = zone["zone_type"].upper()
+            x = int(zone["x"])
+            y = int(zone["y"])
+            w = int(zone["width"])
+            h = int(zone["height"])
+            inner = zone["inner_bounds"]
+            lines.append(
+                f"- **{zone_type}**: x={x}, y={y}, w={w}, h={h} "
+                f"(inner: x={int(inner['x'])}, y={int(inner['y'])}, "
+                f"w={int(inner['width'])}, h={int(inner['height'])})"
+            )
+        
+        lines.extend([
+            "",
+            "### Golden Ratio Points:",
+            f"- Horizontal split: {int(context['golden_ratio']['horizontal_split'][0])}px / {int(context['golden_ratio']['horizontal_split'][1])}px",
+            f"- Vertical split: {int(context['golden_ratio']['vertical_split'][0])}px / {int(context['golden_ratio']['vertical_split'][1])}px",
+            "",
+            "### Rule of Thirds:",
+            f"- Vertical lines at: x={int(context['thirds']['lines']['vertical'][0])}, x={int(context['thirds']['lines']['vertical'][1])}",
+            f"- Horizontal lines at: y={int(context['thirds']['lines']['horizontal'][0])}, y={int(context['thirds']['lines']['horizontal'][1])}",
+            "",
+            "### Recommended Margins:",
+            f"- Edge margin: {int(context['margins']['edge'])}px",
+            f"- Section spacing: {int(context['margins']['section'])}px",
+            f"- Element spacing: {int(context['margins']['element'])}px"
+        ])
+        
+        return "\n".join(lines)
+
+    def _detect_festival_type(self, prompt: str) -> str:
+        """Detect festival type from user prompt for palette selection."""
+        prompt_lower = prompt.lower()
+        
+        festivals = {
+            "saraswoti": ["saraswoti", "saraswati", "basanta", "vasant"],
+            "dashain": ["dashain", "vijaya", "dashami", "tika"],
+            "tihar": ["tihar", "deepawali", "diwali", "diyo", "lights"],
+            "holi": ["holi", "fagu", "colors", "colour"],
+            "new_year": ["new year", "naya barsha", "naya varsha", "2082"],
+            "teej": ["teej", "haritalika"],
+            "chhath": ["chhath", "surya"],
+            "buddha": ["buddha", "jayanti"]
+        }
+        
+        for festival, keywords in festivals.items():
+            if any(kw in prompt_lower for kw in keywords):
+                return festival
+        return ""
+
     async def generate_design(
         self,
         prompt: str,
@@ -255,16 +355,37 @@ class DesignService:
 
             # Build object context
             object_context = self._build_object_context(agent)
+            
+            # Build composition context based on user request
+            composition_context = self._build_composition_context(
+                canvas_width, canvas_height, prompt
+            )
+            
+            # Detect festival type and get palette hint
+            festival_type = self._detect_festival_type(prompt)
+            palette_hint = ""
+            if festival_type:
+                palette = get_festival_palette(festival_type)
+                palette_hint = f"""
+### Recommended Color Palette for {festival_type.replace('_', ' ').title()}:
+- Primary: {palette['primary']}
+- Secondary: {palette['secondary']}
+- Accent: {palette['accent']}
+- Background: {palette['background']}
+- Text: {palette['text']}
+"""
 
             full_prompt = f"""{system_context}
 
+{composition_context}
+{palette_hint}
 ## Current Objects on Canvas
 {object_context}
 
 ## User Request
 {prompt}
 
-Execute the design now. Calculate precise positions and use tool calls."""
+Execute the design now. Use zone-based positioning from the composition context above. Calculate precise pixel positions and use tool calls."""
 
             # Handle screenshot feedback
             file_paths = files or []
@@ -429,9 +550,11 @@ Execute the design now. Calculate precise positions and use tool calls."""
                         break
 
                     # Build concise result for Gemini
-                    result_prompt = DESIGN_TOOL_RESULT_TEMPLATE.format(
+                    new_id = self._extract_id_from_result(tool_result)
+                    result_prompt = get_tool_result_message(
                         tool_name=tool_call["name"],
-                        output=tool_result
+                        output=tool_result,
+                        obj_id=new_id
                     )
 
                     # Feed result back to Gemini
