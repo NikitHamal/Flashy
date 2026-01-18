@@ -1,9 +1,10 @@
 # CONTINUITY.md - Session Continuity Ledger
 
 ## Goal (incl. success criteria):
-- Fix Flashy Designs agent so AI output applies to canvas and messages render correctly
-- Improve Flashy Designs UX (responsive layout, better tools, export/import, templates, alignment)
-- Enhance Flashy coding agent reliability/power with stronger tools + UI feedback
+- Deliver professional, structured design outputs with correct element placement
+- Add post size presets + custom sizing for popular social platforms
+- Provide high-end festival templates/presets (Nepal focus) with logos
+- Improve Flashy Designs UX/tools and overall agent quality
 - Maintain modular files (<800 lines) and production-grade behavior
 - Keep AI multimodal feedback loop for design screenshots
 
@@ -13,6 +14,7 @@
 - No TODOs or stub code; production-grade only
 - Maintain modular approach (500-800 lines max per file)
 - Keep UI/UX consistent with existing app styling
+- Do not ask the user follow-up questions
 
 ## Key Decisions:
 - Unify design tool schema between backend and frontend
@@ -22,17 +24,17 @@
 ## State:
 
 - Done:
-  - Unified design tool schema across backend/frontend
-  - Added canvas_action streaming and frontend canvas execution
-  - Fixed screenshot base64 decoding and image attachment handling
-  - Added grid/snap toggles, align/distribute tools, and richer export options
-  - Expanded coding agent tools (read/write multiple files, apply patch) and UI tool mapping
+  - Added layout guidance into design prompts and streaming context
+  - Fixed polygon/star positioning to use top-left input coords
+  - Added size preset UI with custom sizing + swap/apply controls
+  - Added Nepal festival template catalog + new palettes
+  - Refactored templates into modular files under 800 lines
 
 - Now:
-  - Light validation pass
+  - Verify template/preset flows and final UX polish
 
 - Next:
-  - Provide summary + next steps
+  - Summarize changes and suggest validation steps
 
 ## Open Questions (UNCONFIRMED if needed):
 - None

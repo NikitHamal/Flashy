@@ -387,7 +387,9 @@ class DesignTools:
         """Add a polygon with points or a regular polygon."""
         obj_id = self._generate_id()
 
-        polygon_points = points or self._build_polygon_points(x, y, radius, sides)
+        center_x = x + radius
+        center_y = y + radius
+        polygon_points = points or self._build_polygon_points(center_x, center_y, radius, sides)
         if polygon_points:
             xs = [p[0] for p in polygon_points]
             ys = [p[1] for p in polygon_points]
@@ -420,7 +422,9 @@ class DesignTools:
     ) -> str:
         """Add a star shape."""
         obj_id = self._generate_id()
-        star_points = self._build_star_points(x, y, outerRadius, innerRadius, points)
+        center_x = x + outerRadius
+        center_y = y + outerRadius
+        star_points = self._build_star_points(center_x, center_y, outerRadius, innerRadius, points)
         if star_points:
             xs = [p[0] for p in star_points]
             ys = [p[1] for p in star_points]

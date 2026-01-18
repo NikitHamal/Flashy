@@ -6,6 +6,7 @@ const DesignProperties = {
     currentObject: null,
     lockRatio: false,
     aspectRatio: 1,
+    canvasPresets: [],
 
     /**
      * Show a brief success flash on an input element
@@ -26,6 +27,7 @@ const DesignProperties = {
         this.setupSliders();
         this.setupCanvasProperties();
         this.setupTabs();
+        this.loadCanvasPresets();
         this.loadTemplates();
         return this;
     },
@@ -214,22 +216,168 @@ const DesignProperties = {
     setupCanvasProperties() {
         const widthInput = document.getElementById('canvas-width');
         const heightInput = document.getElementById('canvas-height');
+        const presetSelect = document.getElementById('canvas-preset');
+        const applyBtn = document.getElementById('btn-apply-canvas-size');
+        const swapBtn = document.getElementById('btn-swap-canvas');
+
+        const applyFromInputs = () => {
+            const width = this.normalizeCanvasSize(parseInt(widthInput?.value, 10) || 1200);
+            const height = this.normalizeCanvasSize(parseInt(heightInput?.value, 10) || 800);
+            this.applyCanvasSize(width, height, { syncPreset: true });
+        };
 
         if (widthInput) {
             widthInput.addEventListener('change', () => {
-                const width = parseInt(widthInput.value) || 1200;
-                const height = parseInt(heightInput?.value) || 800;
-                DesignCanvas.setCanvasSize(width, height);
+                if (presetSelect) presetSelect.value = 'custom';
+                applyFromInputs();
+            });
+            widthInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (presetSelect) presetSelect.value = 'custom';
+                    applyFromInputs();
+                }
             });
         }
 
         if (heightInput) {
             heightInput.addEventListener('change', () => {
-                const width = parseInt(widthInput?.value) || 1200;
-                const height = parseInt(heightInput.value) || 800;
-                DesignCanvas.setCanvasSize(width, height);
+                if (presetSelect) presetSelect.value = 'custom';
+                applyFromInputs();
+            });
+            heightInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (presetSelect) presetSelect.value = 'custom';
+                    applyFromInputs();
+                }
             });
         }
+
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                if (presetSelect) presetSelect.value = 'custom';
+                applyFromInputs();
+            });
+        }
+
+        if (swapBtn) {
+            swapBtn.addEventListener('click', () => {
+                const width = this.normalizeCanvasSize(parseInt(heightInput?.value, 10) || 800);
+                const height = this.normalizeCanvasSize(parseInt(widthInput?.value, 10) || 1200);
+                this.applyCanvasSize(width, height, { syncPreset: true });
+            });
+        }
+
+        if (presetSelect) {
+            presetSelect.addEventListener('change', () => {
+                const presetId = presetSelect.value;
+                if (presetId === 'custom') return;
+                const preset = this.getPresetById(presetId);
+                if (!preset) return;
+                this.applyCanvasSize(preset.width, preset.height, { syncPreset: false });
+            });
+        }
+    },
+
+    normalizeCanvasSize(value) {
+        return Math.max(240, Math.min(value, 5000));
+    },
+
+    applyCanvasSize(width, height, { syncInputs = true, syncPreset = true } = {}) {
+        if (!width || !height) return;
+        DesignCanvas.setCanvasSize(width, height);
+
+        if (syncInputs) {
+            const widthInput = document.getElementById('canvas-width');
+            const heightInput = document.getElementById('canvas-height');
+            if (widthInput) widthInput.value = width;
+            if (heightInput) heightInput.value = height;
+        }
+
+        if (syncPreset) {
+            this.syncPresetSelection(width, height);
+        }
+    },
+
+    getPresetById(presetId) {
+        return this.canvasPresets.find(preset => preset.id === presetId);
+    },
+
+    getPresetGroup(presetId) {
+        if (presetId.startsWith('instagram')) return 'Instagram';
+        if (presetId.startsWith('facebook')) return 'Facebook';
+        if (presetId.startsWith('twitter')) return 'Twitter/X';
+        if (presetId.startsWith('linkedin')) return 'LinkedIn';
+        if (presetId.startsWith('youtube')) return 'YouTube';
+        if (presetId.startsWith('tiktok')) return 'TikTok';
+        if (presetId.startsWith('snapchat')) return 'Snapchat';
+        if (presetId.startsWith('pinterest')) return 'Pinterest';
+        if (presetId.startsWith('presentation')) return 'Presentation';
+        if (presetId.startsWith('poster') || presetId.startsWith('flyer')) return 'Print';
+        if (presetId.startsWith('web') || presetId.startsWith('hero') || presetId.startsWith('email')) return 'Web';
+        if (presetId.startsWith('business') || presetId.startsWith('letterhead') || presetId.startsWith('invoice')) return 'Business';
+        return 'Other';
+    },
+
+    populatePresetSelect(selectEl) {
+        const groups = {};
+        this.canvasPresets.forEach(preset => {
+            const group = this.getPresetGroup(preset.id);
+            if (!groups[group]) groups[group] = [];
+            groups[group].push(preset);
+        });
+
+        const groupOrder = [
+            'Instagram', 'Facebook', 'Twitter/X', 'LinkedIn', 'YouTube',
+            'TikTok', 'Snapchat', 'Pinterest', 'Business', 'Presentation',
+            'Print', 'Web', 'Other'
+        ];
+
+        groupOrder.forEach(groupName => {
+            const presets = groups[groupName];
+            if (!presets || presets.length === 0) return;
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = groupName;
+
+            presets
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .forEach(preset => {
+                    const option = document.createElement('option');
+                    option.value = preset.id;
+                    option.textContent = `${preset.name} (${preset.width}×${preset.height})`;
+                    optgroup.appendChild(option);
+                });
+
+            selectEl.appendChild(optgroup);
+        });
+    },
+
+    syncPresetSelection(width, height) {
+        const presetSelect = document.getElementById('canvas-preset');
+        if (!presetSelect) return;
+        const match = this.canvasPresets.find(
+            preset => preset.width === width && preset.height === height
+        );
+        presetSelect.value = match ? match.id : 'custom';
+    },
+
+    loadCanvasPresets() {
+        const presetSelect = document.getElementById('canvas-preset');
+        if (!presetSelect) return;
+
+        presetSelect.innerHTML = '';
+        const customOption = document.createElement('option');
+        customOption.value = 'custom';
+        customOption.textContent = 'Custom Size';
+        presetSelect.appendChild(customOption);
+
+        fetch('/design/presets')
+            .then(res => res.json())
+            .then(data => {
+                this.canvasPresets = data.presets || [];
+                this.populatePresetSelect(presetSelect);
+                this.syncPresetSelection(DesignCanvas.canvasWidth, DesignCanvas.canvasHeight);
+            })
+            .catch(err => console.error('Failed to load presets:', err));
     },
 
     loadTemplates() {
@@ -249,7 +397,7 @@ const DesignProperties = {
                         </div>
                         <div class="template-info">
                             <div class="template-name">${template.name}</div>
-                            <div class="template-size">${template.size.width} × ${template.size.height}</div>
+                            <div class="template-size">${template.width} × ${template.height}</div>
                         </div>
                     `;
                     item.addEventListener('click', () => this.applyTemplate(template.id));
@@ -272,14 +420,14 @@ const DesignProperties = {
             .then(data => {
                 if (data.canvas_state) {
                     const state = data.canvas_state;
-                    DesignCanvas.setCanvasSize(state.width, state.height);
-                    DesignCanvas.setBackgroundColor(state.background);
-                    DesignCanvas.clear();
-
-                    document.getElementById('canvas-width').value = state.width;
-                    document.getElementById('canvas-height').value = state.height;
-                    document.getElementById('canvas-bg').value = state.background;
-                    document.getElementById('canvas-bg-hex').value = state.background;
+                    DesignCanvas.loadFromJSON(state).then(() => {
+                        DesignCanvas.setBackgroundColor(state.background);
+                        document.getElementById('canvas-width').value = state.width;
+                        document.getElementById('canvas-height').value = state.height;
+                        document.getElementById('canvas-bg').value = state.background;
+                        document.getElementById('canvas-bg-hex').value = state.background;
+                        this.syncPresetSelection(state.width, state.height);
+                    });
                 }
             })
             .catch(err => console.error('Failed to apply template:', err));

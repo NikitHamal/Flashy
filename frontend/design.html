@@ -213,9 +213,10 @@
                             <span class="material-symbols-outlined">palette</span>
                         </div>
                         <h3>AI Design Assistant</h3>
-                        <p>Describe what you want to create and I'll build it on the canvas. I can add shapes, text, images, and compose complex designs.</p>
+                        <p>Describe what you want to create and I'll build it on the canvas. Use size presets, templates, or just describe your layout and I’ll place everything precisely.</p>
                         <div class="suggestion-chips">
                             <button class="suggestion-chip" data-prompt="Create a modern business card with my name John Doe">Business Card</button>
+                            <button class="suggestion-chip" data-prompt="Design a festive Saraswati Puja wishing post for Pratigya Dairy">Festival Wish</button>
                             <button class="suggestion-chip" data-prompt="Design a social media banner with gradient background">Social Banner</button>
                             <button class="suggestion-chip" data-prompt="Make a presentation title slide">Title Slide</button>
                         </div>
@@ -449,6 +450,12 @@
                     <div class="property-group">
                         <div class="property-group-title">Canvas</div>
                         <div class="property-row">
+                            <div class="property-field full">
+                                <label>Preset</label>
+                                <select id="canvas-preset" class="prop-select"></select>
+                            </div>
+                        </div>
+                        <div class="property-row">
                             <div class="property-field">
                                 <label>Width</label>
                                 <input type="number" id="canvas-width" class="prop-input" value="1200">
@@ -457,6 +464,12 @@
                                 <label>Height</label>
                                 <input type="number" id="canvas-height" class="prop-input" value="800">
                             </div>
+                            <button id="btn-swap-canvas" class="btn-icon-xs" title="Swap dimensions">
+                                <span class="material-symbols-outlined">swap_horiz</span>
+                            </button>
+                        </div>
+                        <div class="property-row">
+                            <button id="btn-apply-canvas-size" class="btn-secondary-sm">Apply Size</button>
                         </div>
                         <div class="property-row">
                             <div class="property-field full">

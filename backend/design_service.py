@@ -14,6 +14,7 @@ Enhanced Features:
 
 import asyncio
 import re
+import json
 import base64
 import tempfile
 import os
@@ -255,8 +256,12 @@ class DesignService:
 
             # Build object context
             object_context = self._build_object_context(agent)
+            layout_context = agent.get_layout_context()
 
             full_prompt = f"""{system_context}
+
+## Layout Guidance
+{json.dumps(layout_context, indent=2)}
 
 ## Current Objects on Canvas
 {object_context}
