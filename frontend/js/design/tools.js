@@ -872,5 +872,467 @@ const DesignTools = {
         canvas.requestRenderAll();
         DesignCanvas.saveHistory();
         return true;
+    },
+
+    // =========================================================================
+    // ADVANCED EFFECTS
+    // =========================================================================
+
+    /**
+     * Add a drop shadow to an object
+     */
+    addShadow(id, offsetX = 4, offsetY = 4, blur = 8, color = 'rgba(0, 0, 0, 0.3)', spread = 0, inset = false) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        const shadow = new fabric.Shadow({
+            color: color,
+            blur: blur,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            affectStroke: false,
+            nonScaling: false
+        });
+
+        obj.set('shadow', shadow);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Remove shadow from an object
+     */
+    removeShadow(id) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        obj.set('shadow', null);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Apply a gradient fill to an object
+     */
+    setGradient(id, gradientType = 'linear', colors = null, angle = 0, stops = null, cx = 0.5, cy = 0.5, preset = null) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        // Handle preset gradients
+        const presetGradients = {
+            'blue_purple': { colors: ['#667eea', '#764ba2'], angle: 135 },
+            'sunset': { colors: ['#f093fb', '#f5576c', '#f7971e'], angle: 135 },
+            'ocean': { colors: ['#2193b0', '#6dd5ed'], angle: 135 },
+            'midnight': { colors: ['#232526', '#414345'], angle: 135 },
+            'emerald': { colors: ['#11998e', '#38ef7d'], angle: 135 },
+            'fire': { colors: ['#f12711', '#f5af19'], angle: 135 },
+            'rainbow': { colors: ['#ff0000', '#ff8000', '#ffff00', '#00ff00', '#0080ff', '#8000ff', '#ff00ff'], angle: 90 }
+        };
+
+        if (preset && presetGradients[preset.toLowerCase()]) {
+            const p = presetGradients[preset.toLowerCase()];
+            colors = p.colors;
+            angle = p.angle;
+        }
+
+        if (!colors || colors.length < 2) {
+            colors = ['#667eea', '#764ba2'];
+        }
+
+        // Build color stops
+        const colorStops = {};
+        if (stops && stops.length === colors.length) {
+            colors.forEach((color, i) => {
+                colorStops[stops[i]] = color;
+            });
+        } else {
+            colors.forEach((color, i) => {
+                const offset = i / (colors.length - 1);
+                colorStops[offset] = color;
+            });
+        }
+
+        let gradient;
+        if (gradientType === 'radial') {
+            gradient = new fabric.Gradient({
+                type: 'radial',
+                coords: {
+                    x1: obj.width * cx,
+                    y1: obj.height * cy,
+                    x2: obj.width * cx,
+                    y2: obj.height * cy,
+                    r1: 0,
+                    r2: Math.max(obj.width, obj.height) * 0.7
+                },
+                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
+                    offset: parseFloat(offset),
+                    color: color
+                }))
+            });
+        } else {
+            // Linear gradient
+            const rad = angle * Math.PI / 180;
+            const x1 = 0.5 - 0.5 * Math.cos(rad);
+            const y1 = 0.5 - 0.5 * Math.sin(rad);
+            const x2 = 0.5 + 0.5 * Math.cos(rad);
+            const y2 = 0.5 + 0.5 * Math.sin(rad);
+
+            gradient = new fabric.Gradient({
+                type: 'linear',
+                coords: {
+                    x1: obj.width * x1,
+                    y1: obj.height * y1,
+                    x2: obj.width * x2,
+                    y2: obj.height * y2
+                },
+                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
+                    offset: parseFloat(offset),
+                    color: color
+                }))
+            });
+        }
+
+        obj.set('fill', gradient);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Remove gradient from an object, optionally restore solid color
+     */
+    removeGradient(id, restoreColor = null) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        obj.set('fill', restoreColor || '#4ade80');
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Set border radius for rounded corners
+     */
+    setBorderRadius(id, radius) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        if (obj.type === 'rect') {
+            obj.set({
+                rx: radius,
+                ry: radius
+            });
+        }
+
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Apply advanced text styling
+     */
+    styleText(id, options = {}) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj || (obj.type !== 'i-text' && obj.type !== 'text' && obj.type !== 'textbox')) {
+            return false;
+        }
+
+        const props = {};
+
+        if (options.letterSpacing !== undefined) {
+            props.charSpacing = options.letterSpacing * 10; // Fabric uses charSpacing in 1/1000 em
+        }
+        if (options.lineHeight !== undefined) {
+            props.lineHeight = options.lineHeight;
+        }
+        if (options.textDecoration !== undefined) {
+            props.underline = options.textDecoration === 'underline';
+            props.linethrough = options.textDecoration === 'line-through';
+        }
+        if (options.textTransform !== undefined) {
+            // Apply transform to text content
+            let text = obj.text;
+            switch (options.textTransform) {
+                case 'uppercase':
+                    text = text.toUpperCase();
+                    break;
+                case 'lowercase':
+                    text = text.toLowerCase();
+                    break;
+                case 'capitalize':
+                    text = text.replace(/\b\w/g, l => l.toUpperCase());
+                    break;
+            }
+            props.text = text;
+        }
+
+        // Text shadow
+        if (options.textShadowX !== undefined || options.textShadowY !== undefined ||
+            options.textShadowBlur !== undefined || options.textShadowColor !== undefined) {
+            const shadow = new fabric.Shadow({
+                color: options.textShadowColor || 'rgba(0, 0, 0, 0.3)',
+                blur: options.textShadowBlur || 2,
+                offsetX: options.textShadowX || 1,
+                offsetY: options.textShadowY || 1
+            });
+            props.shadow = shadow;
+        }
+
+        obj.set(props);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Set blend mode for an object (visual effect)
+     * Note: Fabric.js supports globalCompositeOperation for blend modes
+     */
+    setBlendMode(id, mode) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        const validModes = [
+            'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten',
+            'color-dodge', 'color-burn', 'hard-light', 'soft-light',
+            'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'
+        ];
+
+        if (validModes.includes(mode)) {
+            obj.set('globalCompositeOperation', mode);
+            DesignCanvas.canvas.requestRenderAll();
+            DesignCanvas.saveHistory();
+            return true;
+        }
+        return false;
+    },
+
+    /**
+     * Apply effect preset (combines multiple effects)
+     */
+    applyEffectPreset(id, preset) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        const presetLower = preset.toLowerCase().replace(/[-\s]/g, '_');
+
+        // Shadow presets
+        switch (presetLower) {
+            case 'soft_shadow':
+                return this.addShadow(id, 0, 4, 12, 'rgba(0, 0, 0, 0.15)');
+            case 'hard_shadow':
+                return this.addShadow(id, 4, 4, 0, 'rgba(0, 0, 0, 0.25)');
+            case 'glow':
+                return this.addShadow(id, 0, 0, 20, 'rgba(255, 255, 255, 0.8)');
+            case 'glow_blue':
+                return this.addShadow(id, 0, 0, 20, 'rgba(59, 130, 246, 0.8)');
+            case 'glow_purple':
+                return this.addShadow(id, 0, 0, 20, 'rgba(139, 92, 246, 0.8)');
+            case 'glow_pink':
+                return this.addShadow(id, 0, 0, 20, 'rgba(236, 72, 153, 0.8)');
+            case 'glow_green':
+                return this.addShadow(id, 0, 0, 20, 'rgba(16, 185, 129, 0.8)');
+            case 'inner_shadow':
+                // Note: True inner shadow not supported in Fabric.js, using small offset
+                return this.addShadow(id, 2, 2, 4, 'rgba(0, 0, 0, 0.2)');
+            case 'long_shadow':
+                return this.addShadow(id, 20, 20, 0, 'rgba(0, 0, 0, 0.15)');
+
+            // Gradient presets
+            case 'blue_purple':
+            case 'sunset':
+            case 'ocean':
+            case 'midnight':
+            case 'emerald':
+            case 'fire':
+            case 'rainbow':
+                return this.setGradient(id, 'linear', null, 0, null, 0.5, 0.5, presetLower);
+
+            // Filter-like presets (applied via opacity/color manipulation)
+            case 'glassmorphism':
+                // Semi-transparent with blur-like effect via opacity
+                obj.set({ opacity: 0.7 });
+                this.addShadow(id, 0, 8, 32, 'rgba(0, 0, 0, 0.1)');
+                if (obj.type === 'rect') {
+                    this.setBorderRadius(id, 16);
+                }
+                DesignCanvas.canvas.requestRenderAll();
+                DesignCanvas.saveHistory();
+                return true;
+
+            default:
+                console.warn('Unknown effect preset:', preset);
+                return false;
+        }
+    },
+
+    /**
+     * Set backdrop blur (glassmorphism effect)
+     * Note: True backdrop blur requires CSS filters, we simulate with opacity
+     */
+    setBackdropBlur(id, blur) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        // Fabric.js doesn't support backdrop-filter directly
+        // We simulate the effect with reduced opacity
+        const simulatedOpacity = Math.max(0.5, 1 - (blur / 40));
+        obj.set('opacity', simulatedOpacity);
+        DesignCanvas.canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
+    },
+
+    /**
+     * Add a filter effect to an object
+     * Note: Fabric.js has limited filter support for shapes (mainly for images)
+     */
+    addFilter(id, filterType, value) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        // For images, we can apply Fabric.js filters
+        if (obj.type === 'image') {
+            if (!obj.filters) obj.filters = [];
+
+            switch (filterType.toLowerCase()) {
+                case 'brightness':
+                    obj.filters.push(new fabric.Image.filters.Brightness({ brightness: value - 1 }));
+                    break;
+                case 'contrast':
+                    obj.filters.push(new fabric.Image.filters.Contrast({ contrast: value - 1 }));
+                    break;
+                case 'saturation':
+                    obj.filters.push(new fabric.Image.filters.Saturation({ saturation: value - 1 }));
+                    break;
+                case 'grayscale':
+                    obj.filters.push(new fabric.Image.filters.Grayscale());
+                    break;
+                case 'sepia':
+                    obj.filters.push(new fabric.Image.filters.Sepia());
+                    break;
+                case 'invert':
+                    obj.filters.push(new fabric.Image.filters.Invert());
+                    break;
+                case 'blur':
+                    obj.filters.push(new fabric.Image.filters.Blur({ blur: value / 10 }));
+                    break;
+                default:
+                    console.warn('Unknown filter type:', filterType);
+                    return false;
+            }
+
+            obj.applyFilters();
+            DesignCanvas.canvas.requestRenderAll();
+            DesignCanvas.saveHistory();
+            return true;
+        }
+
+        // For non-images, filter effects are limited
+        console.warn('Filters are primarily supported for images in Fabric.js');
+        return false;
+    },
+
+    /**
+     * Remove all filters from an object
+     */
+    removeFilters(id, filterType = null) {
+        const obj = DesignCanvas.getObjectById(id);
+        if (!obj) return false;
+
+        if (obj.type === 'image') {
+            obj.filters = [];
+            obj.applyFilters();
+            DesignCanvas.canvas.requestRenderAll();
+            DesignCanvas.saveHistory();
+        }
+        return true;
+    },
+
+    /**
+     * Set gradient background for the canvas
+     */
+    setGradientBackground(gradientType = 'linear', colors = null, angle = 0) {
+        if (!colors || colors.length < 2) {
+            colors = ['#667eea', '#764ba2'];
+        }
+
+        const canvas = DesignCanvas.canvas;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Build color stops
+        const colorStops = {};
+        colors.forEach((color, i) => {
+            const offset = i / (colors.length - 1);
+            colorStops[offset] = color;
+        });
+
+        let gradient;
+        if (gradientType === 'radial') {
+            gradient = new fabric.Gradient({
+                type: 'radial',
+                coords: {
+                    x1: width / 2,
+                    y1: height / 2,
+                    x2: width / 2,
+                    y2: height / 2,
+                    r1: 0,
+                    r2: Math.max(width, height) * 0.7
+                },
+                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
+                    offset: parseFloat(offset),
+                    color: color
+                }))
+            });
+        } else {
+            const rad = angle * Math.PI / 180;
+            const x1 = 0.5 - 0.5 * Math.cos(rad);
+            const y1 = 0.5 - 0.5 * Math.sin(rad);
+            const x2 = 0.5 + 0.5 * Math.cos(rad);
+            const y2 = 0.5 + 0.5 * Math.sin(rad);
+
+            gradient = new fabric.Gradient({
+                type: 'linear',
+                coords: {
+                    x1: width * x1,
+                    y1: height * y1,
+                    x2: width * x2,
+                    y2: height * y2
+                },
+                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
+                    offset: parseFloat(offset),
+                    color: color
+                }))
+            });
+        }
+
+        // Create a background rect with gradient
+        // Remove existing background rect if any
+        const existingBg = canvas.getObjects().find(obj => obj.id === 'canvas-background-gradient');
+        if (existingBg) {
+            canvas.remove(existingBg);
+        }
+
+        const bgRect = new fabric.Rect({
+            id: 'canvas-background-gradient',
+            left: 0,
+            top: 0,
+            width: width,
+            height: height,
+            fill: gradient,
+            selectable: false,
+            evented: false,
+            excludeFromExport: false
+        });
+
+        canvas.insertAt(bgRect, 0);
+        canvas.requestRenderAll();
+        DesignCanvas.saveHistory();
+        return true;
     }
 };

@@ -129,7 +129,10 @@ Object.assign(UI, {
             'git_log': { icon: 'history', label: 'Git Log' },
             'git_clone': { icon: 'download', label: 'Git Clone' },
             'git_init': { icon: 'auto_fix_high', label: 'Git Init' },
-            'delegate_task': { icon: 'groups', label: 'Delegate' }
+            'delegate_task': { icon: 'groups', label: 'Delegate' },
+            'generate_image': { icon: 'image', label: 'Generate Image' },
+            'save_image': { icon: 'save', label: 'Save Image' },
+            'save_generated_images': { icon: 'photo_library', label: 'Save Images' }
         };
 
         const info = toolMap[toolCall.name] || { icon: 'code', label: toolCall.name };

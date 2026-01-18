@@ -20,6 +20,9 @@ const DesignCanvas = {
     showGrid: false,
     snapToGrid: false,
     gridSize: 24,
+    showSmartGuides: true,
+    smartGuideThreshold: 8,
+    alignmentGuides: [],
 
     init() {
         this.canvasContainer = document.getElementById('canvas-container');
@@ -86,11 +89,22 @@ const DesignCanvas = {
 
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
 
+        // Detect keyboard vs mouse navigation for focus styles
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                document.body.classList.add('keyboard-nav');
+            }
+        });
+        document.addEventListener('mousedown', () => {
+            document.body.classList.remove('keyboard-nav');
+        });
+
         document.getElementById('btn-zoom-in')?.addEventListener('click', () => this.zoomIn());
         document.getElementById('btn-zoom-out')?.addEventListener('click', () => this.zoomOut());
         document.getElementById('btn-zoom-fit')?.addEventListener('click', () => this.zoomToFit());
         document.getElementById('btn-toggle-grid')?.addEventListener('click', () => this.toggleGrid());
         document.getElementById('btn-toggle-snap')?.addEventListener('click', () => this.toggleSnap());
+        document.getElementById('btn-toggle-guides')?.addEventListener('click', () => this.toggleSmartGuides());
     },
 
     onSelectionChange() {
@@ -99,6 +113,11 @@ const DesignCanvas = {
             DesignProperties.updateFromSelection(activeObject);
         }
         this.updateActionButtons();
+
+        // Update canvas container selection state for visual feedback
+        if (this.canvasContainer) {
+            this.canvasContainer.classList.toggle('has-selection', !!activeObject);
+        }
     },
 
     updateActionButtons() {
@@ -157,16 +176,27 @@ const DesignCanvas = {
         this.lastPanPoint = null;
         this.canvas.selection = true;
         this.canvas.defaultCursor = 'default';
+        // Clear alignment guides when done moving
+        this.clearAlignmentGuides();
     },
 
     handleObjectSnapping(opt) {
-        if (!this.snapToGrid || !opt.target) return;
+        if (!opt.target) return;
         const obj = opt.target;
-        const grid = this.gridSize;
-        obj.set({
-            left: Math.round(obj.left / grid) * grid,
-            top: Math.round(obj.top / grid) * grid
-        });
+
+        // Grid snapping
+        if (this.snapToGrid) {
+            const grid = this.gridSize;
+            obj.set({
+                left: Math.round(obj.left / grid) * grid,
+                top: Math.round(obj.top / grid) * grid
+            });
+        }
+
+        // Smart alignment guides
+        if (this.showSmartGuides) {
+            this.updateSmartGuides(obj);
+        }
     },
 
     handleKeyDown(e) {
@@ -289,6 +319,147 @@ const DesignCanvas = {
         if (btn) {
             btn.classList.toggle('active', this.snapToGrid);
         }
+    },
+
+    toggleSmartGuides() {
+        this.showSmartGuides = !this.showSmartGuides;
+        const btn = document.getElementById('btn-toggle-guides');
+        if (btn) {
+            btn.classList.toggle('active', this.showSmartGuides);
+        }
+        if (!this.showSmartGuides) {
+            this.clearAlignmentGuides();
+        }
+    },
+
+    updateSmartGuides(movingObj) {
+        this.clearAlignmentGuides();
+
+        const threshold = this.smartGuideThreshold;
+        const movingBounds = movingObj.getBoundingRect(true);
+        const movingCenter = {
+            x: movingBounds.left + movingBounds.width / 2,
+            y: movingBounds.top + movingBounds.height / 2
+        };
+
+        // Canvas center guides
+        const canvasCenterX = this.canvasWidth / 2;
+        const canvasCenterY = this.canvasHeight / 2;
+
+        // Check canvas center alignment
+        if (Math.abs(movingCenter.x - canvasCenterX) < threshold) {
+            this.addGuide('vertical', canvasCenterX, 'center');
+            movingObj.set('left', canvasCenterX - movingBounds.width / 2);
+        }
+        if (Math.abs(movingCenter.y - canvasCenterY) < threshold) {
+            this.addGuide('horizontal', canvasCenterY, 'center');
+            movingObj.set('top', canvasCenterY - movingBounds.height / 2);
+        }
+
+        // Check edge alignment with canvas
+        if (Math.abs(movingBounds.left) < threshold) {
+            this.addGuide('vertical', 0, 'edge');
+            movingObj.set('left', 0);
+        }
+        if (Math.abs(movingBounds.top) < threshold) {
+            this.addGuide('horizontal', 0, 'edge');
+            movingObj.set('top', 0);
+        }
+        if (Math.abs(movingBounds.left + movingBounds.width - this.canvasWidth) < threshold) {
+            this.addGuide('vertical', this.canvasWidth, 'edge');
+            movingObj.set('left', this.canvasWidth - movingBounds.width);
+        }
+        if (Math.abs(movingBounds.top + movingBounds.height - this.canvasHeight) < threshold) {
+            this.addGuide('horizontal', this.canvasHeight, 'edge');
+            movingObj.set('top', this.canvasHeight - movingBounds.height);
+        }
+
+        // Check alignment with other objects
+        const objects = this.canvas.getObjects().filter(obj =>
+            obj !== movingObj &&
+            !obj.isGuide &&
+            obj.selectable !== false
+        );
+
+        objects.forEach(otherObj => {
+            const otherBounds = otherObj.getBoundingRect(true);
+            const otherCenter = {
+                x: otherBounds.left + otherBounds.width / 2,
+                y: otherBounds.top + otherBounds.height / 2
+            };
+
+            // Left edge alignment
+            if (Math.abs(movingBounds.left - otherBounds.left) < threshold) {
+                this.addGuide('vertical', otherBounds.left, 'object');
+                movingObj.set('left', otherBounds.left);
+            }
+            // Right edge alignment
+            if (Math.abs(movingBounds.left + movingBounds.width - otherBounds.left - otherBounds.width) < threshold) {
+                this.addGuide('vertical', otherBounds.left + otherBounds.width, 'object');
+                movingObj.set('left', otherBounds.left + otherBounds.width - movingBounds.width);
+            }
+            // Center X alignment
+            if (Math.abs(movingCenter.x - otherCenter.x) < threshold) {
+                this.addGuide('vertical', otherCenter.x, 'object');
+                movingObj.set('left', otherCenter.x - movingBounds.width / 2);
+            }
+
+            // Top edge alignment
+            if (Math.abs(movingBounds.top - otherBounds.top) < threshold) {
+                this.addGuide('horizontal', otherBounds.top, 'object');
+                movingObj.set('top', otherBounds.top);
+            }
+            // Bottom edge alignment
+            if (Math.abs(movingBounds.top + movingBounds.height - otherBounds.top - otherBounds.height) < threshold) {
+                this.addGuide('horizontal', otherBounds.top + otherBounds.height, 'object');
+                movingObj.set('top', otherBounds.top + otherBounds.height - movingBounds.height);
+            }
+            // Center Y alignment
+            if (Math.abs(movingCenter.y - otherCenter.y) < threshold) {
+                this.addGuide('horizontal', otherCenter.y, 'object');
+                movingObj.set('top', otherCenter.y - movingBounds.height / 2);
+            }
+        });
+
+        movingObj.setCoords();
+        this.canvas.requestRenderAll();
+    },
+
+    addGuide(orientation, position, type) {
+        const color = type === 'center' ? '#f59e0b' : type === 'edge' ? '#3b82f6' : '#4ade80';
+        let guide;
+
+        if (orientation === 'vertical') {
+            guide = new fabric.Line([position, 0, position, this.canvasHeight], {
+                stroke: color,
+                strokeWidth: 1,
+                strokeDashArray: type === 'center' ? [8, 4] : [4, 4],
+                selectable: false,
+                evented: false,
+                isGuide: true,
+                opacity: 0.8
+            });
+        } else {
+            guide = new fabric.Line([0, position, this.canvasWidth, position], {
+                stroke: color,
+                strokeWidth: 1,
+                strokeDashArray: type === 'center' ? [8, 4] : [4, 4],
+                selectable: false,
+                evented: false,
+                isGuide: true,
+                opacity: 0.8
+            });
+        }
+
+        this.alignmentGuides.push(guide);
+        this.canvas.add(guide);
+    },
+
+    clearAlignmentGuides() {
+        this.alignmentGuides.forEach(guide => {
+            this.canvas.remove(guide);
+        });
+        this.alignmentGuides = [];
     },
 
     saveHistory() {

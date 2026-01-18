@@ -1,39 +1,70 @@
+"""
+Gemini Service Module
+
+This module provides the main service for Flashy Coding Agent interactions
+with Google Gemini via the gemini-webapi library.
+
+Enhanced Features:
+- Production-grade agent loop with robust error handling
+- Response filtering for clean output
+- Session management with interruption support
+- Thought extraction and structured streaming
+- Tool execution with retry logic
+"""
+
 import asyncio
 import re
+from typing import Dict, Any, List, Optional, AsyncGenerator
+
 from gemini_webapi import GeminiClient
 from gemini_webapi.constants import Model
+
 from .config import load_config
-from .agent import Agent
-from .prompts import SYSTEM_PROMPT
+from .coding_agent import CodingAgent, ToolCallStatus
+from .coding_prompts import get_system_prompt, get_tool_result_template
+from .response_filter import ResponseFilter, ThoughtFilter
 from .storage import save_chat_message, save_chat_metadata, get_chat_metadata
+from .image_service import get_image_service, ImageResult, ImageType
 
 
 class GeminiService:
     """
-    Service for interacting with Google Gemini via the gemini-webapi library.
-    Handles the agent loop, tool execution, and response streaming.
+    Production-grade service for Gemini-powered coding agent.
+
+    Handles:
+    - Client initialization and session management
+    - Agent loop with tool execution
+    - Response streaming with thought separation
+    - Interruption and cancellation support
+    - Persistent session storage
     """
 
     def __init__(self):
-        self.client = None
+        self.client: Optional[GeminiClient] = None
         self.config = load_config()
-        self.sessions = {}
-        self.agents = {}  # Agent instances per session
-        self.interrupted_sessions = set()  # Track interrupted sessions
-        self.active_tasks = {}  # Track active tasks per session for cancellation
-        self.workspace_path = None
-        self.workspace_id = None  # Track the UUID
+        self.sessions: Dict[str, Any] = {}
+        self.agents: Dict[str, CodingAgent] = {}
+        self.interrupted_sessions: set = set()
+        self.active_tasks: Dict[str, asyncio.Task] = {}
+        self.workspace_path: Optional[str] = None
+        self.workspace_id: Optional[str] = None
+
+        # Initialize filters
+        self.response_filter = ResponseFilter(aggressive=False)
+        self.thought_filter = ThoughtFilter()
 
     def set_workspace(self, path: str, workspace_id: str = None) -> str:
-        """Set workspace for all new agent sessions."""
+        """Set workspace for all agent sessions."""
         import os
 
         if os.path.isdir(path):
             self.workspace_path = os.path.abspath(path)
             self.workspace_id = workspace_id
-            # Update all existing agents
+
+            # Update existing agents
             for agent in self.agents.values():
                 agent.set_workspace(self.workspace_path)
+
             return f"Workspace set to: {self.workspace_path}"
         return f"Error: '{path}' is not a valid directory."
 
@@ -41,143 +72,121 @@ class GeminiService:
         """Get current workspace path."""
         return self.workspace_path or ""
 
-    async def get_client(self):
+    async def get_client(self) -> GeminiClient:
+        """Get or initialize Gemini client."""
         if self.client is None:
             self.config = load_config()
-            
+
             self.client = GeminiClient(
                 self.config["Secure_1PSID"],
                 self.config["Secure_1PSIDTS"],
                 proxy=None
             )
-            
-            # Manually inject Secure_1PSIDCC if present
+
+            # Inject additional cookies if present
             if self.config.get("Secure_1PSIDCC"):
                 self.client.cookies["__Secure-1PSIDCC"] = self.config["Secure_1PSIDCC"]
-                
-            await self.client.init(timeout=600, auto_close=False, close_delay=300, auto_refresh=True)
+
+            await self.client.init(
+                timeout=600,
+                auto_close=False,
+                close_delay=300,
+                auto_refresh=True
+            )
+
         return self.client
 
-    def get_agent(self, session_id: str) -> Agent:
-        """Get or create an agent for a session."""
+    def get_agent(self, session_id: str) -> CodingAgent:
+        """Get or create a coding agent for a session."""
         if session_id not in self.agents:
-            self.agents[session_id] = Agent(self.workspace_path, session_id=session_id)
+            self.agents[session_id] = CodingAgent(
+                workspace_path=self.workspace_path,
+                session_id=session_id
+            )
         return self.agents[session_id]
 
-    async def get_session(self, session_id, history=None):
+    async def get_session(self, session_id: str, history: Any = None):
+        """Get or create a Gemini chat session."""
         client = await self.get_client()
+
         if session_id not in self.sessions:
             model_name = self.config.get("model", "G_2_5_FLASH")
             model = getattr(Model, model_name, Model.G_2_5_FLASH)
-            
+
             # Try to restore from saved metadata
             saved_meta = get_chat_metadata(session_id)
             if saved_meta:
-                # saved_meta is a dict with cid, rid, rcid
                 chat = client.start_chat(
                     model=model,
                     cid=saved_meta.get('cid'),
                     rid=saved_meta.get('rid'),
                     rcid=saved_meta.get('rcid')
                 )
-                print(f"[GeminiService] Restored session {session_id} from storage.")
+                print(f"[GeminiService] Restored session {session_id}")
             else:
                 chat = client.start_chat(model=model)
-                
+
             self.sessions[session_id] = chat
+
         return self.sessions[session_id]
 
     def interrupt_session(self, session_id: str):
-        """Interrupt a running session immediately."""
+        """Interrupt a running session."""
         self.interrupted_sessions.add(session_id)
-        # Cancel any active task for this session
+
         if session_id in self.active_tasks:
             task = self.active_tasks[session_id]
             if task and not task.done():
                 task.cancel()
-                print(f"[GeminiService] Cancelled active task for session {session_id}")
+                print(f"[GeminiService] Cancelled task for session {session_id}")
 
     def _is_interrupted(self, session_id: str) -> bool:
         """Check if session is interrupted."""
         return session_id in self.interrupted_sessions
 
     def _clean_response_text(self, text: str, tool_call_raw: str = None) -> str:
-        """
-        Clean the response text by removing raw JSON tool calls.
-        This prevents displaying raw JSON blocks to the user.
-        """
+        """Clean response text by removing JSON tool calls and artifacts."""
         if not text:
             return ""
-        
+
         cleaned = text
-        
-        # Remove the specific tool call match if provided
+
+        # Remove specific tool call match
         if tool_call_raw:
             cleaned = cleaned.replace(tool_call_raw, "").strip()
-        
-        # Also remove any orphaned ```json blocks that might be tool calls
-        # Pattern: ```json followed by { ... "action" or "tool" ... } followed by ```
+
+        # Remove orphaned JSON blocks that look like tool calls
         json_block_pattern = r'```json\s*\{[^`]*?"(?:action|tool|name)"\s*:[^`]*?\}\s*```'
         cleaned = re.sub(json_block_pattern, '', cleaned, flags=re.DOTALL).strip()
-        
-        # Remove standalone JSON objects that look like tool calls (without code blocks)
-        # Be careful not to remove legitimate JSON in explanations
-        standalone_json_pattern = r'(?<![`\w])\{\s*"(?:action|tool)"\s*:\s*"[^"]+"\s*,\s*"args"\s*:\s*\{[^}]*\}\s*\}(?![`\w])'
-        cleaned = re.sub(standalone_json_pattern, '', cleaned).strip()
 
-        # Remove internal Google content links (artifacts from Gemini Web API)
-        # e.g. http://googleusercontent.com/youtube_content/0
-        google_content_pattern = r'https?://googleusercontent\.com/youtube_content/\d+'
-        cleaned = re.sub(google_content_pattern, '', cleaned).strip()
-        
+        # Remove standalone tool-call JSON
+        standalone_pattern = r'(?<![`\w])\{\s*"(?:action|tool)"\s*:\s*"[^"]+"\s*,\s*"args"\s*:\s*\{[^}]*\}\s*\}(?![`\w])'
+        cleaned = re.sub(standalone_pattern, '', cleaned).strip()
+
+        # Apply response filter (removes YouTube links, etc.)
+        cleaned = self.response_filter.filter(cleaned)
+
         return cleaned
 
-    def _separate_thinking_from_text(self, text: str) -> tuple:
-        """
-        Separate thinking/reasoning from actual response text.
-        Returns (thinking_content, clean_text)
-        
-        The Gemini model sometimes embeds thinking in the text itself with patterns like:
-        - <think>...</think>
-        - **Thinking:**
-        - *Internal reasoning:*
-        - [Thinking]...[/Thinking]
-        """
+    def _separate_thinking(self, text: str) -> tuple:
+        """Separate thinking from response using enhanced filter."""
         if not text:
             return None, ""
-        
-        thinking_content = None
-        clean_text = text
-        
-        # Pattern 1: <think>...</think> blocks
-        think_pattern = r'<think>(.*?)</think>'
-        think_matches = re.findall(think_pattern, text, re.DOTALL | re.IGNORECASE)
-        if think_matches:
-            thinking_content = '\n'.join(think_matches)
-            clean_text = re.sub(think_pattern, '', clean_text, flags=re.DOTALL | re.IGNORECASE).strip()
-        
-        # Pattern 2: [Thinking]...[/Thinking] blocks
-        bracket_pattern = r'\[Thinking\](.*?)\[/Thinking\]'
-        bracket_matches = re.findall(bracket_pattern, clean_text, re.DOTALL | re.IGNORECASE)
-        if bracket_matches:
-            if thinking_content:
-                thinking_content += '\n' + '\n'.join(bracket_matches)
-            else:
-                thinking_content = '\n'.join(bracket_matches)
-            clean_text = re.sub(bracket_pattern, '', clean_text, flags=re.DOTALL | re.IGNORECASE).strip()
-        
-        return thinking_content, clean_text
+        return self.thought_filter.extract_thoughts(text)
 
-    async def _send_with_retry(self, chat, message, files=None, max_retries=3, timeout=120):
-        """
-        Send a message with retry logic and timeout.
-        Raises asyncio.CancelledError if cancelled.
-        """
+    async def _send_with_retry(
+        self,
+        chat,
+        message: str,
+        files: List[str] = None,
+        max_retries: int = 3,
+        timeout: int = 120
+    ):
+        """Send message with retry logic and timeout."""
         last_error = None
-        
+
         for attempt in range(max_retries):
             try:
-                # Wrap the send in a timeout
                 if files:
                     response = await asyncio.wait_for(
                         chat.send_message(message, files=files),
@@ -189,63 +198,72 @@ class GeminiService:
                         timeout=timeout
                     )
                 return response
+
             except asyncio.CancelledError:
-                # Re-raise cancellation - don't retry
                 raise
+
             except asyncio.TimeoutError:
                 last_error = f"Request timed out after {timeout}s"
                 print(f"[GeminiService] Attempt {attempt + 1}/{max_retries}: {last_error}")
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    await asyncio.sleep(2 ** attempt)
+
             except Exception as e:
                 last_error = str(e)
                 print(f"[GeminiService] Attempt {attempt + 1}/{max_retries}: {last_error}")
-                
-                # Check if this is a recoverable error
+
                 error_str = str(e).lower()
                 if "invalid response" in error_str or "failed to generate" in error_str:
                     if attempt < max_retries - 1:
-                        # Wait and retry with exponential backoff
                         await asyncio.sleep(2 ** attempt)
                         continue
-                
-                # For other errors, don't retry
                 raise
-        
-        # All retries failed
+
         raise Exception(f"Failed after {max_retries} attempts: {last_error}")
 
-    async def generate_response(self, text, session_id=None, files=None, history=None):
+    async def generate_response(
+        self,
+        text: str,
+        session_id: str = None,
+        files: List[str] = None,
+        history: Any = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Generate a response from Gemini, handling the agent loop with tool calls.
-        
-        Key behaviors:
-        1. Thoughts are yielded separately from response.thoughts
-        2. Embedded thinking in text is extracted and yielded as thoughts
-        3. Tool calls are ONLY parsed from response.text, NEVER from thoughts
-        4. Raw JSON is cleaned from displayed text
-        5. Supports proper cancellation via interrupt_session
+        Generate response from Gemini with full agent loop.
+
+        Yields dictionaries with:
+        - thought: AI thinking content
+        - text: Response text for display
+        - tool_call: Tool being called {name, args}
+        - tool_result: Tool execution result
+        - images: Generated image URLs
+        - is_final: Whether this is the final response
         """
         client = await self.get_client()
         agent = self.get_agent(session_id) if session_id else None
         chat = None
 
         # Track message parts for saving
-        message_parts = []
-        images = []
+        message_parts: List[Dict[str, Any]] = []
+        images: List[str] = []
 
         try:
-            # Clear any previous interruption for this session
+            # Clear previous interruption
             if session_id in self.interrupted_sessions:
                 self.interrupted_sessions.remove(session_id)
 
-            # Build prompt with system context if we have a workspace
+            # Reset agent context for new conversation turn
+            if agent:
+                agent.reset_context()
+
+            # Build prompt with system context
             if agent and self.workspace_path:
                 system_context = agent.get_system_prompt()
-                full_prompt = f"{system_context}\n\nUser: {text}"
+                full_prompt = f"{system_context}\n\n## User Request\n{text}\n\nExecute this task using the appropriate tools."
             else:
                 full_prompt = text
 
+            # Get or create session
             if session_id:
                 chat = await self.get_session(session_id, history=history)
                 response = await self._send_with_retry(chat, full_prompt, files=files)
@@ -257,214 +275,304 @@ class GeminiService:
                     timeout=120
                 )
 
-            # Process agent response for tool calls
+            # Agent loop
             if agent and self.workspace_path:
-                max_iterations = 15
+                max_iterations = 20
                 iteration = 0
 
                 while iteration < max_iterations:
-                    # Check for interruption BEFORE processing
+                    # Check for interruption
                     if self._is_interrupted(session_id):
-                        interruption_msg = "\n\n*Agent interrupted by user.*"
-                        yield {"text": interruption_msg, "is_final": True}
-                        message_parts.append({"type": "text", "content": interruption_msg})
+                        yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
+                        break
+
+                    # Increment agent iteration
+                    if not agent.increment_iteration():
+                        yield {
+                            "text": "\n\n*Agent reached maximum iterations.*",
+                            "is_final": True
+                        }
                         break
 
                     # Extract response components
                     response_text = response.text or ""
-                    
-                    # Get thoughts from the response object (Gemini 2.5 thinking)
+
+                    # Get thoughts from API and embedded in text
                     api_thoughts = getattr(response, 'thoughts', None) or ""
-                    
-                    # Also check for embedded thinking in the text
-                    embedded_thinking, clean_response_text = self._separate_thinking_from_text(response_text)
-                    
-                    # Combine API thoughts and embedded thinking
+                    embedded_thinking, clean_response = self._separate_thinking(response_text)
+
+                    # Combine thoughts
                     all_thoughts = ""
                     if api_thoughts:
                         all_thoughts = api_thoughts
                     if embedded_thinking:
-                        if all_thoughts:
-                            all_thoughts += "\n\n" + embedded_thinking
-                        else:
-                            all_thoughts = embedded_thinking
-                    
-                    # Get images
+                        all_thoughts = f"{all_thoughts}\n\n{embedded_thinking}".strip() if all_thoughts else embedded_thinking
+
+                    # Get images with enhanced metadata
                     if hasattr(response, 'images') and response.images:
                         for img in response.images:
-                            if img.url not in images:
-                                images.append(img.url)
+                            img_url = getattr(img, 'url', '')
+                            if img_url and img_url not in images:
+                                images.append(img_url)
+                                
+                                # Track image in service for potential saving
+                                img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
+                                image_service = get_image_service(self.workspace_path)
+                                image_service.generated_images.append(ImageResult(
+                                    url=img_url,
+                                    image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
+                                    title=getattr(img, 'title', None),
+                                    alt=getattr(img, 'alt', None)
+                                ))
 
-                    # 1. ALWAYS yield thoughts if present (on every iteration)
+                    # Yield thoughts
                     if all_thoughts:
                         yield {"thought": all_thoughts}
                         message_parts.append({"type": "thought", "content": all_thoughts})
 
-                    # 2. Parse tool call ONLY from CLEAN response text (NOT from thoughts)
-                    tool_call = agent.parse_tool_call(clean_response_text)
+                    # Parse tool call from clean response
+                    tool_call = agent.parse_tool_call(clean_response)
 
                     if not tool_call:
-                        # No tool call found - this is the final answer
-                        final_text = self._clean_response_text(clean_response_text)
-                        
+                        # No tool call - final response
+                        final_text = self._clean_response_text(clean_response)
+
                         if final_text:
                             yield {"text": final_text, "images": images, "is_final": True}
                             message_parts.append({"type": "text", "content": final_text})
                         elif images:
                             yield {"text": "", "images": images, "is_final": True}
                         else:
-                            # Edge case: empty response
-                            yield {"text": "[Agent completed without output]", "is_final": True}
+                            yield {"text": "[Agent completed]", "is_final": True}
                         break
 
-                    # 3. Handle text BEFORE the tool call (explanation text)
-                    display_text = self._clean_response_text(clean_response_text, tool_call["raw_match"])
+                    # Handle text before tool call
+                    display_text = self._clean_response_text(
+                        clean_response,
+                        tool_call.get("raw_match")
+                    )
                     if display_text:
                         yield {"text": display_text + "\n"}
                         message_parts.append({"type": "text", "content": display_text})
 
-                    # 4. Yield the tool call for UI display
-                    yield {"tool_call": {"name": tool_call["name"], "args": tool_call["args"]}}
+                    # Yield tool call
+                    yield {
+                        "tool_call": {
+                            "name": tool_call["name"],
+                            "args": tool_call["args"]
+                        }
+                    }
                     message_parts.append({
-                        "type": "tool_call", 
-                        "content": {"name": tool_call["name"], "args": tool_call["args"]}
+                        "type": "tool_call",
+                        "content": {
+                            "name": tool_call["name"],
+                            "args": tool_call["args"]
+                        }
                     })
 
-                    # Check for interruption BEFORE executing tool
+                    # Check interruption before tool execution
                     if self._is_interrupted(session_id):
-                        interruption_msg = "\n\n*Agent interrupted by user.*"
-                        yield {"text": interruption_msg, "is_final": True}
-                        message_parts.append({"type": "text", "content": interruption_msg})
+                        yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                         break
 
-                    # 5. Execute the tool
+                    # Execute tool
                     try:
                         if tool_call["name"] == "delegate_task":
-                            task = tool_call["args"].get("task")
+                            task = tool_call["args"].get("task", "")
                             context = tool_call["args"].get("context", "")
                             tool_result = await self.run_delegated_task(task, context)
+                            tool_status = ToolCallStatus.SUCCESS
+                        elif tool_call["name"] == "generate_image":
+                            # Special handling for image generation
+                            prompt = tool_call["args"].get("prompt", "")
+                            save_to_project = tool_call["args"].get("save_to_project", False)
+                            filename = tool_call["args"].get("filename")
+                            
+                            # Send a direct image generation request to Gemini
+                            image_prompt = f"Generate an image: {prompt}. Use your image generation capabilities to create this image now."
+                            image_response = await self._send_with_retry(chat, image_prompt)
+                            
+                            # Check if images were generated
+                            if hasattr(image_response, 'images') and image_response.images:
+                                generated_urls = []
+                                for img in image_response.images:
+                                    img_url = getattr(img, 'url', '')
+                                    if img_url:
+                                        generated_urls.append(img_url)
+                                        images.append(img_url)
+                                        
+                                        # Track for saving
+                                        img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
+                                        image_service = get_image_service(self.workspace_path)
+                                        image_service.generated_images.append(ImageResult(
+                                            url=img_url,
+                                            image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
+                                            title=getattr(img, 'title', None),
+                                            alt=getattr(img, 'alt', None)
+                                        ))
+                                        
+                                        # Save to project if requested
+                                        if save_to_project and self.workspace_path:
+                                            success, save_path = await image_service.save_image_from_url(
+                                                img_url, filename
+                                            )
+                                            if success:
+                                                tool_result = f"Image generated and saved to: {save_path}"
+                                            else:
+                                                tool_result = f"Image generated but failed to save: {save_path}"
+                                        else:
+                                            tool_result = f"Image generated successfully. URL: {img_url[:50]}..."
+                                
+                                # Yield generated images
+                                yield {"images": generated_urls}
+                                tool_status = ToolCallStatus.SUCCESS
+                            else:
+                                tool_result = "Image generation requested but no images were returned. This may be due to content policy or availability restrictions."
+                                tool_status = ToolCallStatus.ERROR
                         else:
-                            tool_result = await agent.execute_tool(tool_call["name"], tool_call["args"])
+                            tool_result, tool_status = await agent.execute_tool(
+                                tool_call["name"],
+                                tool_call["args"]
+                            )
 
                         yield {"tool_result": tool_result}
                         message_parts.append({"type": "tool_result", "content": tool_result})
 
-                        # Check for interruption BEFORE next API call
+                        # Check interruption before next API call
                         if self._is_interrupted(session_id):
-                            interruption_msg = "\n\n*Agent interrupted by user.*"
-                            yield {"text": interruption_msg, "is_final": True}
-                            message_parts.append({"type": "text", "content": interruption_msg})
+                            yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                             break
 
-                        # Feed result back to Gemini for next iteration
-                        response = await self._send_with_retry(chat, tool_result)
+                        # For generate_image, we already got the response, so continue to next iteration
+                        if tool_call["name"] == "generate_image":
+                            # Use the image response as the next response
+                            response = image_response
+                        else:
+                            # Feed result back to Gemini
+                            response = await self._send_with_retry(chat, tool_result)
                         iteration += 1
 
                     except asyncio.CancelledError:
-                        interruption_msg = "\n\n*Agent interrupted by user.*"
-                        yield {"text": interruption_msg, "is_final": True}
-                        message_parts.append({"type": "text", "content": interruption_msg})
+                        yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                         break
+
                     except Exception as e:
-                        error_msg = f"Error executing tool '{tool_call['name']}': {str(e)}"
+                        error_msg = f"Error executing '{tool_call['name']}': {str(e)}"
                         yield {"tool_result": error_msg}
                         message_parts.append({"type": "tool_result", "content": error_msg})
 
-                        # Check for interruption
                         if self._is_interrupted(session_id):
-                            interruption_msg = "\n\n*Agent interrupted by user.*"
-                            yield {"text": interruption_msg, "is_final": True}
-                            message_parts.append({"type": "text", "content": interruption_msg})
+                            yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                             break
 
-                        # Feed error back to Gemini
+                        # Feed error back to Gemini for recovery
                         response = await self._send_with_retry(chat, error_msg)
                         iteration += 1
 
-                # Check if we hit the iteration limit
+                # Check iteration limit
                 if iteration >= max_iterations:
-                    limit_msg = "\n\n*Agent reached maximum iterations. Stopping to prevent infinite loop.*"
-                    yield {"text": limit_msg, "is_final": True}
-                    message_parts.append({"type": "text", "content": limit_msg})
+                    yield {
+                        "text": "\n\n*Agent reached maximum iterations. Task may be incomplete.*",
+                        "is_final": True
+                    }
 
             else:
                 # Simple response (no workspace/agent)
                 response_text = response.text or ""
-                
-                # Check for embedded thinking even in simple responses
-                embedded_thinking, clean_text = self._separate_thinking_from_text(response_text)
+                embedded_thinking, clean_text = self._separate_thinking(response_text)
                 api_thoughts = getattr(response, 'thoughts', None) or ""
-                
+
                 all_thoughts = ""
                 if api_thoughts:
                     all_thoughts = api_thoughts
                 if embedded_thinking:
-                    if all_thoughts:
-                        all_thoughts += "\n\n" + embedded_thinking
-                    else:
-                        all_thoughts = embedded_thinking
-                
+                    all_thoughts = f"{all_thoughts}\n\n{embedded_thinking}".strip() if all_thoughts else embedded_thinking
+
                 if all_thoughts:
                     yield {"thought": all_thoughts}
                     message_parts.append({"type": "thought", "content": all_thoughts})
-                
+
                 if hasattr(response, 'images') and response.images:
                     for img in response.images:
-                        if img.url not in images:
-                            images.append(img.url)
-                
+                        img_url = getattr(img, 'url', '')
+                        if img_url and img_url not in images:
+                            images.append(img_url)
+                            
+                            # Track image for potential saving
+                            img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
+                            image_service = get_image_service(self.workspace_path)
+                            image_service.generated_images.append(ImageResult(
+                                url=img_url,
+                                image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
+                                title=getattr(img, 'title', None),
+                                alt=getattr(img, 'alt', None)
+                            ))
+
+                # Apply response filter
+                clean_text = self.response_filter.filter(clean_text)
+
                 yield {"text": clean_text, "images": images, "is_final": True}
                 message_parts.append({"type": "text", "content": clean_text})
 
         except asyncio.CancelledError:
-            interruption_msg = "\n\n*Agent interrupted by user.*"
-            yield {"text": interruption_msg, "is_final": True}
-            message_parts.append({"type": "text", "content": interruption_msg})
+            yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
+            message_parts.append({"type": "text", "content": "*Interrupted*"})
+
         except Exception as e:
-            # Re-raise to be handled by caller
+
+            import traceback
+            traceback.print_exc()
+            error_msg = f"Error ({type(e).__name__}): {str(e)}"
+            yield {"error": error_msg, "is_final": True}
+            message_parts.append({"type": "error", "content": error_msg})
             raise
+
         finally:
             # Clean up interrupted state
             if session_id in self.interrupted_sessions:
                 self.interrupted_sessions.remove(session_id)
-            
-            # Save AI message with all parts in sequence
+
+            # Save AI message
             if session_id and message_parts:
                 try:
                     save_chat_message(
-                        session_id, 
-                        "ai", 
-                        parts=message_parts, 
-                        images=images, 
+                        session_id,
+                        "ai",
+                        parts=message_parts,
+                        images=images,
                         workspace_id=self.workspace_id
                     )
-                    
-                    # Save metadata (CID/RID/RCID) for persistence
+
+                    # Save session metadata for persistence
                     if chat:
                         save_chat_metadata(session_id, {
                             "cid": chat.cid,
                             "rid": chat.rid,
                             "rcid": chat.rcid
                         })
-                        
-                    print(f"[GeminiService] Saved AI message for session {session_id} ({len(message_parts)} parts)")
+
                 except Exception as e:
-                    print(f"[GeminiService] Failed to save AI message: {e}")
+                    print(f"[GeminiService] Failed to save message: {e}")
 
-
-
-    async def run_delegated_task(self, task, context="") -> str:
-        """Run a task in a separate, temporary session and return the final result."""
+    async def run_delegated_task(self, task: str, context: str = "") -> str:
+        """Run a delegated task in a temporary sub-agent session."""
         try:
             client = await self.get_client()
             model_name = self.config.get("model", "G_2_5_FLASH")
             model = getattr(Model, model_name, Model.G_2_5_FLASH)
 
-            # Create a temporary agent
-            temp_agent = Agent(self.workspace_path)
+            # Create temporary agent
+            temp_agent = CodingAgent(self.workspace_path)
             chat = client.start_chat(model=model)
 
-            prompt = f"{temp_agent.get_system_prompt()}\n\nCONTEXT FROM MAIN AGENT: {context}\n\nTASK: {task}\n\nExecute this task autonomously and provide a final summary of what you did."
+            prompt = f"""{temp_agent.get_system_prompt()}
+
+## Delegated Task
+Context from parent agent: {context}
+
+Task: {task}
+
+Execute this task autonomously and provide a complete summary of what you accomplished."""
 
             response = await asyncio.wait_for(
                 chat.send_message(prompt),
@@ -472,29 +580,35 @@ class GeminiService:
             )
             response_text = response.text or ""
 
-            # Run the agent loop for the sub-agent
-            max_iterations = 5
+            # Run sub-agent loop
+            max_iterations = 8
             for _ in range(max_iterations):
                 tool_call = temp_agent.parse_tool_call(response_text)
                 if not tool_call:
                     break
 
-                tool_result = temp_agent.execute_tool(tool_call["name"], tool_call["args"])
+                tool_result, _ = await temp_agent.execute_tool(
+                    tool_call["name"],
+                    tool_call["args"]
+                )
+
                 response = await asyncio.wait_for(
                     chat.send_message(tool_result),
                     timeout=120
                 )
                 response_text = response.text or ""
 
-            return f"Sub-agent completion result:\n{response_text}"
+            return f"**Sub-agent Result:**\n{response_text}"
 
         except asyncio.TimeoutError:
-            return f"Error in delegated task: Request timed out"
+            return "Error: Delegated task timed out"
         except Exception as e:
             return f"Error in delegated task: {str(e)}"
 
     async def reset(self):
-        """Reset the client and all sessions."""
+        """Reset the service (clear all sessions and agents)."""
         self.client = None
         self.sessions = {}
         self.agents = {}
+        self.interrupted_sessions.clear()
+        self.active_tasks.clear()

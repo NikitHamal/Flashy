@@ -3,6 +3,8 @@ Design Agent Module
 
 This module provides the agent logic for parsing design tool calls
 from Gemini responses and executing them on the canvas.
+
+Enhanced with smart layout engine integration for precise positioning.
 """
 
 import re
@@ -10,12 +12,15 @@ import json
 from typing import Optional, Dict, Any, List
 from .design_tools import DesignTools
 from .design_prompts import DESIGN_SYSTEM_PROMPT, DESIGN_TOOL_RESULT_TEMPLATE
+from .layout_engine import LayoutEngine, LayoutConfig, BoundingBox, LayoutRegion
 
 
 class DesignAgent:
     """
     Manages the design agent loop: Understand -> Design -> Review.
     Parses tool calls from AI responses and executes design operations.
+
+    Integrates with LayoutEngine for smart positioning and layout calculations.
     """
 
     def __init__(self, canvas_width: int = 1200, canvas_height: int = 800):
@@ -23,6 +28,12 @@ class DesignAgent:
         self.conversation_history: List[Dict[str, Any]] = []
         self.max_iterations = 25  # Higher limit for complex designs
         self.session_id: Optional[str] = None
+
+        # Initialize layout engine
+        self.layout = LayoutEngine(LayoutConfig(
+            canvas_width=canvas_width,
+            canvas_height=canvas_height
+        ))
 
     def get_system_prompt(self) -> str:
         """Get the system prompt with current canvas info."""
@@ -262,3 +273,129 @@ class DesignAgent:
             ).strip()
 
         return thinking_content, clean_text
+
+    # =========================================================================
+    # LAYOUT ENGINE INTEGRATION
+    # =========================================================================
+
+    def get_layout_context(self) -> Dict[str, Any]:
+        """
+        Get layout context for AI to understand canvas positioning.
+        Returns comprehensive positioning information.
+        """
+        canvas_info = self.layout.get_canvas_info()
+        existing_objects = self._get_object_bounding_boxes()
+
+        return {
+            "canvas": canvas_info,
+            "existing_objects": len(existing_objects),
+            "safe_zones": self._calculate_safe_zones(existing_objects),
+            "suggested_regions": self._suggest_available_regions(existing_objects)
+        }
+
+    def _get_object_bounding_boxes(self) -> List[BoundingBox]:
+        """Convert canvas objects to bounding boxes for layout calculations."""
+        boxes = []
+        for obj in self.tools.canvas.objects:
+            boxes.append(BoundingBox(
+                x=obj.x,
+                y=obj.y,
+                width=obj.width,
+                height=obj.height
+            ))
+        return boxes
+
+    def _calculate_safe_zones(self, existing: List[BoundingBox]) -> List[Dict[str, Any]]:
+        """Calculate areas where new elements can be safely placed."""
+        w = self.tools.canvas.width
+        h = self.tools.canvas.height
+        margin = self.layout.config.edge_margin
+
+        # Define potential zones
+        zones = [
+            {"name": "header", "bounds": self.layout.get_header_bounds()},
+            {"name": "footer", "bounds": self.layout.get_footer_bounds()},
+            {"name": "center", "bounds": BoundingBox(
+                x=w * 0.25, y=h * 0.25, width=w * 0.5, height=h * 0.5
+            )},
+        ]
+
+        safe_zones = []
+        for zone in zones:
+            bounds = zone["bounds"]
+            is_free = not any(bounds.intersects(box) for box in existing)
+            safe_zones.append({
+                "name": zone["name"],
+                "x": bounds.x,
+                "y": bounds.y,
+                "width": bounds.width,
+                "height": bounds.height,
+                "available": is_free
+            })
+
+        return safe_zones
+
+    def _suggest_available_regions(self, existing: List[BoundingBox]) -> List[str]:
+        """Suggest which layout regions have space available."""
+        available = []
+        for region in LayoutRegion:
+            region_bounds = self.layout.get_region_bounds(region)
+            has_space = not any(region_bounds.intersects(box) for box in existing)
+            if has_space:
+                available.append(region.value)
+        return available
+
+    def calculate_smart_position(
+        self,
+        element_width: float,
+        element_height: float,
+        preferred_region: Optional[str] = None
+    ) -> Dict[str, float]:
+        """
+        Calculate optimal position for a new element considering existing objects.
+        Returns {'x': float, 'y': float}
+        """
+        existing = self._get_object_bounding_boxes()
+
+        region = None
+        if preferred_region:
+            try:
+                region = LayoutRegion(preferred_region)
+            except ValueError:
+                pass
+
+        x, y = self.layout.find_non_overlapping_position(
+            element_width, element_height, existing, region
+        )
+
+        # Snap to grid for cleaner positioning
+        x, y = self.layout.snap_to_grid(x, y, 8)
+
+        return {"x": x, "y": y}
+
+    def get_centered_position(
+        self, width: float, height: float
+    ) -> Dict[str, float]:
+        """Get position to center element on canvas."""
+        x, y = self.layout.center_element(width, height)
+        return {"x": x, "y": y}
+
+    def get_grid_positions(
+        self,
+        items: int,
+        columns: int,
+        cell_width: float,
+        cell_height: float
+    ) -> List[Dict[str, float]]:
+        """Get positions for a grid of items."""
+        positions = self.layout.create_grid_layout(
+            items=items,
+            columns=columns,
+            cell_width=cell_width,
+            cell_height=cell_height
+        )
+        return [{"x": x, "y": y} for x, y in positions]
+
+    def update_layout_dimensions(self, width: int, height: int):
+        """Update layout engine when canvas dimensions change."""
+        self.layout.set_canvas_size(width, height)

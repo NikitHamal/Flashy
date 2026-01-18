@@ -7,6 +7,19 @@ const DesignProperties = {
     lockRatio: false,
     aspectRatio: 1,
 
+    /**
+     * Show a brief success flash on an input element
+     */
+    flashSuccess(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.classList.add('success');
+        setTimeout(() => {
+            input.classList.remove('success');
+        }, 400);
+    },
+
     init() {
         this.setupPropertyInputs();
         this.setupColorInputs();
@@ -142,19 +155,21 @@ const DesignProperties = {
                 if (!color.startsWith('#')) color = '#' + color;
                 if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
                     if (colorInput) colorInput.value = color;
-                    this.applyColor(property, color);
+                    this.applyColor(property, color, hexId);
                 }
             });
         }
     },
 
-    applyColor(property, color) {
+    applyColor(property, color, hexInputId = null) {
         if (property === 'canvas-bg') {
             DesignCanvas.setBackgroundColor(color);
+            if (hexInputId) this.flashSuccess(hexInputId);
         } else if (this.currentObject) {
             this.currentObject.set(property, color);
             DesignCanvas.canvas.requestRenderAll();
             DesignCanvas.saveHistory();
+            if (hexInputId) this.flashSuccess(hexInputId);
         }
     },
 
@@ -401,6 +416,7 @@ const DesignProperties = {
         this.currentObject.setCoords();
         DesignCanvas.canvas.requestRenderAll();
         DesignCanvas.saveHistory();
+        this.flashSuccess(inputId);
     },
 
     applyTextProperty(inputId) {
@@ -423,6 +439,7 @@ const DesignProperties = {
 
         DesignCanvas.canvas.requestRenderAll();
         DesignCanvas.saveHistory();
+        this.flashSuccess(inputId);
     },
 
     getSelectionObjects() {

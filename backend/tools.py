@@ -1,9 +1,10 @@
 import os
 import subprocess
 import glob
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from .git_manager import GitManager
 from .websocket_manager import ws_manager
+from .image_service import get_image_service, ImageService
 
 class Tools:
     """Collection of tools the agent can use to interact with the local system."""
@@ -12,12 +13,17 @@ class Tools:
         self.workspace_path = workspace_path or os.getcwd()
         self.session_id = session_id
         self.git = GitManager(self.workspace_path)
+        self.image_service = get_image_service(self.workspace_path)
+        
+        # Track pending image operations
+        self._pending_image_save: Dict[str, Any] = {}
     
     def set_workspace(self, path: str):
         """Set the workspace root path."""
         if os.path.isdir(path):
             self.workspace_path = os.path.abspath(path)
             self.git.workspace_path = self.workspace_path
+            self.image_service.set_workspace(self.workspace_path)
             return f"Workspace set to: {self.workspace_path}"
         else:
             return f"Error: '{path}' is not a valid directory."
@@ -393,6 +399,101 @@ class Tools:
             return "\n\n".join(results)
         return f"Could not find any clear definitions for '{symbol_name}'."
 
+    # --- Image Tools ---
+
+    def generate_image(self, prompt: str, save_to_project: bool = False, filename: str = None) -> str:
+        """
+        Request image generation from AI.
+        
+        This tool signals to the agent loop that an image should be generated.
+        The actual generation happens via Gemini's internal image generation.
+        
+        Args:
+            prompt: Description of the image to generate
+            save_to_project: Whether to save the image to assets/images
+            filename: Optional custom filename
+        """
+        # Store pending save request if needed
+        if save_to_project:
+            self._pending_image_save = {
+                "save": True,
+                "filename": filename,
+                "prompt": prompt
+            }
+        
+        # Return a formatted prompt that will trigger Gemini's image generation
+        return f"""IMAGE_GENERATION_REQUEST:
+Prompt: {prompt}
+Save to project: {save_to_project}
+Filename: {filename or 'auto'}
+
+Please generate an image matching this description. Use your image generation capabilities to CREATE a new, original image. After generation, the image will appear in the response."""
+
+    async def save_image(self, url: str, filename: str = None, subdir: str = None) -> str:
+        """
+        Save an image from URL to the project's assets folder.
+        
+        Args:
+            url: Image URL to download and save
+            filename: Optional custom filename
+            subdir: Optional subdirectory within assets/images
+        """
+        success, result = await self.image_service.save_image_from_url(
+            url, 
+            filename, 
+            subdir
+        )
+        
+        if success:
+            return f"Image saved successfully to: {result}"
+        else:
+            return f"Error saving image: {result}"
+
+    async def save_generated_images(self, subdir: str = None) -> str:
+        """
+        Save all recently generated images to the project.
+        
+        Args:
+            subdir: Optional subdirectory within assets/images
+        """
+        if not self.image_service.generated_images:
+            return "No generated images available to save."
+        
+        saved = []
+        errors = []
+        
+        for i, img in enumerate(self.image_service.generated_images):
+            if img.saved:
+                saved.append(f"Already saved: {img.local_path}")
+                continue
+                
+            success, result = await self.image_service.save_image_from_url(
+                img.url,
+                filename=None,
+                subdir=subdir
+            )
+            
+            if success:
+                img.local_path = result
+                img.saved = True
+                saved.append(f"Saved: {result}")
+            else:
+                errors.append(f"Failed: {result}")
+        
+        output = []
+        if saved:
+            output.append("Saved images:\\n" + "\\n".join(saved))
+        if errors:
+            output.append("Errors:\\n" + "\\n".join(errors))
+        
+        return "\\n\\n".join(output) if output else "No images to save."
+
+    def get_pending_image_save(self) -> Dict[str, Any]:
+        """Get and clear pending image save request."""
+        pending = self._pending_image_save.copy()
+        self._pending_image_save = {}
+        return pending
+
     # --- Git Tools ---
 
     def git_status(self) -> str:
@@ -483,7 +584,11 @@ class Tools:
             {"name": "git_checkout", "description": "Switch/create branch. Args: branch (str), create (bool, optional)"},
             {"name": "git_log", "description": "Show commit history. Args: limit (int, optional)"},
             {"name": "git_clone", "description": "Clone a repo. Args: url (str), path (str, optional)"},
-            {"name": "git_init", "description": "Initialize a new git repo. No args."}
+            {"name": "git_init", "description": "Initialize a new git repo. No args."},
+            # Image Tools
+            {"name": "generate_image", "description": "Generate an AI image. Args: prompt (str), save_to_project (bool, optional), filename (str, optional)"},
+            {"name": "save_image", "description": "Save image from URL to project. Args: url (str), filename (str, optional), subdir (str, optional)"},
+            {"name": "save_generated_images", "description": "Save all recently generated images. Args: subdir (str, optional)"}
         ]
     
     async def execute(self, tool_name: str, **kwargs) -> str:
@@ -519,6 +624,10 @@ class Tools:
             "git_log": self.git_log,
             "git_clone": self.git_clone,
             "git_init": self.git_init,
+            # Image Tools
+            "generate_image": self.generate_image,
+            "save_image": self.save_image,
+            "save_generated_images": self.save_generated_images,
         }
         
         if tool_name not in tool_map:
