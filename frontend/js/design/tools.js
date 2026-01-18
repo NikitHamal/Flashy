@@ -378,7 +378,13 @@ const DesignTools = {
     },
 
     addImageFromURL(url, options = {}) {
-        fabric.Image.fromURL(url, (img) => {
+        // Ensure external URLs are proxied
+        let finalUrl = url;
+        if (url && (url.startsWith('http://') || url.startsWith('https://')) && !url.includes('/proxy_image')) {
+            finalUrl = `/proxy_image?url=${encodeURIComponent(url)}`;
+        }
+
+        fabric.Image.fromURL(finalUrl, (img) => {
             const maxSize = Math.min(DesignCanvas.canvasWidth, DesignCanvas.canvasHeight) * 0.5;
             const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
 
@@ -506,6 +512,7 @@ const DesignTools = {
     },
 
     addText(x, y, text, fontSize, fontFamily, fontWeight, fill, textAlign, opacity, angle, id) {
+        // Fix common typo for textBaseline if it ever reaches here
         const textObj = new fabric.IText(text, {
             left: x,
             top: y,
@@ -519,6 +526,11 @@ const DesignTools = {
             angle: angle || 0,
             id: id || this.generateId()
         });
+
+        // Ensure textBaseline is correct
+        if (textObj.textBaseline === 'alphabetical') {
+            textObj.set('textBaseline', 'alphabetic');
+        }
 
         DesignCanvas.addObject(textObj);
         return textObj.id;
@@ -605,8 +617,15 @@ const DesignTools = {
 
     addImage(url, x, y, width, height, opacity, angle, id) {
         if (!url) return Promise.resolve(null);
+
+        // Ensure URL is proxied if it's external
+        let finalUrl = url;
+        if (url && (url.startsWith('http://') || url.startsWith('https://')) && !url.includes('/proxy_image')) {
+            finalUrl = `/proxy_image?url=${encodeURIComponent(url)}`;
+        }
+
         return new Promise((resolve) => {
-            fabric.Image.fromURL(url, (img) => {
+            fabric.Image.fromURL(finalUrl, (img) => {
                 const props = {
                     left: x,
                     top: y,
@@ -666,6 +685,10 @@ const DesignTools = {
         if (properties.textAlign !== undefined) mappedProps.textAlign = properties.textAlign;
         if (properties.rx !== undefined) mappedProps.rx = properties.rx;
         if (properties.ry !== undefined) mappedProps.ry = properties.ry;
+
+        // Fix textBaseline typo and apply if present
+        if (properties.textBaseline === 'alphabetical') properties.textBaseline = 'alphabetic';
+        if (properties.textBaseline !== undefined) mappedProps.textBaseline = properties.textBaseline;
 
         DesignCanvas.updateObjectById(id, mappedProps);
         return true;

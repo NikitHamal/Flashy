@@ -487,13 +487,18 @@ def _convert_template_element_to_canvas_object(element: Dict[str, Any]) -> Optio
         }
 
     elif element_type == "image":
+        src = element.get("src", "")
+        if src.startswith("http://") or src.startswith("https://"):
+            if not src.startswith("/proxy_image"):
+                src = f"/proxy_image?url={src}"
+                
         return {
             "type": "image",
             "left": element.get("x", 0),
             "top": element.get("y", 0),
             "width": element.get("width", 200),
             "height": element.get("height", 200),
-            "src": element.get("src", ""),
+            "src": src,
             "opacity": element.get("opacity", 1),
         }
 

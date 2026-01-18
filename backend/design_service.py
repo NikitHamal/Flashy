@@ -577,6 +577,16 @@ Execute the design now. Calculate precise positions and use tool calls."""
         if tool_name == "duplicate_object" and new_id:
             action_args["new_id"] = new_id
 
+        # Proxy image URLs
+        if tool_name == "add_image":
+            url = action_args.get("url") or action_args.get("src")
+            if url and (url.startswith("http://") or url.startswith("https://")):
+                # Check if already proxied
+                if not url.startswith("/proxy_image"):
+                    action_args["url"] = f"/proxy_image?url={url}"
+                    if "src" in action_args:
+                        action_args["src"] = f"/proxy_image?url={url}"
+
         return {
             "tool": tool_name,
             "args": action_args,
