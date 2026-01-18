@@ -185,8 +185,8 @@ class DesignService:
         for obj in objects[:20]:  # Limit to prevent huge prompts
             obj_type = obj.get("type", "unknown")
             obj_id = obj.get("id", "?")
-            x = obj.get("left", 0)
-            y = obj.get("top", 0)
+            x = obj.get("x", obj.get("left", 0))
+            y = obj.get("y", obj.get("top", 0))
             width = obj.get("width", 0)
             height = obj.get("height", 0)
 

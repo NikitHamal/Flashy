@@ -593,6 +593,16 @@ const DesignCanvas = {
 
     loadFromJSON(json) {
         return new Promise((resolve) => {
+            if (json?.width && json?.height) {
+                this.canvasWidth = json.width;
+                this.canvasHeight = json.height;
+                this.canvas.setWidth(json.width);
+                this.canvas.setHeight(json.height);
+            }
+            if (json?.background) {
+                this.backgroundColor = json.background;
+                this.canvas.setBackgroundColor(json.background, () => {});
+            }
             this.canvas.loadFromJSON(json, () => {
                 this.canvas.requestRenderAll();
                 this.canvasWidth = this.canvas.width;

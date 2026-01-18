@@ -441,6 +441,8 @@ const DesignTools = {
         const circle = new fabric.Circle({
             left: x,
             top: y,
+            originX: 'center',
+            originY: 'center',
             radius: radius,
             fill: fill || this.defaultFill,
             stroke: stroke || null,
@@ -457,6 +459,8 @@ const DesignTools = {
         const ellipse = new fabric.Ellipse({
             left: x,
             top: y,
+            originX: 'center',
+            originY: 'center',
             rx: rx,
             ry: ry,
             fill: fill || this.defaultFill,
@@ -525,6 +529,8 @@ const DesignTools = {
         const polygon = new fabric.Polygon(points, {
             left: x,
             top: y,
+            originX: 'center',
+            originY: 'center',
             fill: fill || this.defaultFill,
             stroke: stroke || null,
             strokeWidth: strokeWidth || 0,
@@ -566,6 +572,8 @@ const DesignTools = {
         const star = new fabric.Polygon(starPoints, {
             left: x,
             top: y,
+            originX: 'center',
+            originY: 'center',
             fill: fill || this.defaultFill,
             stroke: stroke || null,
             strokeWidth: strokeWidth || 0,

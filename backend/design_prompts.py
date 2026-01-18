@@ -93,6 +93,12 @@ LAYOUT_PATTERNS = """
 - Title: top-left or centered, y=80-120
 - Content: below title, proper margins
 - Footer: bottom, y=canvas_height-60
+
+### Layout QA Checklist (Before Every Tool Call):
+- Ensure element bounds stay within canvas (>= 0, <= canvas edge)
+- Keep minimum margin of 32px from canvas edges for primary content
+- Align text blocks to a consistent vertical rhythm (e.g., 24-32px spacing)
+- Avoid overlapping elements unless intentionally layered
 """
 
 # ============================================================================
