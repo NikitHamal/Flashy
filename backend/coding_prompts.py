@@ -522,6 +522,79 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "Use for independent, well-defined subtasks",
             "Provide sufficient context for the sub-agent"
         ]
+    },
+    "generate_image": {
+        "name": "generate_image",
+        "description": "Generate an AI image from a text prompt. The image is created by Gemini's image generation model.",
+        "parameters": {
+            "prompt": {
+                "type": "string",
+                "required": True,
+                "description": "Detailed description of the image to generate"
+            },
+            "save_to_project": {
+                "type": "boolean",
+                "required": False,
+                "default": False,
+                "description": "Whether to save the generated image to the project's assets folder"
+            },
+            "filename": {
+                "type": "string",
+                "required": False,
+                "description": "Custom filename for saved image (without path)"
+            }
+        },
+        "returns": "Image generation request message. The generated image will appear in the response.",
+        "example": '{"action": "generate_image", "args": {"prompt": "A minimalist logo for a coffee shop", "save_to_project": true, "filename": "logo.png"}}',
+        "best_practices": [
+            "Be specific and detailed in your prompt for better results",
+            "Use save_to_project to add generated images to the codebase",
+            "Generated images are saved to assets/images/ by default"
+        ]
+    },
+    "save_image": {
+        "name": "save_image",
+        "description": "Download and save an image from a URL to the project's assets folder.",
+        "parameters": {
+            "url": {
+                "type": "string",
+                "required": True,
+                "description": "Image URL to download"
+            },
+            "filename": {
+                "type": "string",
+                "required": False,
+                "description": "Custom filename (auto-generated if not provided)"
+            },
+            "subdir": {
+                "type": "string",
+                "required": False,
+                "description": "Subdirectory within assets/images"
+            }
+        },
+        "returns": "Path where image was saved, or error message",
+        "example": '{"action": "save_image", "args": {"url": "https://example.com/image.png", "filename": "hero.png"}}',
+        "best_practices": [
+            "Use to save AI-generated images or web images to the project",
+            "Specify meaningful filenames for organization"
+        ]
+    },
+    "save_generated_images": {
+        "name": "save_generated_images",
+        "description": "Save all recently generated images to the project's assets folder.",
+        "parameters": {
+            "subdir": {
+                "type": "string",
+                "required": False,
+                "description": "Subdirectory within assets/images"
+            }
+        },
+        "returns": "List of saved image paths",
+        "example": '{"action": "save_generated_images", "args": {"subdir": "generated"}}',
+        "best_practices": [
+            "Use after generating multiple images to save all at once",
+            "Organize with subdirectories for different purposes"
+        ]
     }
 }
 
@@ -532,13 +605,13 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
 
 CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. You operate within the user's local workspace with full access to their filesystem and development tools.
 
-## Core Principles
+## CRITICAL RULES - FOLLOW THESE EXACTLY
 
-1. **Read Before Write**: ALWAYS read existing code before modifying it. Understand context, patterns, and conventions.
-2. **Precision Over Speed**: Take time to understand the codebase. Incorrect changes waste more time than careful analysis.
-3. **Verify Your Work**: Run tests, linters, or type checkers after making changes to ensure correctness.
-4. **Minimal Changes**: Make the smallest change that solves the problem. Avoid unnecessary refactoring.
-5. **Production Quality**: All code must be complete, tested, and production-ready. No TODOs or placeholders.
+1. **ACT IMMEDIATELY**: When the user asks you to create, build, or modify something, USE YOUR TOOLS to do it. DO NOT just show code examples - actually create the files using write_file or write_files.
+2. **NO EXPLANATIONS FIRST**: Do not explain what you're going to do before doing it. Start with a tool call. Explanations come AFTER actions.
+3. **READ BEFORE WRITE**: When modifying existing code, read the file first. When creating new code, just create it.
+4. **COMPLETE THE JOB**: Don't ask for confirmation mid-task. Complete the entire request, then report what you did.
+5. **PRODUCTION QUALITY**: All code must be complete and working. No placeholders, no TODOs.
 
 ## Your Capabilities
 
@@ -587,6 +660,13 @@ CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. 
 | Tool | Purpose | Key Args |
 |------|---------|----------|
 | `delegate_task` | Spawn sub-agent | task, context |
+
+### Image Tools
+| Tool | Purpose | Key Args |
+|------|---------|----------|
+| `generate_image` | Generate AI image | prompt, save_to_project, filename |
+| `save_image` | Save image from URL | url, filename, subdir |
+| `save_generated_images` | Save all generated images | subdir |
 
 ## Execution Protocol
 

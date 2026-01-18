@@ -24,6 +24,7 @@ from .coding_agent import CodingAgent, ToolCallStatus
 from .coding_prompts import get_system_prompt, get_tool_result_template
 from .response_filter import ResponseFilter, ThoughtFilter
 from .storage import save_chat_message, save_chat_metadata, get_chat_metadata
+from .image_service import get_image_service, ImageResult, ImageType
 
 
 class GeminiService:
@@ -307,11 +308,22 @@ class GeminiService:
                     if embedded_thinking:
                         all_thoughts = f"{all_thoughts}\n\n{embedded_thinking}".strip() if all_thoughts else embedded_thinking
 
-                    # Get images
+                    # Get images with enhanced metadata
                     if hasattr(response, 'images') and response.images:
                         for img in response.images:
-                            if img.url not in images:
-                                images.append(img.url)
+                            img_url = getattr(img, 'url', '')
+                            if img_url and img_url not in images:
+                                images.append(img_url)
+                                
+                                # Track image in service for potential saving
+                                img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
+                                image_service = get_image_service(self.workspace_path)
+                                image_service.generated_images.append(ImageResult(
+                                    url=img_url,
+                                    image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
+                                    title=getattr(img, 'title', None),
+                                    alt=getattr(img, 'alt', None)
+                                ))
 
                     # Yield thoughts
                     if all_thoughts:
@@ -370,6 +382,53 @@ class GeminiService:
                             context = tool_call["args"].get("context", "")
                             tool_result = await self.run_delegated_task(task, context)
                             tool_status = ToolCallStatus.SUCCESS
+                        elif tool_call["name"] == "generate_image":
+                            # Special handling for image generation
+                            prompt = tool_call["args"].get("prompt", "")
+                            save_to_project = tool_call["args"].get("save_to_project", False)
+                            filename = tool_call["args"].get("filename")
+                            
+                            # Send a direct image generation request to Gemini
+                            image_prompt = f"Generate an image: {prompt}. Use your image generation capabilities to create this image now."
+                            image_response = await self._send_with_retry(chat, image_prompt)
+                            
+                            # Check if images were generated
+                            if hasattr(image_response, 'images') and image_response.images:
+                                generated_urls = []
+                                for img in image_response.images:
+                                    img_url = getattr(img, 'url', '')
+                                    if img_url:
+                                        generated_urls.append(img_url)
+                                        images.append(img_url)
+                                        
+                                        # Track for saving
+                                        img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
+                                        image_service = get_image_service(self.workspace_path)
+                                        image_service.generated_images.append(ImageResult(
+                                            url=img_url,
+                                            image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
+                                            title=getattr(img, 'title', None),
+                                            alt=getattr(img, 'alt', None)
+                                        ))
+                                        
+                                        # Save to project if requested
+                                        if save_to_project and self.workspace_path:
+                                            success, save_path = await image_service.save_image_from_url(
+                                                img_url, filename
+                                            )
+                                            if success:
+                                                tool_result = f"Image generated and saved to: {save_path}"
+                                            else:
+                                                tool_result = f"Image generated but failed to save: {save_path}"
+                                        else:
+                                            tool_result = f"Image generated successfully. URL: {img_url[:50]}..."
+                                
+                                # Yield generated images
+                                yield {"images": generated_urls}
+                                tool_status = ToolCallStatus.SUCCESS
+                            else:
+                                tool_result = "Image generation requested but no images were returned. This may be due to content policy or availability restrictions."
+                                tool_status = ToolCallStatus.ERROR
                         else:
                             tool_result, tool_status = await agent.execute_tool(
                                 tool_call["name"],
@@ -384,8 +443,13 @@ class GeminiService:
                             yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                             break
 
-                        # Feed result back to Gemini
-                        response = await self._send_with_retry(chat, tool_result)
+                        # For generate_image, we already got the response, so continue to next iteration
+                        if tool_call["name"] == "generate_image":
+                            # Use the image response as the next response
+                            response = image_response
+                        else:
+                            # Feed result back to Gemini
+                            response = await self._send_with_retry(chat, tool_result)
                         iteration += 1
 
                     except asyncio.CancelledError:
@@ -430,8 +494,19 @@ class GeminiService:
 
                 if hasattr(response, 'images') and response.images:
                     for img in response.images:
-                        if img.url not in images:
-                            images.append(img.url)
+                        img_url = getattr(img, 'url', '')
+                        if img_url and img_url not in images:
+                            images.append(img_url)
+                            
+                            # Track image for potential saving
+                            img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
+                            image_service = get_image_service(self.workspace_path)
+                            image_service.generated_images.append(ImageResult(
+                                url=img_url,
+                                image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
+                                title=getattr(img, 'title', None),
+                                alt=getattr(img, 'alt', None)
+                            ))
 
                 # Apply response filter
                 clean_text = self.response_filter.filter(clean_text)
