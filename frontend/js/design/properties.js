@@ -6,6 +6,7 @@ const DesignProperties = {
     currentObject: null,
     lockRatio: false,
     aspectRatio: 1,
+    canvasPresets: {},
 
     /**
      * Show a brief success flash on an input element
@@ -26,6 +27,7 @@ const DesignProperties = {
         this.setupSliders();
         this.setupCanvasProperties();
         this.setupTabs();
+        this.loadPresets();
         this.loadTemplates();
         return this;
     },
@@ -214,12 +216,15 @@ const DesignProperties = {
     setupCanvasProperties() {
         const widthInput = document.getElementById('canvas-width');
         const heightInput = document.getElementById('canvas-height');
+        const presetSelect = document.getElementById('canvas-preset');
+        const presetButton = document.getElementById('btn-apply-preset');
 
         if (widthInput) {
             widthInput.addEventListener('change', () => {
                 const width = parseInt(widthInput.value) || 1200;
                 const height = parseInt(heightInput?.value) || 800;
                 DesignCanvas.setCanvasSize(width, height);
+                this.updatePresetMeta('custom');
             });
         }
 
@@ -228,7 +233,79 @@ const DesignProperties = {
                 const width = parseInt(widthInput?.value) || 1200;
                 const height = parseInt(heightInput.value) || 800;
                 DesignCanvas.setCanvasSize(width, height);
+                this.updatePresetMeta('custom');
             });
+        }
+
+        presetSelect?.addEventListener('change', () => {
+            const presetId = presetSelect.value;
+            if (presetId && presetId !== 'custom') {
+                const preset = this.canvasPresets?.[presetId];
+                if (preset) {
+                    widthInput.value = preset.width;
+                    heightInput.value = preset.height;
+                    this.updatePresetMeta(presetId);
+                }
+            } else {
+                this.updatePresetMeta('custom');
+            }
+        });
+
+        presetButton?.addEventListener('click', () => {
+            const presetId = presetSelect?.value || 'custom';
+            if (presetId !== 'custom') {
+                const preset = this.canvasPresets?.[presetId];
+                if (preset) {
+                    DesignCanvas.setCanvasSize(preset.width, preset.height);
+                    if (widthInput) widthInput.value = preset.width;
+                    if (heightInput) heightInput.value = preset.height;
+                    this.updatePresetMeta(presetId);
+                }
+            } else {
+                const width = parseInt(widthInput?.value) || 1200;
+                const height = parseInt(heightInput?.value) || 800;
+                DesignCanvas.setCanvasSize(width, height);
+                this.updatePresetMeta('custom');
+            }
+        });
+    },
+
+    loadPresets() {
+        fetch('/design/presets')
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById('canvas-preset');
+                if (!select) return;
+
+                const presets = Array.isArray(data.presets) ? data.presets : [];
+                this.canvasPresets = {};
+                presets.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                presets.forEach(preset => {
+                    this.canvasPresets[preset.id] = preset;
+                    const option = document.createElement('option');
+                    option.value = preset.id;
+                    option.textContent = `${preset.name} (${preset.width}×${preset.height})`;
+                    select.appendChild(option);
+                });
+
+                this.updatePresetMeta('custom');
+            })
+            .catch(err => console.error('Failed to load presets:', err));
+    },
+
+    updatePresetMeta(presetId) {
+        const meta = document.getElementById('canvas-preset-meta');
+        const label = document.getElementById('canvas-preset-label');
+        if (!meta || !label) return;
+
+        if (presetId && presetId !== 'custom' && this.canvasPresets?.[presetId]) {
+            const preset = this.canvasPresets[presetId];
+            label.textContent = `${preset.name} · ${preset.width}×${preset.height}`;
+            meta.classList.remove('hidden');
+        } else {
+            label.textContent = 'Custom size';
+            meta.classList.add('hidden');
         }
     },
 
@@ -249,7 +326,7 @@ const DesignProperties = {
                         </div>
                         <div class="template-info">
                             <div class="template-name">${template.name}</div>
-                            <div class="template-size">${template.size.width} × ${template.size.height}</div>
+                            <div class="template-size">${template.width} × ${template.height}</div>
                         </div>
                     `;
                     item.addEventListener('click', () => this.applyTemplate(template.id));
@@ -272,14 +349,15 @@ const DesignProperties = {
             .then(data => {
                 if (data.canvas_state) {
                     const state = data.canvas_state;
-                    DesignCanvas.setCanvasSize(state.width, state.height);
-                    DesignCanvas.setBackgroundColor(state.background);
-                    DesignCanvas.clear();
-
-                    document.getElementById('canvas-width').value = state.width;
-                    document.getElementById('canvas-height').value = state.height;
-                    document.getElementById('canvas-bg').value = state.background;
-                    document.getElementById('canvas-bg-hex').value = state.background;
+                    DesignCanvas.loadFromJSON(state).then(() => {
+                        document.getElementById('canvas-width').value = state.width;
+                        document.getElementById('canvas-height').value = state.height;
+                        document.getElementById('canvas-bg').value = state.background;
+                        document.getElementById('canvas-bg-hex').value = state.background;
+                        const presetSelect = document.getElementById('canvas-preset');
+                        if (presetSelect) presetSelect.value = 'custom';
+                        this.updatePresetMeta('custom');
+                    });
                 }
             })
             .catch(err => console.error('Failed to apply template:', err));

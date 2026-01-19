@@ -21,7 +21,7 @@ const DesignCanvas = {
     snapToGrid: false,
     gridSize: 24,
     showSmartGuides: true,
-    smartGuideThreshold: 8,
+    smartGuideThreshold: 5, // Reduced from 8 to be less "grabby"
     alignmentGuides: [],
 
     init() {
@@ -114,6 +114,9 @@ const DesignCanvas = {
         }
         this.updateActionButtons();
 
+        // Clear guides on selection change to be safe
+        this.clearAlignmentGuides();
+
         // Update canvas container selection state for visual feedback
         if (this.canvasContainer) {
             this.canvasContainer.classList.toggle('has-selection', !!activeObject);
@@ -184,6 +187,12 @@ const DesignCanvas = {
         if (!opt.target) return;
         const obj = opt.target;
 
+        // Bypassing snapping with Ctrl key
+        if (opt.e && (opt.e.ctrlKey || opt.e.metaKey)) {
+            this.clearAlignmentGuides();
+            return;
+        }
+
         // Grid snapping
         if (this.snapToGrid) {
             const grid = this.gridSize;
@@ -226,6 +235,12 @@ const DesignCanvas = {
         } else if (e.key === 'Escape') {
             this.canvas.discardActiveObject();
             this.canvas.requestRenderAll();
+        } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            // Nudge selection
+            if (document.activeElement === document.body) {
+                e.preventDefault();
+                this.nudgeSelected(e.key, e.shiftKey);
+            }
         }
 
         if (!e.ctrlKey && !e.metaKey) {
@@ -342,6 +357,9 @@ const DesignCanvas = {
             y: movingBounds.top + movingBounds.height / 2
         };
 
+        let snappedX = false;
+        let snappedY = false;
+
         // Canvas center guides
         const canvasCenterX = this.canvasWidth / 2;
         const canvasCenterY = this.canvasHeight / 2;
@@ -350,32 +368,40 @@ const DesignCanvas = {
         if (Math.abs(movingCenter.x - canvasCenterX) < threshold) {
             this.addGuide('vertical', canvasCenterX, 'center');
             movingObj.set('left', canvasCenterX - movingBounds.width / 2);
+            snappedX = true;
         }
         if (Math.abs(movingCenter.y - canvasCenterY) < threshold) {
             this.addGuide('horizontal', canvasCenterY, 'center');
             movingObj.set('top', canvasCenterY - movingBounds.height / 2);
+            snappedY = true;
         }
 
         // Check edge alignment with canvas
-        if (Math.abs(movingBounds.left) < threshold) {
+        if (!snappedX && Math.abs(movingBounds.left) < threshold) {
             this.addGuide('vertical', 0, 'edge');
             movingObj.set('left', 0);
+            snappedX = true;
         }
-        if (Math.abs(movingBounds.top) < threshold) {
+        if (!snappedY && Math.abs(movingBounds.top) < threshold) {
             this.addGuide('horizontal', 0, 'edge');
             movingObj.set('top', 0);
+            snappedY = true;
         }
-        if (Math.abs(movingBounds.left + movingBounds.width - this.canvasWidth) < threshold) {
+        if (!snappedX && Math.abs(movingBounds.left + movingBounds.width - this.canvasWidth) < threshold) {
             this.addGuide('vertical', this.canvasWidth, 'edge');
             movingObj.set('left', this.canvasWidth - movingBounds.width);
+            snappedX = true;
         }
-        if (Math.abs(movingBounds.top + movingBounds.height - this.canvasHeight) < threshold) {
+        if (!snappedY && Math.abs(movingBounds.top + movingBounds.height - this.canvasHeight) < threshold) {
             this.addGuide('horizontal', this.canvasHeight, 'edge');
             movingObj.set('top', this.canvasHeight - movingBounds.height);
+            snappedY = true;
         }
 
         // Check alignment with other objects
+        const activeObjects = this.canvas.getActiveObjects();
         const objects = this.canvas.getObjects().filter(obj =>
+            !activeObjects.includes(obj) &&
             obj !== movingObj &&
             !obj.isGuide &&
             obj.selectable !== false
@@ -389,35 +415,41 @@ const DesignCanvas = {
             };
 
             // Left edge alignment
-            if (Math.abs(movingBounds.left - otherBounds.left) < threshold) {
+            if (!snappedX && Math.abs(movingBounds.left - otherBounds.left) < threshold) {
                 this.addGuide('vertical', otherBounds.left, 'object');
                 movingObj.set('left', otherBounds.left);
+                snappedX = true;
             }
             // Right edge alignment
-            if (Math.abs(movingBounds.left + movingBounds.width - otherBounds.left - otherBounds.width) < threshold) {
+            if (!snappedX && Math.abs(movingBounds.left + movingBounds.width - (otherBounds.left + otherBounds.width)) < threshold) {
                 this.addGuide('vertical', otherBounds.left + otherBounds.width, 'object');
                 movingObj.set('left', otherBounds.left + otherBounds.width - movingBounds.width);
+                snappedX = true;
             }
             // Center X alignment
-            if (Math.abs(movingCenter.x - otherCenter.x) < threshold) {
+            if (!snappedX && Math.abs(movingCenter.x - otherCenter.x) < threshold) {
                 this.addGuide('vertical', otherCenter.x, 'object');
                 movingObj.set('left', otherCenter.x - movingBounds.width / 2);
+                snappedX = true;
             }
 
             // Top edge alignment
-            if (Math.abs(movingBounds.top - otherBounds.top) < threshold) {
+            if (!snappedY && Math.abs(movingBounds.top - otherBounds.top) < threshold) {
                 this.addGuide('horizontal', otherBounds.top, 'object');
                 movingObj.set('top', otherBounds.top);
+                snappedY = true;
             }
             // Bottom edge alignment
-            if (Math.abs(movingBounds.top + movingBounds.height - otherBounds.top - otherBounds.height) < threshold) {
+            if (!snappedY && Math.abs(movingBounds.top + movingBounds.height - (otherBounds.top + otherBounds.height)) < threshold) {
                 this.addGuide('horizontal', otherBounds.top + otherBounds.height, 'object');
                 movingObj.set('top', otherBounds.top + otherBounds.height - movingBounds.height);
+                snappedY = true;
             }
             // Center Y alignment
-            if (Math.abs(movingCenter.y - otherCenter.y) < threshold) {
+            if (!snappedY && Math.abs(movingCenter.y - otherCenter.y) < threshold) {
                 this.addGuide('horizontal', otherCenter.y, 'object');
                 movingObj.set('top', otherCenter.y - movingBounds.height / 2);
+                snappedY = true;
             }
         });
 
@@ -437,7 +469,8 @@ const DesignCanvas = {
                 selectable: false,
                 evented: false,
                 isGuide: true,
-                opacity: 0.8
+                opacity: 0.8,
+                excludeFromExport: true // Ensure guides never get saved to JSON/SVG/PNG
             });
         } else {
             guide = new fabric.Line([0, position, this.canvasWidth, position], {
@@ -447,7 +480,8 @@ const DesignCanvas = {
                 selectable: false,
                 evented: false,
                 isGuide: true,
-                opacity: 0.8
+                opacity: 0.8,
+                excludeFromExport: true // Ensure guides never get saved to JSON/SVG/PNG
             });
         }
 
@@ -491,6 +525,41 @@ const DesignCanvas = {
         if (this.historyIndex >= this.history.length - 1) return;
         this.historyIndex++;
         this.loadFromHistory();
+    },
+
+    nudgeSelected(key, isFast) {
+        // Clear guides if any were visible
+        this.clearAlignmentGuides();
+
+        const activeObject = this.canvas.getActiveObject();
+        if (!activeObject) return;
+
+        const distance = isFast ? 10 : 1;
+
+        switch (key) {
+            case 'ArrowLeft':
+                activeObject.set('left', activeObject.left - distance);
+                break;
+            case 'ArrowRight':
+                activeObject.set('left', activeObject.left + distance);
+                break;
+            case 'ArrowUp':
+                activeObject.set('top', activeObject.top - distance);
+                break;
+            case 'ArrowDown':
+                activeObject.set('top', activeObject.top + distance);
+                break;
+        }
+
+        activeObject.setCoords();
+        this.canvas.requestRenderAll();
+
+        // Debounced history save would be better, but for now we'll just save
+        // to ensure history is updated. 
+        if (this._nudgeTimeout) clearTimeout(this._nudgeTimeout);
+        this._nudgeTimeout = setTimeout(() => {
+            this.saveHistory();
+        }, 500);
     },
 
     loadFromHistory() {
@@ -593,6 +662,16 @@ const DesignCanvas = {
 
     loadFromJSON(json) {
         return new Promise((resolve) => {
+            if (json?.width && json?.height) {
+                this.canvasWidth = json.width;
+                this.canvasHeight = json.height;
+                this.canvas.setWidth(json.width);
+                this.canvas.setHeight(json.height);
+            }
+            if (json?.background) {
+                this.backgroundColor = json.background;
+                this.canvas.setBackgroundColor(json.background, () => { });
+            }
             this.canvas.loadFromJSON(json, () => {
                 this.canvas.requestRenderAll();
                 this.canvasWidth = this.canvas.width;

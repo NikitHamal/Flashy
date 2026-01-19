@@ -185,8 +185,8 @@ class DesignService:
         for obj in objects[:20]:  # Limit to prevent huge prompts
             obj_type = obj.get("type", "unknown")
             obj_id = obj.get("id", "?")
-            x = obj.get("left", 0)
-            y = obj.get("top", 0)
+            x = obj.get("x", obj.get("left", 0))
+            y = obj.get("y", obj.get("top", 0))
             width = obj.get("width", 0)
             height = obj.get("height", 0)
 
@@ -576,6 +576,16 @@ Execute the design now. Calculate precise positions and use tool calls."""
             action_args["group_id"] = new_id
         if tool_name == "duplicate_object" and new_id:
             action_args["new_id"] = new_id
+
+        # Proxy image URLs
+        if tool_name == "add_image":
+            url = action_args.get("url") or action_args.get("src")
+            if url and (url.startswith("http://") or url.startswith("https://")):
+                # Check if already proxied
+                if not url.startswith("/proxy_image"):
+                    action_args["url"] = f"/proxy_image?url={url}"
+                    if "src" in action_args:
+                        action_args["src"] = f"/proxy_image?url={url}"
 
         return {
             "tool": tool_name,

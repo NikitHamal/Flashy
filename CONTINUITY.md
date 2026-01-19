@@ -27,12 +27,17 @@
   - Fixed screenshot base64 decoding and image attachment handling
   - Added grid/snap toggles, align/distribute tools, and richer export options
   - Expanded coding agent tools (read/write multiple files, apply patch) and UI tool mapping
+  - Refactored design templates into modular package; added Nepal festival templates
+  - Expanded canvas size presets for social platforms
+  - Added preset selector UI and fixed template application to load canvas objects
+  - Fixed circle/ellipse/polygon/star coordinate origins for AI tool actions
+  - Improved design agent object context position usage and layout QA prompt guidance
 
 - Now:
-  - Light validation pass
+  - Validate recent template/preset and coordinate fixes
 
 - Next:
-  - Provide summary + next steps
+  - Run quick manual smoke checks for presets/templates and AI shape placement
 
 ## Open Questions (UNCONFIRMED if needed):
 - None
