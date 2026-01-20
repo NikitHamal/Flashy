@@ -140,6 +140,20 @@ function setupEventHandlers() {
 
 function hydrateFromStorage() {
     state.kundalis = loadKundalis();
+    // Repair/recompute charts if missing
+    state.kundalis = state.kundalis.map((k) => {
+        if (!k.chart || !k.chart.planets) {
+            if (validateProfile(k).length === 0) {
+                try {
+                    return computeChart(k);
+                } catch (e) {
+                    console.error("Failed to recompute chart on hydrate", e);
+                }
+            }
+        }
+        return k;
+    });
+
     state.activeId = loadActiveId();
     if (!state.kundalis.length) {
         state.activeId = null;
@@ -152,7 +166,31 @@ function hydrateFromStorage() {
 function handleChatUpdates(update) {
     if (!update) return;
     if (Array.isArray(update.kundalis)) {
-        state.kundalis = update.kundalis.map((k) => k.chart ? k : computeChart(k));
+        state.kundalis = update.kundalis.map((newK) => {
+            const existing = state.kundalis.find((k) => k.id === newK.id);
+            const merged = existing ? { ...existing, ...newK } : newK;
+            
+            // Recompute chart if missing or if birth details changed
+            const birthDetailsChanged = existing && [
+                "birthDate", "birthTime", "latitude", "longitude", "timezone"
+            ].some(key => newK[key] !== undefined && newK[key] !== existing[key]);
+
+            const needsCompute = !merged.chart || 
+                !merged.chart.planets || 
+                birthDetailsChanged;
+
+            if (needsCompute) {
+                const missing = validateProfile(merged);
+                if (missing.length === 0) {
+                    try {
+                        return computeChart(merged);
+                    } catch (e) {
+                        console.error("Failed to compute chart", e);
+                    }
+                }
+            }
+            return merged;
+        });
     }
     if (update.active_id) state.activeId = update.active_id;
     saveState();

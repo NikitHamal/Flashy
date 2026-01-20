@@ -163,9 +163,13 @@ export function calculateKundali(profile) {
         });
     }
 
-    const dashas = computeVimshottari(planets.Moon.lon, utcDate);
+    const dashas = planets.Moon ? computeVimshottari(planets.Moon.lon, utcDate) : [];
 
-    const summary = `Lagna ${lagna.rasi.name}, Moon ${planets.Moon.rasi.name}, Sun ${planets.Sun.rasi.name}`;
+    const summaryParts = [];
+    if (lagna && lagna.rasi) summaryParts.push(`Lagna ${lagna.rasi.name}`);
+    if (planets.Moon && planets.Moon.rasi) summaryParts.push(`Moon ${planets.Moon.rasi.name}`);
+    if (planets.Sun && planets.Sun.rasi) summaryParts.push(`Sun ${planets.Sun.rasi.name}`);
+    const summary = summaryParts.join(", ");
 
     return {
         profile,
@@ -180,15 +184,16 @@ export function calculateKundali(profile) {
 }
 
 export function formatPlanetTable(planets) {
+    if (!planets) return [];
     return PLANET_ORDER.map((planet) => {
         const data = planets[planet];
-        if (!data) return null;
+        if (!data || !data.rasi || !data.nakshatra) return null;
         return {
             planet: planet,
-            sign: data.rasi.name,
-            house: data.house,
-            nakshatra: `${data.nakshatra.name} ${data.nakshatra.pada}`,
-            degrees: data.degrees.toFixed(2),
+            sign: data.rasi.name || "Unknown",
+            house: data.house || "?",
+            nakshatra: `${data.nakshatra.name || "Unknown"} ${data.nakshatra.pada || ""}`,
+            degrees: typeof data.degrees === "number" ? data.degrees.toFixed(2) : "0.00",
             retrograde: data.retrograde ? "Yes" : "No"
         };
     }).filter(Boolean);

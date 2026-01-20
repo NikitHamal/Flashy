@@ -19,13 +19,14 @@ const HOUSE_POSITIONS = {
 
 function housePlanetLabels(planets) {
     const houses = {};
+    if (!planets) return houses;
     PLANET_ORDER.forEach((planet) => {
         const data = planets[planet];
-        if (!data) return;
+        if (!data || data.house === undefined) return;
         const key = data.house;
         if (!houses[key]) houses[key] = [];
         const suffix = data.retrograde ? "℞" : "";
-        houses[key].push(`${PLANET_SYMBOLS[planet]}${suffix}`);
+        houses[key].push(`${PLANET_SYMBOLS[planet] || planet.slice(0, 2)}${suffix}`);
     });
     return houses;
 }
