@@ -1,144 +1,85 @@
 /**
- * Design App Module
- * Main application controller for Flashy Designs
+ * Design App Module (SVG)
  */
 const DesignApp = {
     sessionId: null,
-    projectName: 'Untitled Design',
+    projectName: "Untitled Design",
 
     async init() {
         this.sessionId = this.generateSessionId();
-
         DesignCanvas.init();
         DesignTools.init();
         DesignProperties.init();
         DesignChat.init();
         DesignExport.init();
-
         this.setupProjectName();
         this.setupKeyboardShortcuts();
-
-        DesignCanvas.zoomToFit();
-
-        console.log('[DesignApp] Initialized with session:', this.sessionId);
+        this.setupPanels();
+        console.log("[DesignApp] Initialized", this.sessionId);
     },
 
     generateSessionId() {
-        return 'design_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        return `design_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     },
 
     setupProjectName() {
-        const nameElement = document.getElementById('project-name');
-        const renameBtn = document.getElementById('btn-rename');
-
-        renameBtn?.addEventListener('click', () => {
-            const newName = prompt('Enter project name:', this.projectName);
+        const nameElement = document.getElementById("project-name");
+        const renameBtn = document.getElementById("btn-rename");
+        renameBtn?.addEventListener("click", () => {
+            const newName = prompt("Enter project name:", this.projectName);
             if (newName && newName.trim()) {
                 this.projectName = newName.trim();
-                if (nameElement) {
-                    nameElement.textContent = this.projectName;
-                }
+                nameElement.textContent = this.projectName;
                 document.title = `${this.projectName} | Flashy Designs`;
             }
         });
     },
 
     setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                if (e.key === 'Escape') {
-                    e.target.blur();
-                }
-                return;
-            }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        document.addEventListener("keydown", (e) => {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
                 e.preventDefault();
-                DesignExport.showModal();
+                DesignCanvas.undo();
             }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
                 e.preventDefault();
-                DesignExport.importJSON();
+                DesignCanvas.redo();
             }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-                e.preventDefault();
-                DesignCanvas.setZoom(1);
-            }
-
-            if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
-                e.preventDefault();
-                DesignCanvas.zoomIn();
-            }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-                e.preventDefault();
-                DesignCanvas.zoomOut();
-            }
-
-            if (e.key === '1') {
-                DesignCanvas.setZoom(1);
-            }
-
-            if (e.key === '2') {
-                DesignCanvas.zoomToFit();
-            }
-
-            if (e.key === 'g' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                const activeObject = DesignCanvas.canvas.getActiveObject();
-                if (activeObject && activeObject.type === 'activeSelection') {
-                    const objects = activeObject.getObjects();
-                    const ids = objects.map(obj => obj.id).filter(Boolean);
-                    if (ids.length > 1) {
-                        DesignTools.groupObjects(ids);
-                    }
-                }
-            }
-
-            if (e.key === 'g' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
-                e.preventDefault();
-                const activeObject = DesignCanvas.canvas.getActiveObject();
-                if (activeObject && activeObject.type === 'group' && activeObject.id) {
-                    DesignTools.ungroupObjects(activeObject.id);
-                }
+            if (e.key === "Delete") {
+                DesignCanvas.deleteSelection();
             }
         });
     },
+    setupPanels() {
+        const chatPanel = document.getElementById("chat-panel");
+        const propertiesPanel = document.getElementById("properties-panel");
+        document.getElementById("btn-toggle-chat")?.addEventListener("click", () => {
+            chatPanel?.classList.toggle("active");
+            propertiesPanel?.classList.remove("active");
+        });
+        document.getElementById("btn-toggle-properties")?.addEventListener("click", () => {
+            propertiesPanel?.classList.toggle("active");
+            chatPanel?.classList.remove("active");
+        });
 
-    async saveToServer() {
-        const state = DesignCanvas.getState();
-
-        try {
-            await fetch('/design/canvas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: this.sessionId,
-                    state: state
-                })
-            });
-        } catch (error) {
-            console.error('Failed to save state:', error);
-        }
-    },
-
-    async loadFromServer() {
-        try {
-            const response = await fetch(`/design/canvas/${this.sessionId}`);
-            if (response.ok) {
-                const state = await response.json();
-                if (state && state.objects) {
-                    await DesignCanvas.loadFromJSON(state);
+        document.querySelectorAll(".sidebar-tab").forEach((tab) => {
+            tab.addEventListener("click", () => {
+                const target = tab.dataset.tab;
+                document.querySelectorAll(".sidebar-tab").forEach((t) => t.classList.remove("active"));
+                tab.classList.add("active");
+                if (target === "chat") {
+                    chatPanel?.classList.add("active");
+                    propertiesPanel?.classList.remove("active");
+                } else {
+                    propertiesPanel?.classList.add("active");
+                    chatPanel?.classList.remove("active");
                 }
-            }
-        } catch (error) {
-            console.error('Failed to load state:', error);
-        }
+            });
+        });
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
     DesignApp.init();
 });

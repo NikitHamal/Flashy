@@ -1,0 +1,374 @@
+body {
+    background: var(--paper);
+    overflow: auto;
+}
+
+.astro-app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-body);
+}
+
+.astro-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 4px solid var(--ink);
+    background: var(--sun);
+    box-shadow: 8px 8px 0 var(--ink);
+}
+
+.brand-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 3px solid var(--ink);
+    background: var(--paper);
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
+.astro-title {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.title-tag {
+    font-family: var(--font-display);
+    font-size: 24px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.title-sub {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.astro-nav a {
+    margin-left: 12px;
+    padding: 8px 12px;
+    border: 3px solid var(--ink);
+    background: var(--paper);
+    text-decoration: none;
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 3px 3px 0 var(--ink);
+}
+
+.astro-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    gap: 20px;
+    padding: 24px;
+    flex: 1;
+}
+
+.astro-left,
+.astro-main,
+.astro-chat {
+    background: var(--paper);
+    border: 4px solid var(--ink);
+    box-shadow: 10px 10px 0 var(--ink);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.panel-header h2 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    margin: 0;
+}
+
+.btn-primary,
+.btn-outline,
+.btn-danger {
+    font-family: var(--font-body);
+    border: 3px solid var(--ink);
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
+.btn-primary {
+    background: var(--sun);
+}
+
+.btn-outline {
+    background: var(--paper);
+}
+
+.btn-danger {
+    background: var(--hot);
+    color: #fff;
+}
+
+.empty-state,
+.main-empty {
+    text-align: center;
+    margin-top: 24px;
+}
+
+.empty-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+}
+
+.kundali-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.kundali-item {
+    border: 3px solid var(--ink);
+    padding: 12px;
+    background: var(--paper);
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
+.kundali-item.active {
+    background: var(--mint);
+}
+
+.kundali-name {
+    font-weight: 700;
+}
+
+.kundali-meta {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.detail-meta {
+    font-size: 13px;
+    opacity: 0.75;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.detail-card {
+    border: 3px solid var(--ink);
+    padding: 12px;
+    background: #fff;
+    box-shadow: 5px 5px 0 var(--ink);
+}
+
+.chart-container {
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.astro-chart {
+    width: 100%;
+    height: auto;
+}
+
+.chart-text {
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--ink);
+}
+
+.chart-title {
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--ink);
+}
+
+.table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.table th,
+.table td {
+    border: 2px solid var(--ink);
+    padding: 6px;
+    text-align: left;
+}
+
+.astro-chat {
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 120px);
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 12px;
+}
+
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 4px 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chat-msg.user .chat-bubble {
+    background: var(--mint);
+}
+
+.chat-msg.ai .chat-bubble {
+    background: var(--paper);
+}
+
+.chat-bubble {
+    border: 3px solid var(--ink);
+    padding: 10px;
+    box-shadow: 3px 3px 0 var(--ink);
+    white-space: pre-wrap;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.chat-input textarea {
+    flex: 1;
+    border: 3px solid var(--ink);
+    padding: 8px;
+    font-family: var(--font-body);
+}
+
+.chat-tips {
+    font-size: 11px;
+    margin-top: 8px;
+    opacity: 0.75;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--mint);
+    border: 2px solid var(--ink);
+}
+
+.status-dot.busy {
+    background: var(--hot);
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.modal-card {
+    background: var(--paper);
+    border: 4px solid var(--ink);
+    box-shadow: 10px 10px 0 var(--ink);
+    width: min(640px, 90vw);
+    padding: 16px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 8px;
+}
+
+.btn-icon {
+    border: 3px solid var(--ink);
+    background: var(--paper);
+    padding: 4px 6px;
+    cursor: pointer;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.form-grid label {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 4px;
+}
+
+.form-grid input,
+.form-grid select {
+    border: 3px solid var(--ink);
+    padding: 6px;
+    font-family: var(--font-body);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.hidden {
+    display: none;
+}
+
+.muted {
+    opacity: 0.6;
+}
+
+@media (max-width: 1100px) {
+    .astro-layout {
+        grid-template-columns: 1fr;
+    }
+    .astro-chat {
+        position: relative;
+        max-height: none;
+    }
+}

@@ -204,7 +204,7 @@ async def export_as_svg(
 ):
     """
     Export canvas as SVG.
-    svg_data should be the SVG string from fabric.js toSVG()
+    svg_data should be the SVG string from the editor
     """
     try:
         return Response(
