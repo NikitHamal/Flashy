@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashy Astro | Vedic Intelligence</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/astro.css">
+
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,200..700,0..1,-50..200" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>">
+</head>
+
+<body>
+    <div class="astro-app">
+        <aside class="astro-sidebar">
+            <div class="astro-brand">
+                <a href="/" class="brand-link">
+                    <span class="material-symbols-outlined">flash_on</span>
+                    <span>Flashy</span>
+                </a>
+                <span class="astro-tag">Astro</span>
+            </div>
+
+            <div class="astro-sidebar-section">
+                <div class="sidebar-header">
+                    <h3>Kundalis</h3>
+                    <button id="btn-new-kundali" class="btn-primary-sm">
+                        <span class="material-symbols-outlined">add</span>
+                        New
+                    </button>
+                </div>
+                <div class="search-row">
+                    <span class="material-symbols-outlined">search</span>
+                    <input type="search" id="kundali-search" placeholder="Search by name...">
+                </div>
+                <div id="kundali-list" class="kundali-list"></div>
+            </div>
+
+            <div class="astro-sidebar-footer">
+                <div class="astro-tip">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                    <div>
+                        <strong>Flashy Astro</strong>
+                        <p>Blunt, precise Vedic readings.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="astro-main">
+            <section id="astro-empty" class="astro-empty">
+                <div class="empty-card">
+                    <h1>Flashy Astro</h1>
+                    <p>Create accurate Vedic kundalis or let the AI build them for you. Profiles stay local and remain yours.</p>
+                    <div class="empty-actions">
+                        <button id="btn-empty-create" class="btn-primary">
+                            <span class="material-symbols-outlined">add</span>
+                            Create Kundali
+                        </button>
+                        <button id="btn-empty-ai" class="btn-secondary">
+                            <span class="material-symbols-outlined">smart_toy</span>
+                            Ask AI to Create
+                        </button>
+                    </div>
+                    <div class="empty-grid">
+                        <div class="empty-tile">
+                            <h4>Profiles</h4>
+                            <p>Store multiple charts and switch instantly.</p>
+                        </div>
+                        <div class="empty-tile">
+                            <h4>Deep Dive</h4>
+                            <p>Inspect planets, houses, dashas without AI.</p>
+                        </div>
+                        <div class="empty-tile">
+                            <h4>Astrologer Mode</h4>
+                            <p>Raw data view for expert interpretation.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="astro-detail" class="astro-detail hidden">
+                <div class="detail-header">
+                    <div>
+                        <h2 id="detail-name">Kundali</h2>
+                        <p id="detail-meta">Profile data</p>
+                    </div>
+                    <div class="detail-actions">
+                        <button id="btn-edit-kundali" class="btn-secondary">Edit</button>
+                        <button id="btn-delete-kundali" class="btn-danger">Delete</button>
+                    </div>
+                </div>
+
+                <div class="detail-tabs">
+                    <button class="tab-btn active" data-tab="overview">Overview</button>
+                    <button class="tab-btn" data-tab="planets">Planets</button>
+                    <button class="tab-btn" data-tab="houses">Houses</button>
+                    <button class="tab-btn" data-tab="dashas">Dashas</button>
+                    <button class="tab-btn" data-tab="notes">Notes</button>
+                </div>
+
+                <div class="detail-content">
+                    <div class="tab-panel active" id="tab-overview">
+                        <div class="detail-grid">
+                            <div class="detail-card">
+                                <h3>Birth Details</h3>
+                                <div class="detail-list" id="birth-details"></div>
+                            </div>
+                            <div class="detail-card">
+                                <h3>Chart Snapshot</h3>
+                                <div class="detail-list" id="chart-snapshot"></div>
+                            </div>
+                            <div class="detail-card">
+                                <h3>Predictions</h3>
+                                <div class="detail-list" id="prediction-snapshot"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="tab-planets">
+                        <div class="table-card" id="planets-table"></div>
+                    </div>
+
+                    <div class="tab-panel" id="tab-houses">
+                        <div class="table-card" id="houses-table"></div>
+                    </div>
+
+                    <div class="tab-panel" id="tab-dashas">
+                        <div class="table-card" id="dashas-table"></div>
+                    </div>
+
+                    <div class="tab-panel" id="tab-notes">
+                        <textarea id="kundali-notes" placeholder="Add interpretation notes..."></textarea>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="astro-chat">
+            <div class="chat-header">
+                <div class="agent-status">
+                    <span class="status-dot" id="astro-status"></span>
+                    <div>
+                        <strong>Flashy Astro</strong>
+                        <p>Vedic Intelligence</p>
+                    </div>
+                </div>
+                <button id="btn-clear-astro" class="btn-icon-sm" title="Clear Chat">
+                    <span class="material-symbols-outlined">delete_sweep</span>
+                </button>
+            </div>
+
+            <div id="astro-chat-history" class="astro-chat-history">
+                <div class="chat-welcome">
+                    <h3>Ask for a Kundali</h3>
+                    <p>Tell me the birth details or ask for a precise Vedic reading. I will create or update profiles for you.</p>
+                    <div class="chip-row">
+                        <button class="chip" data-prompt="Create a kundali for a male born 12 Jan 1994, 08:45 AM, Delhi, India.">Create Kundali</button>
+                        <button class="chip" data-prompt="List all kundalis and summarize their lagna.">List Kundalis</button>
+                        <button class="chip" data-prompt="Give me the chart overview for the latest kundali.">Chart Overview</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <textarea id="astro-input" placeholder="Ask Flashy Astro..." rows="1"></textarea>
+                <button id="btn-send-astro" class="btn-primary">
+                    <span class="material-symbols-outlined">arrow_upward</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <div id="kundali-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Kundali</h2>
+                <button id="btn-close-modal" class="btn-icon-sm">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <label>
+                        Full Name
+                        <input type="text" id="form-name" placeholder="Name">
+                    </label>
+                    <label>
+                        Gender
+                        <select id="form-gender">
+                            <option value="unspecified">Unspecified</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="non-binary">Non-binary</option>
+                        </select>
+                    </label>
+                    <label>
+                        Birth Date
+                        <input type="date" id="form-date">
+                    </label>
+                    <label>
+                        Birth Time
+                        <input type="time" id="form-time" step="60">
+                    </label>
+                    <label>
+                        Birth Place
+                        <input type="text" id="form-place" placeholder="City, Country">
+                    </label>
+                    <label>
+                        Latitude
+                        <input type="number" id="form-lat" step="0.0001" placeholder="28.6139">
+                    </label>
+                    <label>
+                        Longitude
+                        <input type="number" id="form-lon" step="0.0001" placeholder="77.2090">
+                    </label>
+                    <label>
+                        Timezone Offset
+                        <input type="text" id="form-tz" placeholder="UTC+5:30">
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-save-kundali" class="btn-primary">Save Kundali</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/astro/storage.js"></script>
+    <script src="/js/astro/ui.js"></script>
+    <script src="/js/astro/chat.js"></script>
+    <script src="/js/astro/app.js"></script>
+</body>
+
+</html>

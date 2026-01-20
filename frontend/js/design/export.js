@@ -1,7 +1,3 @@
-/**
- * Design Export Module
- * Handles exporting designs to various formats
- */
 const DesignExport = {
     currentFormat: 'png',
     modal: null,
@@ -13,40 +9,12 @@ const DesignExport = {
     },
 
     setupEventListeners() {
-        document.getElementById('btn-export')?.addEventListener('click', () => {
-            this.showModal();
-        });
-
-        document.getElementById('btn-close-export')?.addEventListener('click', () => {
-            this.hideModal();
-        });
-
-        this.modal?.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                this.hideModal();
-            }
-        });
-
+        document.getElementById('btn-export')?.addEventListener('click', () => this.showModal());
+        document.getElementById('btn-close-export')?.addEventListener('click', () => this.hideModal());
         document.querySelectorAll('.export-option').forEach(option => {
-            option.addEventListener('click', () => {
-                this.selectFormat(option.dataset.format);
-            });
+            option.addEventListener('click', () => this.selectFormat(option.dataset.format));
         });
-
-        document.getElementById('btn-do-export')?.addEventListener('click', () => {
-            this.doExport();
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                this.quickExport('png');
-            }
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 's') {
-                e.preventDefault();
-                this.showModal();
-            }
-        });
+        document.getElementById('btn-do-export')?.addEventListener('click', () => this.doExport());
     },
 
     showModal() {
@@ -60,11 +28,9 @@ const DesignExport = {
 
     selectFormat(format) {
         this.currentFormat = format;
-
         document.querySelectorAll('.export-option').forEach(option => {
             option.classList.toggle('active', option.dataset.format === format);
         });
-
         const settingsDiv = document.getElementById('export-settings');
         if (settingsDiv) {
             settingsDiv.style.display = ['png', 'jpg', 'webp'].includes(format) ? 'block' : 'none';
@@ -76,17 +42,15 @@ const DesignExport = {
     },
 
     async doExport() {
-        const format = this.currentFormat;
-
-        switch (format) {
+        switch (this.currentFormat) {
             case 'png':
-                await this.exportPNG();
+                await this.exportRaster('image/png');
                 break;
             case 'jpg':
-                await this.exportJPG();
+                await this.exportRaster('image/jpeg');
                 break;
             case 'webp':
-                await this.exportWebP();
+                await this.exportRaster('image/webp');
                 break;
             case 'svg':
                 await this.exportSVG();
@@ -95,175 +59,54 @@ const DesignExport = {
                 await this.exportJSON();
                 break;
         }
-
         this.hideModal();
     },
 
-    async exportPNG() {
+    async exportRaster(type) {
         const scale = parseFloat(document.getElementById('export-scale')?.value || 2);
+        const quality = parseFloat(document.getElementById('export-quality')?.value || 0.9);
+        const { svg, width, height } = DesignCanvas.getState();
 
-        const dataURL = DesignCanvas.toDataURL({
-            format: 'png',
-            quality: 1,
-            multiplier: scale
-        });
+        const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
 
-        this.downloadFile(dataURL, `design_${Date.now()}.png`);
-    },
-
-    async exportJPG() {
-        const scale = parseFloat(document.getElementById('export-scale')?.value || 2);
-        const quality = parseFloat(document.getElementById('export-quality')?.value || 0.8);
-
-        const dataURL = DesignCanvas.toDataURL({
-            format: 'jpeg',
-            quality: quality,
-            multiplier: scale
-        });
-
-        this.downloadFile(dataURL, `design_${Date.now()}.jpg`);
-    },
-
-    async exportWebP() {
-        const scale = parseFloat(document.getElementById('export-scale')?.value || 2);
-        const quality = parseFloat(document.getElementById('export-quality')?.value || 0.8);
-
-        const dataURL = DesignCanvas.toDataURL({
-            format: 'webp',
-            quality: quality,
-            multiplier: scale
-        });
-
-        this.downloadFile(dataURL, `design_${Date.now()}.webp`);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = DesignCanvas.background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL(type, quality);
+            this.downloadFile(dataUrl, `design_${Date.now()}.${type.split('/')[1]}`);
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
     },
 
     async exportSVG() {
-        const svgData = DesignCanvas.toSVG();
-        const blob = new Blob([svgData], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-
-        this.downloadFile(url, `design_${Date.now()}.svg`);
-        URL.revokeObjectURL(url);
+        const svg = DesignCanvas.getState().svg;
+        this.downloadBlob(svg, 'image/svg+xml', `design_${Date.now()}.svg`);
     },
 
     async exportJSON() {
-        const json = DesignCanvas.toJSON();
-        const jsonStr = JSON.stringify(json, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        this.downloadFile(url, `design_${Date.now()}.json`);
-        URL.revokeObjectURL(url);
+        const state = DesignCanvas.getState();
+        this.downloadBlob(JSON.stringify(state, null, 2), 'application/json', `design_${Date.now()}.json`);
     },
 
-    quickExport(format) {
-        switch (format) {
-            case 'png':
-                this.exportPNG();
-                break;
-            case 'jpg':
-                this.exportJPG();
-                break;
-            case 'webp':
-                this.exportWebP();
-                break;
-            case 'svg':
-                this.exportSVG();
-                break;
-            case 'json':
-                this.exportJSON();
-                break;
-        }
-    },
-
-    downloadFile(url, filename) {
+    downloadFile(dataUrl, filename) {
         const link = document.createElement('a');
-        link.href = url;
+        link.href = dataUrl;
         link.download = filename;
-        document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
     },
 
-    async importJSON() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const json = JSON.parse(event.target.result);
-                    await DesignCanvas.loadFromJSON(json);
-                } catch (error) {
-                    console.error('Error importing JSON:', error);
-                    alert('Failed to import design. Invalid file format.');
-                }
-            };
-            reader.readAsText(file);
-        };
-
-        input.click();
-    },
-
-    async serverExportPNG() {
-        const scale = parseFloat(document.getElementById('export-scale')?.value || 2);
-        const dataURL = DesignCanvas.toDataURL({
-            format: 'png',
-            multiplier: scale
-        });
-
-        try {
-            const response = await fetch('/design/export/png', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: DesignApp.sessionId,
-                    canvas_data: dataURL,
-                    width: DesignCanvas.canvasWidth,
-                    height: DesignCanvas.canvasHeight,
-                    scale: scale
-                })
-            });
-
-            if (!response.ok) throw new Error('Export failed');
-
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            this.downloadFile(url, `design_${Date.now()}.png`);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Server export failed:', error);
-            this.exportPNG();
-        }
-    },
-
-    async serverExportSVG() {
-        const svgData = DesignCanvas.toSVG();
-
-        try {
-            const response = await fetch('/design/export/svg', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: DesignApp.sessionId,
-                    svg_data: svgData
-                })
-            });
-
-            if (!response.ok) throw new Error('Export failed');
-
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            this.downloadFile(url, `design_${Date.now()}.svg`);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Server export failed:', error);
-            this.exportSVG();
-        }
+    downloadBlob(content, type, filename) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        this.downloadFile(url, filename);
+        URL.revokeObjectURL(url);
     }
 };

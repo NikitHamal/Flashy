@@ -1,52 +1,26 @@
-/**
- * Design Properties Module
- * Handles property panel updates and object property editing
- */
 const DesignProperties = {
-    currentObject: null,
-    lockRatio: false,
-    aspectRatio: 1,
-
-    /**
-     * Show a brief success flash on an input element
-     */
-    flashSuccess(inputId) {
-        const input = document.getElementById(inputId);
-        if (!input) return;
-
-        input.classList.add('success');
-        setTimeout(() => {
-            input.classList.remove('success');
-        }, 400);
-    },
+    currentElement: null,
 
     init() {
-        this.setupPropertyInputs();
-        this.setupColorInputs();
-        this.setupSliders();
-        this.setupCanvasProperties();
-        this.setupTabs();
-        this.loadTemplates();
+        this.bindTabs();
+        this.bindTransformInputs();
+        this.bindColorInputs();
+        this.bindCanvasInputs();
+        this.bindOpacitySlider();
         return this;
     },
 
-    setupTabs() {
+    bindTabs() {
         document.querySelectorAll('.sidebar-tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                const tabName = tab.dataset.tab;
-                this.switchTab(tabName);
+                this.switchTab(tab.dataset.tab);
             });
         });
 
         document.getElementById('btn-toggle-chat')?.addEventListener('click', () => {
-            document.getElementById('btn-toggle-chat').classList.add('active');
-            document.getElementById('btn-toggle-properties')?.classList.remove('active');
             this.switchTab('chat');
         });
-
         document.getElementById('btn-toggle-properties')?.addEventListener('click', () => {
-            document.getElementById('btn-toggle-properties').classList.add('active');
-            document.getElementById('btn-toggle-chat')?.classList.remove('active');
             this.switchTab('properties');
         });
     },
@@ -55,454 +29,153 @@ const DesignProperties = {
         document.querySelectorAll('.sidebar-tab').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.tab === tabName);
         });
-
-        document.querySelectorAll('.sidebar-panel').forEach(panel => {
-            panel.classList.remove('active');
-        });
-
-        const panel = document.getElementById(`${tabName}-panel`);
-        if (panel) {
-            panel.classList.add('active');
-        }
+        document.querySelectorAll('.sidebar-panel').forEach(panel => panel.classList.remove('active'));
+        document.getElementById(`${tabName}-panel`)?.classList.add('active');
     },
 
-    setupPropertyInputs() {
-        const inputs = ['prop-x', 'prop-y', 'prop-width', 'prop-height', 'prop-angle'];
-        inputs.forEach(id => {
+    bindTransformInputs() {
+        ['prop-x', 'prop-y', 'prop-width', 'prop-height', 'prop-angle'].forEach(id => {
             const input = document.getElementById(id);
-            if (input) {
-                input.addEventListener('change', () => this.applyTransformProperty(id));
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') this.applyTransformProperty(id);
-                });
-            }
+            input?.addEventListener('change', () => this.applyTransform());
         });
 
-        document.getElementById('btn-lock-ratio')?.addEventListener('click', () => {
-            this.lockRatio = !this.lockRatio;
-            const btn = document.getElementById('btn-lock-ratio');
-            btn.classList.toggle('locked', this.lockRatio);
-            btn.querySelector('.material-symbols-outlined').textContent =
-                this.lockRatio ? 'lock' : 'lock_open';
-        });
+        document.getElementById('prop-font-size')?.addEventListener('change', () => this.applyTextStyle());
+        document.getElementById('prop-font-family')?.addEventListener('change', () => this.applyTextStyle());
+        document.getElementById('prop-font-weight')?.addEventListener('change', () => this.applyTextStyle());
+    },
 
-        const textInputs = ['prop-font-size'];
-        textInputs.forEach(id => {
-            const input = document.getElementById(id);
-            if (input) {
-                input.addEventListener('change', () => this.applyTextProperty(id));
-            }
-        });
+    bindColorInputs() {
+        this.bindColor('prop-fill', 'prop-fill-hex', 'fill');
+        this.bindColor('prop-stroke', 'prop-stroke-hex', 'stroke');
 
-        document.getElementById('prop-font-family')?.addEventListener('change', () => {
-            this.applyTextProperty('prop-font-family');
-        });
-
-        document.getElementById('prop-font-weight')?.addEventListener('change', () => {
-            this.applyTextProperty('prop-font-weight');
-        });
-
-        document.querySelectorAll('.align-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.applyTextAlign(btn.dataset.align);
-            });
-        });
-
-        document.querySelectorAll('.arrange-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const alignment = btn.dataset.align;
-                const distribution = btn.dataset.distribute;
-                if (alignment) {
-                    this.applyAlignment(alignment);
-                } else if (distribution) {
-                    this.applyDistribution(distribution);
-                }
-            });
+        document.getElementById('prop-stroke-width')?.addEventListener('change', (event) => {
+            this.updateCurrent({ 'stroke-width': event.target.value || 0 });
         });
     },
 
-    setupColorInputs() {
-        this.setupColorPair('prop-fill', 'prop-fill-hex', 'fill');
-        this.setupColorPair('prop-stroke', 'prop-stroke-hex', 'stroke');
-        this.setupColorPair('canvas-bg', 'canvas-bg-hex', 'canvas-bg');
-
-        document.getElementById('prop-stroke-width')?.addEventListener('change', (e) => {
-            if (this.currentObject) {
-                this.currentObject.set('strokeWidth', parseInt(e.target.value) || 0);
-                DesignCanvas.canvas.requestRenderAll();
-                DesignCanvas.saveHistory();
-            }
+    bindCanvasInputs() {
+        document.getElementById('canvas-width')?.addEventListener('change', (event) => {
+            DesignTools.setCanvasSize(parseInt(event.target.value || 1200, 10), DesignCanvas.height);
         });
+        document.getElementById('canvas-height')?.addEventListener('change', (event) => {
+            DesignTools.setCanvasSize(DesignCanvas.width, parseInt(event.target.value || 800, 10));
+        });
+        this.bindColor('canvas-bg', 'canvas-bg-hex', 'canvas');
     },
 
-    setupColorPair(colorId, hexId, property) {
-        const colorInput = document.getElementById(colorId);
-        const hexInput = document.getElementById(hexId);
-
-        if (colorInput) {
-            colorInput.addEventListener('input', (e) => {
-                const color = e.target.value;
-                if (hexInput) hexInput.value = color.toUpperCase();
-                this.applyColor(property, color);
-            });
-        }
-
-        if (hexInput) {
-            hexInput.addEventListener('change', (e) => {
-                let color = e.target.value;
-                if (!color.startsWith('#')) color = '#' + color;
-                if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
-                    if (colorInput) colorInput.value = color;
-                    this.applyColor(property, color, hexId);
-                }
-            });
-        }
-    },
-
-    applyColor(property, color, hexInputId = null) {
-        if (property === 'canvas-bg') {
-            DesignCanvas.setBackgroundColor(color);
-            if (hexInputId) this.flashSuccess(hexInputId);
-        } else if (this.currentObject) {
-            this.currentObject.set(property, color);
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
-            if (hexInputId) this.flashSuccess(hexInputId);
-        }
-    },
-
-    setupSliders() {
-        const opacitySlider = document.getElementById('prop-opacity');
-        const opacityValue = document.getElementById('prop-opacity-value');
-
-        if (opacitySlider) {
-            opacitySlider.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value);
-                if (opacityValue) opacityValue.textContent = value + '%';
-                if (this.currentObject) {
-                    this.currentObject.set('opacity', value / 100);
-                    DesignCanvas.canvas.requestRenderAll();
-                }
-            });
-
-            opacitySlider.addEventListener('change', () => {
-                DesignCanvas.saveHistory();
-            });
-        }
+    bindOpacitySlider() {
+        const slider = document.getElementById('prop-opacity');
+        const label = document.getElementById('prop-opacity-value');
+        slider?.addEventListener('input', (event) => {
+            const value = event.target.value;
+            label.textContent = `${value}%`;
+            this.updateCurrent({ opacity: value / 100 });
+        });
 
         const radiusSlider = document.getElementById('prop-radius');
         const radiusValue = document.getElementById('prop-radius-value');
-
-        if (radiusSlider) {
-            radiusSlider.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value);
-                if (radiusValue) radiusValue.textContent = value;
-                if (this.currentObject && this.currentObject.type === 'rect') {
-                    this.currentObject.set({ rx: value, ry: value });
-                    DesignCanvas.canvas.requestRenderAll();
-                }
-            });
-
-            radiusSlider.addEventListener('change', () => {
-                DesignCanvas.saveHistory();
-            });
-        }
-    },
-
-    setupCanvasProperties() {
-        const widthInput = document.getElementById('canvas-width');
-        const heightInput = document.getElementById('canvas-height');
-
-        if (widthInput) {
-            widthInput.addEventListener('change', () => {
-                const width = parseInt(widthInput.value) || 1200;
-                const height = parseInt(heightInput?.value) || 800;
-                DesignCanvas.setCanvasSize(width, height);
-            });
-        }
-
-        if (heightInput) {
-            heightInput.addEventListener('change', () => {
-                const width = parseInt(widthInput?.value) || 1200;
-                const height = parseInt(heightInput.value) || 800;
-                DesignCanvas.setCanvasSize(width, height);
-            });
-        }
-    },
-
-    loadTemplates() {
-        fetch('/design/templates')
-            .then(res => res.json())
-            .then(data => {
-                const container = document.getElementById('template-list');
-                if (!container) return;
-
-                container.innerHTML = '';
-                data.templates.forEach(template => {
-                    const item = document.createElement('div');
-                    item.className = 'template-item';
-                    item.innerHTML = `
-                        <div class="template-icon">
-                            <span class="material-symbols-outlined">dashboard</span>
-                        </div>
-                        <div class="template-info">
-                            <div class="template-name">${template.name}</div>
-                            <div class="template-size">${template.size.width} × ${template.size.height}</div>
-                        </div>
-                    `;
-                    item.addEventListener('click', () => this.applyTemplate(template.id));
-                    container.appendChild(item);
-                });
-            })
-            .catch(err => console.error('Failed to load templates:', err));
-    },
-
-    applyTemplate(templateId) {
-        fetch('/design/template/apply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                session_id: DesignApp.sessionId,
-                template_id: templateId
-            })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.canvas_state) {
-                    const state = data.canvas_state;
-                    DesignCanvas.setCanvasSize(state.width, state.height);
-                    DesignCanvas.setBackgroundColor(state.background);
-                    DesignCanvas.clear();
-
-                    document.getElementById('canvas-width').value = state.width;
-                    document.getElementById('canvas-height').value = state.height;
-                    document.getElementById('canvas-bg').value = state.background;
-                    document.getElementById('canvas-bg-hex').value = state.background;
-                }
-            })
-            .catch(err => console.error('Failed to apply template:', err));
-    },
-
-    updateFromSelection(object) {
-        this.currentObject = object;
-
-        const noSelection = document.getElementById('no-selection');
-        const objectProps = document.getElementById('object-properties');
-        const canvasProps = document.getElementById('canvas-properties');
-        const textProps = document.getElementById('text-properties');
-        const cornerRow = document.getElementById('corner-radius-row');
-
-        if (!object) {
-            noSelection?.classList.remove('hidden');
-            objectProps?.classList.add('hidden');
-            canvasProps?.classList.remove('hidden');
-            return;
-        }
-
-        noSelection?.classList.add('hidden');
-        objectProps?.classList.remove('hidden');
-        canvasProps?.classList.add('hidden');
-
-        this.updateTransformProperties(object);
-        this.updateAppearanceProperties(object);
-
-        const isText = object.type === 'i-text' || object.type === 'text' || object.type === 'textbox';
-        if (textProps) textProps.style.display = isText ? 'block' : 'none';
-        if (isText) this.updateTextProperties(object);
-
-        const isRect = object.type === 'rect';
-        if (cornerRow) cornerRow.style.display = isRect ? 'flex' : 'none';
-        if (isRect) {
-            document.getElementById('prop-radius').value = object.rx || 0;
-            document.getElementById('prop-radius-value').textContent = object.rx || 0;
-        }
-    },
-
-    updateTransformProperties(object) {
-        const bounds = object.getBoundingRect();
-
-        document.getElementById('prop-x').value = Math.round(object.left);
-        document.getElementById('prop-y').value = Math.round(object.top);
-
-        let width, height;
-        if (object.type === 'circle') {
-            width = height = object.radius * 2 * object.scaleX;
-        } else if (object.type === 'line') {
-            width = Math.abs(object.x2 - object.x1);
-            height = Math.abs(object.y2 - object.y1);
-        } else {
-            width = (object.width || 0) * (object.scaleX || 1);
-            height = (object.height || 0) * (object.scaleY || 1);
-        }
-
-        document.getElementById('prop-width').value = Math.round(width);
-        document.getElementById('prop-height').value = Math.round(height);
-        document.getElementById('prop-angle').value = Math.round(object.angle || 0);
-
-        this.aspectRatio = width / height;
-    },
-
-    updateAppearanceProperties(object) {
-        const fill = object.fill || '#000000';
-        const stroke = object.stroke || '#000000';
-        const strokeWidth = object.strokeWidth || 0;
-        const opacity = Math.round((object.opacity || 1) * 100);
-
-        document.getElementById('prop-fill').value = fill.startsWith('#') ? fill : '#000000';
-        document.getElementById('prop-fill-hex').value = fill.toUpperCase();
-        document.getElementById('prop-stroke').value = stroke.startsWith('#') ? stroke : '#000000';
-        document.getElementById('prop-stroke-hex').value = stroke.toUpperCase();
-        document.getElementById('prop-stroke-width').value = strokeWidth;
-        document.getElementById('prop-opacity').value = opacity;
-        document.getElementById('prop-opacity-value').textContent = opacity + '%';
-    },
-
-    updateTextProperties(object) {
-        document.getElementById('prop-font-family').value = object.fontFamily || 'Inter';
-        document.getElementById('prop-font-size').value = object.fontSize || 24;
-        document.getElementById('prop-font-weight').value = object.fontWeight || '400';
-
-        document.querySelectorAll('.align-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.align === (object.textAlign || 'left'));
+        radiusSlider?.addEventListener('input', (event) => {
+            const value = event.target.value;
+            radiusValue.textContent = value;
+            if (this.currentElement?.tagName.toLowerCase() === 'rect') {
+                this.updateCurrent({ rx: value, ry: value });
+            }
         });
     },
 
-    applyTransformProperty(inputId) {
-        if (!this.currentObject) return;
+    bindColor(colorId, hexId, type) {
+        const colorInput = document.getElementById(colorId);
+        const hexInput = document.getElementById(hexId);
 
-        const value = parseInt(document.getElementById(inputId).value) || 0;
-
-        switch (inputId) {
-            case 'prop-x':
-                this.currentObject.set('left', value);
-                break;
-            case 'prop-y':
-                this.currentObject.set('top', value);
-                break;
-            case 'prop-width':
-                if (this.currentObject.type === 'circle') {
-                    this.currentObject.set('radius', value / 2);
-                    if (this.lockRatio) {
-                        document.getElementById('prop-height').value = value;
-                    }
-                } else {
-                    const scaleX = value / this.currentObject.width;
-                    this.currentObject.set('scaleX', scaleX);
-                    if (this.lockRatio) {
-                        this.currentObject.set('scaleY', scaleX);
-                        const newHeight = this.currentObject.height * scaleX;
-                        document.getElementById('prop-height').value = Math.round(newHeight);
-                    }
-                }
-                break;
-            case 'prop-height':
-                if (this.currentObject.type !== 'circle') {
-                    const scaleY = value / this.currentObject.height;
-                    this.currentObject.set('scaleY', scaleY);
-                    if (this.lockRatio) {
-                        this.currentObject.set('scaleX', scaleY);
-                        const newWidth = this.currentObject.width * scaleY;
-                        document.getElementById('prop-width').value = Math.round(newWidth);
-                    }
-                }
-                break;
-            case 'prop-angle':
-                this.currentObject.set('angle', value);
-                break;
-        }
-
-        this.currentObject.setCoords();
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        this.flashSuccess(inputId);
-    },
-
-    applyTextProperty(inputId) {
-        if (!this.currentObject) return;
-
-        const input = document.getElementById(inputId);
-        if (!input) return;
-
-        switch (inputId) {
-            case 'prop-font-family':
-                this.currentObject.set('fontFamily', input.value);
-                break;
-            case 'prop-font-size':
-                this.currentObject.set('fontSize', parseInt(input.value) || 24);
-                break;
-            case 'prop-font-weight':
-                this.currentObject.set('fontWeight', input.value);
-                break;
-        }
-
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        this.flashSuccess(inputId);
-    },
-
-    getSelectionObjects() {
-        const active = DesignCanvas.canvas.getActiveObject();
-        if (!active) return [];
-        if (active.type === 'activeSelection') {
-            return active.getObjects();
-        }
-        return [active];
-    },
-
-    applyAlignment(alignment) {
-        const objects = this.getSelectionObjects();
-        if (objects.length === 0) return;
-
-        if (objects.length === 1) {
-            const obj = objects[0];
-            const bounds = obj.getBoundingRect(true);
-            const canvasWidth = DesignCanvas.canvasWidth;
-            const canvasHeight = DesignCanvas.canvasHeight;
-
-            switch (alignment) {
-                case 'left':
-                    obj.set('left', 0);
-                    break;
-                case 'center':
-                    obj.set('left', (canvasWidth - bounds.width) / 2);
-                    break;
-                case 'right':
-                    obj.set('left', canvasWidth - bounds.width);
-                    break;
-                case 'top':
-                    obj.set('top', 0);
-                    break;
-                case 'middle':
-                    obj.set('top', (canvasHeight - bounds.height) / 2);
-                    break;
-                case 'bottom':
-                    obj.set('top', canvasHeight - bounds.height);
-                    break;
+        colorInput?.addEventListener('input', (event) => {
+            const color = event.target.value;
+            if (hexInput) hexInput.value = color.toUpperCase();
+            if (type === 'canvas') {
+                DesignTools.setBackground(color);
+            } else {
+                this.updateCurrent({ [type]: color });
             }
+        });
 
-            obj.setCoords();
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
-            return;
+        hexInput?.addEventListener('change', (event) => {
+            let color = event.target.value;
+            if (!color.startsWith('#')) color = `#${color}`;
+            if (colorInput) colorInput.value = color;
+            if (type === 'canvas') {
+                DesignTools.setBackground(color);
+            } else {
+                this.updateCurrent({ [type]: color });
+            }
+        });
+    },
+
+    updateFromSelection(element) {
+        this.currentElement = element;
+        document.getElementById('no-selection')?.classList.toggle('hidden', !!element);
+        document.getElementById('object-properties')?.classList.toggle('hidden', !element);
+
+        if (!element) return;
+
+        const tag = element.tagName.toLowerCase();
+        document.getElementById('corner-radius-row')?.classList.toggle('hidden', tag !== 'rect');
+        document.getElementById('text-properties').style.display = tag === 'text' ? 'block' : 'none';
+
+        document.getElementById('prop-x').value = element.getAttribute('x') || element.getAttribute('cx') || 0;
+        document.getElementById('prop-y').value = element.getAttribute('y') || element.getAttribute('cy') || 0;
+        document.getElementById('prop-width').value = element.getAttribute('width') || 0;
+        document.getElementById('prop-height').value = element.getAttribute('height') || 0;
+        document.getElementById('prop-angle').value = 0;
+
+        const fill = element.getAttribute('fill') || '#ffffff';
+        const stroke = element.getAttribute('stroke') || '#111111';
+        document.getElementById('prop-fill').value = fill;
+        document.getElementById('prop-fill-hex').value = fill;
+        document.getElementById('prop-stroke').value = stroke;
+        document.getElementById('prop-stroke-hex').value = stroke;
+        document.getElementById('prop-stroke-width').value = element.getAttribute('stroke-width') || 0;
+
+        const opacity = Math.round((parseFloat(element.getAttribute('opacity') || 1)) * 100);
+        document.getElementById('prop-opacity').value = opacity;
+        document.getElementById('prop-opacity-value').textContent = `${opacity}%`;
+
+        if (tag === 'rect') {
+            const radius = element.getAttribute('rx') || 0;
+            document.getElementById('prop-radius').value = radius;
+            document.getElementById('prop-radius-value').textContent = radius;
         }
 
-        const ids = objects.map(obj => obj.id).filter(Boolean);
-        DesignTools.alignObjects(ids, alignment);
+        const fontSize = element.getAttribute('font-size') || 24;
+        document.getElementById('prop-font-size').value = fontSize;
     },
 
-    applyDistribution(direction) {
-        const objects = this.getSelectionObjects();
-        if (objects.length < 3) return;
-        const ids = objects.map(obj => obj.id).filter(Boolean);
-        DesignTools.distributeObjects(ids, direction);
+    applyTransform() {
+        if (!this.currentElement) return;
+        const tag = this.currentElement.tagName.toLowerCase();
+        const x = document.getElementById('prop-x').value;
+        const y = document.getElementById('prop-y').value;
+        const width = document.getElementById('prop-width').value;
+        const height = document.getElementById('prop-height').value;
+
+        if (tag === 'circle') {
+            this.updateCurrent({ cx: x, cy: y });
+        } else {
+            this.updateCurrent({ x, y, width, height });
+        }
     },
 
-    applyTextAlign(align) {
-        if (!this.currentObject) return;
-        this.currentObject.set('textAlign', align);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
+    applyTextStyle() {
+        if (!this.currentElement || this.currentElement.tagName.toLowerCase() !== 'text') return;
+        const fontSize = document.getElementById('prop-font-size').value;
+        const fontFamily = document.getElementById('prop-font-family').value;
+        const fontWeight = document.getElementById('prop-font-weight').value;
+        this.updateCurrent({ 'font-size': fontSize, 'font-family': fontFamily, 'font-weight': fontWeight });
+    },
+
+    updateCurrent(attributes) {
+        if (!this.currentElement) return;
+        Object.entries(attributes || {}).forEach(([key, value]) => {
+            if (value === null || value === undefined) return;
+            this.currentElement.setAttribute(key, value);
+        });
     }
 };

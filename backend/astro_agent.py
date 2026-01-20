@@ -1,48 +1,29 @@
 """
-Design Agent Module (SVG)
+Astro Agent
 
-Parses SVG tool calls and executes them via SvgDesignTools.
+Parses tool calls and executes astro tools.
 """
 
 import json
 import re
 from typing import Any, Dict, List, Optional
 
-from .design_svg_tools import SvgDesignTools
-from .design_prompts import DESIGN_SYSTEM_PROMPT, DESIGN_TOOL_RESULT_TEMPLATE
+from .astro_tools import AstroTools
+from .astro_prompts import ASTRO_SYSTEM_PROMPT, ASTRO_TOOL_RESULT_TEMPLATE
 
 
-class DesignAgent:
-    def __init__(self, canvas_width: int = 1200, canvas_height: int = 800):
-        self.tools = SvgDesignTools(canvas_width=canvas_width, canvas_height=canvas_height)
+class AstroAgent:
+    def __init__(self):
+        self.tools = AstroTools()
         self.conversation_history: List[Dict[str, Any]] = []
         self.max_iterations = 20
-        self.session_id: Optional[str] = None
 
     def get_system_prompt(self) -> str:
-        state = self.tools.get_state()
-        return DESIGN_SYSTEM_PROMPT.format(
-            canvas_width=state.get("width"),
-            canvas_height=state.get("height"),
-            object_count=len(self._list_elements())
-        )
+        return ASTRO_SYSTEM_PROMPT.format(tool_descriptions=self.get_tool_descriptions())
 
-    def _list_elements(self) -> List[Dict[str, str]]:
-        elements = []
-        for el in self.tools.root:
-            if el.attrib.get("id") == "svg-background":
-                continue
-            elements.append({"id": el.attrib.get("id"), "type": el.tag})
-        return elements
-
-    def get_canvas_state(self) -> Dict[str, Any]:
-        return self.tools.get_state()
-
-    def set_canvas_state(self, state: Dict[str, Any]) -> str:
-        svg = state.get("svg") if state else None
-        if not svg:
-            return "Error: svg state required"
-        return self.tools.set_svg(svg, width=state.get("width"), height=state.get("height"), background=state.get("background"))
+    def get_tool_descriptions(self) -> str:
+        tools = self.tools.get_available_tools()
+        return "\n".join([f"- `{t['name']}`: {t['description']}" for t in tools])
 
     def parse_tool_call(self, text: str) -> Optional[Dict[str, Any]]:
         if not text:
@@ -106,4 +87,4 @@ class DesignAgent:
 
     async def execute_tool(self, tool_name: str, args: Dict[str, Any]) -> str:
         result = await self.tools.execute(tool_name, **(args or {}))
-        return DESIGN_TOOL_RESULT_TEMPLATE.format(tool_name=tool_name, output=result)
+        return ASTRO_TOOL_RESULT_TEMPLATE.format(tool_name=tool_name, output=result)

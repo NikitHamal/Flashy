@@ -1,42 +1,41 @@
 # CONTINUITY.md - Session Continuity Ledger
 
 ## Goal (incl. success criteria):
-- Fix Flashy Designs agent so AI output applies to canvas and messages render correctly
-- Improve Flashy Designs UX (responsive layout, better tools, export/import, templates, alignment)
-- Enhance Flashy coding agent reliability/power with stronger tools + UI feedback
+- Add new “Flashy Astro” agent with dedicated pages for list/create/detail kundalis, persistent chat sidebar, local storage, and Vedic astrology tooling
+- Update design agent to SVG-based generation with modern neobrutalist UI, proper canvas aspect ratios, and rich customization controls
 - Maintain modular files (<800 lines) and production-grade behavior
-- Keep AI multimodal feedback loop for design screenshots
 
 ## Constraints/Assumptions:
-- Gemini 3 Flash model is multimodal (can see images)
-- File upload exists for design chat
-- No TODOs or stub code; production-grade only
-- Maintain modular approach (500-800 lines max per file)
-- Keep UI/UX consistent with existing app styling
+- Do not ask user questions; use expert judgment
+- Use modularization and production-grade implementations only
+- Neobrutalist, minimal, clean, responsive UI throughout
+- Store kundalis locally (localStorage)
+- Support gender selection for charts
 
 ## Key Decisions:
-- Unify design tool schema between backend and frontend
-- Stream tool calls plus canvas actions to frontend for live updates
-- Add robust streaming error handling and message rendering
+- Build Astro as dedicated backend service + frontend page with localStorage sync
+- Replace design canvas with SVG pipeline and simplified SVG tools
 
 ## State:
 
 - Done:
-  - Unified design tool schema across backend/frontend
-  - Added canvas_action streaming and frontend canvas execution
-  - Fixed screenshot base64 decoding and image attachment handling
-  - Added grid/snap toggles, align/distribute tools, and richer export options
-  - Expanded coding agent tools (read/write multiple files, apply patch) and UI tool mapping
+  - Added Astro backend modules (`astro_service`, `astro_agent`, `astro_tools`, `vedic_reference`, `routers/astro`)
+  - Added Astro frontend page, storage, UI, chat modules, and CSS
+  - Linked Flashy Astro entry in sidebar
+  - Rebuilt design agent prompt and backend to SVG tools
+  - Replaced design frontend canvas and toolchain with SVG-based editor
+  - Updated core neobrutalist styles in `main.css` and design styles
 
 - Now:
-  - Light validation pass
+  - Finish polishing SVG editor styles and behaviors
 
 - Next:
-  - Provide summary + next steps
+  - Review for missing hooks / UI regressions
+  - Summarize changes and offer test guidance
 
 ## Open Questions (UNCONFIRMED if needed):
-- None
+- UNCONFIRMED: Any missing design editor behaviors desired (multi-select, snapping, guides)
 
 ## Working Set (files/ids/commands):
-- Backend: /backend/design_service.py, /backend/design_agent.py, /backend/design_tools.py, /backend/routers/design.py, /backend/tools.py, /backend/prompts.py
-- Frontend: /frontend/design.html, /frontend/css/design.css, /frontend/js/design/*.js, /frontend/js/ui/chat.js
+- Backend: `backend/app.py`, `backend/astro_service.py`, `backend/astro_agent.py`, `backend/astro_tools.py`, `backend/vedic_reference.py`, `backend/routers/astro.py`, `backend/design_agent.py`, `backend/design_prompts.py`, `backend/design_service.py`, `backend/design_svg_tools.py`
+- Frontend: `frontend/astro.html`, `frontend/css/astro.css`, `frontend/js/astro/*.js`, `frontend/design.html`, `frontend/js/design/*.js`, `frontend/css/design.css`, `frontend/css/main.css`, `frontend/index.html`

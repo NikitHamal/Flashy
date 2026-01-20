@@ -10,7 +10,7 @@
 .tools-sidebar {
     width: 72px;
     background: var(--bg-sidebar);
-    border-right: 1px solid var(--border);
+    border-right: 2px solid var(--border);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -79,31 +79,28 @@
 .tool-btn {
     width: 100%;
     aspect-ratio: 1;
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    color: var(--text-secondary);
+    background: #ffffff;
+    border: 2px solid var(--border);
+    border-radius: 0;
+    color: var(--text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease;
 }
 
 .tool-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text-primary);
+    background: #fff8e8;
 }
 
 .tool-btn.active {
-    background: rgba(74, 222, 128, 0.15);
-    color: var(--accent);
-    transform: scale(0.95);
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+    background: var(--accent);
+    color: #111;
 }
 
 .tool-btn:active {
-    transform: scale(0.9);
+    transform: translateY(1px);
 }
 
 .tool-btn .material-symbols-outlined {
@@ -161,7 +158,7 @@
 .canvas-top-bar {
     height: 48px;
     background: var(--bg-sidebar);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -255,17 +252,18 @@
 
 .btn-primary-sm {
     background: var(--accent);
-    color: #0d0d0d;
-    border: none;
+    color: #111;
+    border: 2px solid var(--border);
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: 0;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 4px;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease;
+    text-transform: uppercase;
 }
 
 .btn-primary-sm:hover {
@@ -277,21 +275,20 @@
 }
 
 .btn-ghost {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
+    background: #ffffff;
+    border: 2px solid var(--border);
+    color: var(--text-primary);
     padding: 6px;
-    border-radius: 6px;
+    border-radius: 0;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease;
 }
 
 .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text-primary);
+    background: #fff8e8;
 }
 
 .btn-ghost.active {
@@ -330,40 +327,44 @@
 
 .canvas-container {
     position: relative;
-    box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.5),
-        0 0 0 1px rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+    border-radius: 0;
     overflow: hidden;
     z-index: 1;
-    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    border: 2px solid var(--border);
 }
 
 .canvas-container:hover {
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.6),
-        0 0 0 1px rgba(255, 255, 255, 0.08);
+    background: #fff8e8;
 }
 
 .canvas-container.has-selection {
-    box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.5),
-        0 0 0 2px rgba(74, 222, 128, 0.3);
+    border-color: var(--accent);
 }
 
-#design-canvas {
+.design-svg {
     display: block;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    border: 2px solid var(--border);
+    transform-origin: 0 0;
+}
+
+.design-svg .selected {
+    stroke: var(--accent) !important;
+    stroke-width: 3 !important;
+    stroke-dasharray: 6 4;
 }
 
 .canvas-info {
     position: absolute;
     bottom: 16px;
     left: 16px;
-    background: rgba(0, 0, 0, 0.7);
+    background: #ffffff;
     padding: 6px 12px;
-    border-radius: 6px;
+    border: 2px solid var(--border);
     font-size: 11px;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-family: var(--font-mono);
 }
 
@@ -371,7 +372,7 @@
 .right-sidebar {
     width: 320px;
     background: var(--bg-sidebar);
-    border-left: 1px solid var(--border);
+    border-left: 2px solid var(--border);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -379,36 +380,36 @@
 
 .sidebar-tabs {
     display: flex;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
     flex-shrink: 0;
 }
 
 .sidebar-tab {
     flex: 1;
     padding: 12px 16px;
-    background: transparent;
+    background: #ffffff;
     border: none;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: all 0.15s ease;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
+    transition: background 0.15s ease;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    text-transform: uppercase;
 }
 
 .sidebar-tab:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.02);
+    background: #fff8e8;
 }
 
 .sidebar-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
+    border-bottom-color: var(--border);
+    background: var(--accent);
 }
 
 .sidebar-tab .material-symbols-outlined {
@@ -864,8 +865,8 @@
     align-items: flex-end;
     gap: 8px;
     background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    border: 2px solid var(--border);
+    border-radius: 0;
     padding: 8px;
     transition: border-color 0.15s ease;
 }

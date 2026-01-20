@@ -174,30 +174,16 @@ class DesignService:
         raise Exception(f"Failed after {max_retries} attempts: {last_error}")
 
     def _build_object_context(self, agent: DesignAgent) -> str:
-        """Build a context string describing current canvas objects for the AI."""
-        state = agent.get_canvas_state()
-        objects = state.get("objects", [])
-
-        if not objects:
+        """Build a context string describing current SVG elements."""
+        elements = [el for el in agent.tools.root if el.attrib.get("id") != "svg-background"]
+        if not elements:
             return "Canvas is empty."
 
-        context_lines = [f"Canvas has {len(objects)} objects:"]
-        for obj in objects[:20]:  # Limit to prevent huge prompts
-            obj_type = obj.get("type", "unknown")
-            obj_id = obj.get("id", "?")
-            x = obj.get("left", 0)
-            y = obj.get("top", 0)
-            width = obj.get("width", 0)
-            height = obj.get("height", 0)
-
-            if obj_type in ("i-text", "text", "textbox"):
-                text_preview = (obj.get("text", "")[:30] + "...") if len(obj.get("text", "")) > 30 else obj.get("text", "")
-                context_lines.append(f"  - Text '{text_preview}' (id: {obj_id}) at ({x}, {y})")
-            elif obj_type == "circle":
-                r = obj.get("radius", 0)
-                context_lines.append(f"  - Circle (id: {obj_id}) at ({x}, {y}), radius={r}")
-            else:
-                context_lines.append(f"  - {obj_type.capitalize()} (id: {obj_id}) at ({x}, {y}), size {width}x{height}")
+        context_lines = [f"Canvas has {len(elements)} SVG elements:"]
+        for el in elements[:20]:
+            el_id = el.attrib.get("id", "?")
+            tag = el.tag.split("}")[-1]
+            context_lines.append(f"  - {tag} (id: {el_id})")
 
         return "\n".join(context_lines)
 
@@ -238,13 +224,13 @@ class DesignService:
 
             # Load canvas state if provided
             if canvas_state:
-                agent.tools.load_state(canvas_state)
+                agent.set_canvas_state(canvas_state)
 
             # Get canvas dimensions
             state = agent.get_canvas_state()
             canvas_width = state.get("width", 1200)
             canvas_height = state.get("height", 800)
-            object_count = len(state.get("objects", []))
+            object_count = len([el for el in agent.tools.root if el.attrib.get("id") != "svg-background"])
 
             # Build full prompt with enhanced system context
             system_context = get_system_prompt(
@@ -511,7 +497,7 @@ Execute the design now. Calculate precise positions and use tool calls."""
         state = agent.get_canvas_state()
         canvas_width = state.get("width", 1200)
         canvas_height = state.get("height", 800)
-        object_count = len(state.get("objects", []))
+        object_count = len([el for el in agent.tools.root if el.attrib.get("id") != "svg-background"])
 
         # Use the enhanced review prompt
         prompt = get_review_prompt(
@@ -559,27 +545,16 @@ Execute the design now. Calculate precise positions and use tool calls."""
     ) -> Optional[Dict[str, Any]]:
         """Build canvas action payload for frontend execution."""
         non_canvas_tools = {
-            "list_objects",
-            "get_object_properties",
-            "get_canvas_state",
-            "select_object"
+            "list_svg_elements",
+            "get_svg",
+            "get_svg_element"
         }
         if tool_name in non_canvas_tools:
             return None
 
-        action_args = dict(args or {})
-        new_id = self._extract_id_from_result(tool_result)
-
-        if new_id and tool_name.startswith("add_") and "id" not in action_args:
-            action_args["id"] = new_id
-        if tool_name == "group_objects" and new_id:
-            action_args["group_id"] = new_id
-        if tool_name == "duplicate_object" and new_id:
-            action_args["new_id"] = new_id
-
         return {
             "tool": tool_name,
-            "args": action_args,
+            "args": dict(args or {}),
             "result": tool_result
         }
 
@@ -588,7 +563,7 @@ Execute the design now. Calculate precise positions and use tool calls."""
         agent = self.agents.get(session_id)
         if agent:
             return agent.get_canvas_state()
-        return {"width": 1200, "height": 800, "background": "#FFFFFF", "objects": []}
+        return {"width": 1200, "height": 800, "background": "#FFFFFF", "svg": ""}
 
     def set_canvas_state(self, session_id: str, state: Dict[str, Any]) -> str:
         """Set canvas state for a session."""
