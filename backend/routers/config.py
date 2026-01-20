@@ -11,6 +11,7 @@ class ConfigUpdate(BaseModel):
     Secure_1PSIDCC: Optional[str] = None
     GITHUB_PAT: Optional[str] = None
     model: Optional[str] = None
+    proxy: Optional[str] = None
 
 @router.get("/config")
 async def get_config():

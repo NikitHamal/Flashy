@@ -32,19 +32,25 @@ class AstroService:
     async def get_client(self) -> GeminiClient:
         if self.client is None:
             self.config = load_config()
+            proxy = self.config.get("proxy")
             self.client = GeminiClient(
                 self.config["Secure_1PSID"],
                 self.config["Secure_1PSIDTS"],
-                proxy=None
+                proxy=proxy
             )
             if self.config.get("Secure_1PSIDCC"):
                 self.client.cookies["__Secure-1PSIDCC"] = self.config["Secure_1PSIDCC"]
-            await self.client.init(
-                timeout=600,
-                auto_close=False,
-                close_delay=300,
-                auto_refresh=True
-            )
+            
+            try:
+                await self.client.init(
+                    timeout=600,
+                    auto_close=False,
+                    close_delay=300,
+                    auto_refresh=True
+                )
+            except Exception as e:
+                self.client = None  # Reset client so it can retry next time
+                raise Exception(f"Failed to initialize Gemini client: {str(e)}. Please check your internet connection or proxy settings.")
         return self.client
 
     def get_agent(self, session_id: str) -> AstroAgent:

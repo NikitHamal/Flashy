@@ -23,6 +23,27 @@ REQUIRED_PROFILE_FIELDS = [
 ]
 
 
+def _parse_timezone(val: Any) -> float:
+    if isinstance(val, (int, float)):
+        return float(val)
+    
+    # Clean string: remove UTC, GMT, and spaces
+    s = str(val).strip().upper().replace("UTC", "").replace("GMT", "").replace(" ", "")
+    if not s:
+        return 0.0
+    
+    sign = -1.0 if s.startswith("-") else 1.0
+    # Remove leading sign for parsing
+    s_clean = s.lstrip("+-")
+    
+    if ":" in s_clean:
+        parts = s_clean.split(":")
+        hours = float(parts[0]) if parts[0] else 0.0
+        minutes = float(parts[1]) if len(parts) > 1 and parts[1] else 0.0
+        return sign * (hours + (minutes / 60.0))
+    
+    return float(s)
+
 def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     normalized = dict(profile)
 
@@ -33,9 +54,12 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     for key in ("latitude", "longitude", "timezone"):
         if key in normalized and normalized[key] is not None:
             try:
-                normalized[key] = float(normalized[key])
+                if key == "timezone":
+                    normalized[key] = _parse_timezone(normalized[key])
+                else:
+                    normalized[key] = float(normalized[key])
             except (TypeError, ValueError):
-                raise ValueError(f"Invalid {key}; must be numeric.")
+                raise ValueError(f"Invalid {key}; must be numeric or HH:MM format.")
 
     # Normalize strings
     for key in ("name", "birthDate", "birthTime", "birthPlace", "gender"):
@@ -78,9 +102,16 @@ class AstroTools:
         if tool_name == "get_kundali":
             return self._get_kundali(kundalis, kwargs.get("id")), kundalis, active_id
         if tool_name == "create_kundali":
-            return self._create_kundali(kundalis, kwargs.get("profile")), kundalis, active_id
+            # Support both nested {"profile": {...}} and flattened {...}
+            profile = kwargs.get("profile") if "profile" in kwargs else kwargs
+            return self._create_kundali(kundalis, profile), kundalis, active_id
         if tool_name == "update_kundali":
-            return self._update_kundali(kundalis, kwargs.get("id"), kwargs.get("updates")), kundalis, active_id
+            # Support both nested {"updates": {...}} and flattened {...}
+            kundali_id = kwargs.get("id")
+            updates = kwargs.get("updates")
+            if not updates:
+                updates = {k: v for k, v in kwargs.items() if k != "id"}
+            return self._update_kundali(kundalis, kundali_id, updates), kundalis, active_id
         if tool_name == "delete_kundali":
             return self._delete_kundali(kundalis, kwargs.get("id")), kundalis, active_id
         if tool_name == "select_kundali":

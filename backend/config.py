@@ -8,7 +8,8 @@ DEFAULT_CONFIG = {
     "Secure_1PSIDTS": "",
     "Secure_1PSIDCC": "",
     "model": "G_2_0_PRO",
-    "GITHUB_PAT": ""
+    "GITHUB_PAT": "",
+    "proxy": ""
 }
 
 def load_config():
