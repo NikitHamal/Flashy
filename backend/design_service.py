@@ -625,3 +625,44 @@ Execute the design now. Calculate precise positions and use tool calls."""
         self.client = None
         self.sessions = {}
         self.agents = {}
+
+    # =========================================================================
+    # SVG EXPORT
+    # =========================================================================
+
+    def export_svg(
+        self, session_id: str,
+        pretty: bool = True,
+        optimize: bool = True
+    ) -> str:
+        """
+        Export current canvas as SVG string.
+
+        Args:
+            session_id: Session ID
+            pretty: Pretty print SVG
+            optimize: Optimize output
+
+        Returns:
+            SVG string
+        """
+        agent = self.agents.get(session_id)
+        if not agent:
+            return ""
+        return agent.export_svg(pretty=pretty, optimize=optimize)
+
+    def get_svg_preview(self, session_id: str, max_size: int = 400) -> str:
+        """
+        Get scaled SVG preview for thumbnails.
+
+        Args:
+            session_id: Session ID
+            max_size: Maximum dimension
+
+        Returns:
+            Scaled SVG string
+        """
+        agent = self.agents.get(session_id)
+        if not agent:
+            return ""
+        return agent.get_svg_preview(max_size=max_size)

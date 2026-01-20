@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flashy | AI Coding Agent</title>
     <link rel="stylesheet" href="/css/main.css">
-    
+    <link rel="stylesheet" href="/css/neobrutalist.css">
+
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet"
@@ -52,6 +53,17 @@
                     <span class="material-symbols-outlined">palette</span>
                     <span>Flashy Designs</span>
                 </a>
+                <a href="/astro.html" class="design-link">
+                    <span class="material-symbols-outlined">star</span>
+                    <span>Jyotish</span>
+                </a>
+                <label class="neo-theme-toggle" title="Toggle Neobrutalist Theme">
+                    <input type="checkbox" id="neo-theme-checkbox">
+                    <span class="toggle-track">
+                        <span class="toggle-thumb"></span>
+                    </span>
+                    <span>Neo</span>
+                </label>
                 <button id="btn-add-workspace" class="btn-secondary full-width">
                     <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
@@ -410,6 +422,34 @@
     <script src="/js/ui/terminal.js"></script>
     
     <script src="/js/app.js"></script>
+
+    <!-- Neobrutalist Theme Toggle -->
+    <script>
+    (function() {
+        const checkbox = document.getElementById('neo-theme-checkbox');
+        const STORAGE_KEY = 'flashy-neo-theme';
+
+        // Load saved preference
+        const savedTheme = localStorage.getItem(STORAGE_KEY);
+        if (savedTheme === 'enabled') {
+            document.body.classList.add('neo-theme');
+            if (checkbox) checkbox.checked = true;
+        }
+
+        // Handle toggle
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    document.body.classList.add('neo-theme');
+                    localStorage.setItem(STORAGE_KEY, 'enabled');
+                } else {
+                    document.body.classList.remove('neo-theme');
+                    localStorage.setItem(STORAGE_KEY, 'disabled');
+                }
+            });
+        }
+    })();
+    </script>
 </body>
 
 </html>

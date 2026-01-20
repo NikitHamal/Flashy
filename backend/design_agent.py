@@ -399,3 +399,57 @@ class DesignAgent:
     def update_layout_dimensions(self, width: int, height: int):
         """Update layout engine when canvas dimensions change."""
         self.layout.set_canvas_size(width, height)
+
+    # =========================================================================
+    # SVG EXPORT INTEGRATION
+    # =========================================================================
+
+    def export_svg(self, pretty: bool = True, optimize: bool = True) -> str:
+        """
+        Export the current canvas state as an SVG string.
+
+        Args:
+            pretty: Pretty print with indentation
+            optimize: Optimize SVG output
+
+        Returns:
+            SVG string representation
+        """
+        return self.tools.export_svg(pretty=pretty, optimize=optimize)
+
+    def get_svg_preview(self, max_size: int = 400) -> str:
+        """
+        Get a scaled preview SVG for thumbnails.
+
+        Args:
+            max_size: Maximum dimension
+
+        Returns:
+            Scaled SVG string
+        """
+        return self.tools.get_svg_preview(max_size=max_size)
+
+    def format_svg_response(
+        self, text: str, include_svg: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Format response with optional SVG output.
+
+        Args:
+            text: Response text
+            include_svg: Whether to include SVG export
+
+        Returns:
+            Formatted response dict
+        """
+        response = {
+            "text": text,
+            "canvas_state": self.get_canvas_state(),
+            "is_complete": True
+        }
+
+        if include_svg:
+            response["svg"] = self.export_svg(pretty=False, optimize=True)
+            response["svg_preview"] = self.get_svg_preview(max_size=300)
+
+        return response

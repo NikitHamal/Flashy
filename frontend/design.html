@@ -7,6 +7,7 @@
     <title>Flashy Designs | AI Design Agent</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/design.css">
+    <link rel="stylesheet" href="/css/neobrutalist.css">
 
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -568,6 +569,17 @@
     <script src="/js/design/chat.js"></script>
     <script src="/js/design/export.js"></script>
     <script src="/js/design/app.js"></script>
+
+    <!-- Neobrutalist Theme Toggle -->
+    <script>
+    (function() {
+        const STORAGE_KEY = 'flashy-neo-theme';
+        const savedTheme = localStorage.getItem(STORAGE_KEY);
+        if (savedTheme === 'enabled') {
+            document.body.classList.add('neo-theme');
+        }
+    })();
+    </script>
 </body>
 
 </html>
