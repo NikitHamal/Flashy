@@ -174,32 +174,15 @@ class DesignService:
         raise Exception(f"Failed after {max_retries} attempts: {last_error}")
 
     def _build_object_context(self, agent: DesignAgent) -> str:
-        """Build a context string describing current canvas objects for the AI."""
+        """Build a context string describing current SVG canvas."""
         state = agent.get_canvas_state()
-        objects = state.get("objects", [])
+        svg = state.get("svg", "")
+        if not svg:
+            return "SVG canvas is empty."
 
-        if not objects:
-            return "Canvas is empty."
-
-        context_lines = [f"Canvas has {len(objects)} objects:"]
-        for obj in objects[:20]:  # Limit to prevent huge prompts
-            obj_type = obj.get("type", "unknown")
-            obj_id = obj.get("id", "?")
-            x = obj.get("left", 0)
-            y = obj.get("top", 0)
-            width = obj.get("width", 0)
-            height = obj.get("height", 0)
-
-            if obj_type in ("i-text", "text", "textbox"):
-                text_preview = (obj.get("text", "")[:30] + "...") if len(obj.get("text", "")) > 30 else obj.get("text", "")
-                context_lines.append(f"  - Text '{text_preview}' (id: {obj_id}) at ({x}, {y})")
-            elif obj_type == "circle":
-                r = obj.get("radius", 0)
-                context_lines.append(f"  - Circle (id: {obj_id}) at ({x}, {y}), radius={r}")
-            else:
-                context_lines.append(f"  - {obj_type.capitalize()} (id: {obj_id}) at ({x}, {y}), size {width}x{height}")
-
-        return "\n".join(context_lines)
+        element_count = max(len(re.findall(r"<[a-zA-Z]+", svg)) - 1, 0)
+        preview = svg[:600].replace("\n", " ").strip()
+        return f"SVG elements: {element_count}. SVG preview: {preview}"
 
     async def generate_design(
         self,
@@ -244,7 +227,8 @@ class DesignService:
             state = agent.get_canvas_state()
             canvas_width = state.get("width", 1200)
             canvas_height = state.get("height", 800)
-            object_count = len(state.get("objects", []))
+            svg_content = state.get("svg", "")
+            object_count = max(len(re.findall(r"<[a-zA-Z]+", svg_content)) - 1, 0)
 
             # Build full prompt with enhanced system context
             system_context = get_system_prompt(
@@ -258,7 +242,7 @@ class DesignService:
 
             full_prompt = f"""{system_context}
 
-## Current Objects on Canvas
+## Current SVG on Canvas
 {object_context}
 
 ## User Request
@@ -400,21 +384,10 @@ Execute the design now. Calculate precise positions and use tool calls."""
                         tool_call["args"]
                     )
 
-                    # Build canvas action for frontend
-                    canvas_action = None
-                    if not str(tool_result).lower().startswith("error"):
-                        canvas_action = self._build_canvas_action(
-                            tool_call["name"],
-                            tool_call.get("args") or {},
-                            tool_result
-                        )
-
                     payload = {
                         "tool_result": tool_result,
                         "canvas_state": agent.get_canvas_state()
                     }
-                    if canvas_action:
-                        payload["canvas_action"] = canvas_action
 
                     yield payload
                     message_parts.append({"type": "tool_result", "content": tool_result})
@@ -511,7 +484,8 @@ Execute the design now. Calculate precise positions and use tool calls."""
         state = agent.get_canvas_state()
         canvas_width = state.get("width", 1200)
         canvas_height = state.get("height", 800)
-        object_count = len(state.get("objects", []))
+        svg_content = state.get("svg", "")
+        object_count = max(len(re.findall(r"<[a-zA-Z]+", svg_content)) - 1, 0)
 
         # Use the enhanced review prompt
         prompt = get_review_prompt(
@@ -588,7 +562,7 @@ Execute the design now. Calculate precise positions and use tool calls."""
         agent = self.agents.get(session_id)
         if agent:
             return agent.get_canvas_state()
-        return {"width": 1200, "height": 800, "background": "#FFFFFF", "objects": []}
+        return {"width": 1200, "height": 800, "background": "#FFFFFF", "svg": ""}
 
     def set_canvas_state(self, session_id: str, state: Dict[str, Any]) -> str:
         """Set canvas state for a session."""

@@ -1,18 +1,14 @@
 """
-Design Agent Module
+Design Agent Module (SVG)
 
-This module provides the agent logic for parsing design tool calls
-from Gemini responses and executing them on the canvas.
-
-Enhanced with smart layout engine integration for precise positioning.
+Parses SVG tool calls from Gemini responses and executes them.
 """
 
 import re
 import json
 from typing import Optional, Dict, Any, List
-from .design_tools import DesignTools
+from .design_svg_tools import SvgDesignTools
 from .design_prompts import DESIGN_SYSTEM_PROMPT, DESIGN_TOOL_RESULT_TEMPLATE
-from .layout_engine import LayoutEngine, LayoutConfig, BoundingBox, LayoutRegion
 
 
 class DesignAgent:
@@ -20,32 +16,22 @@ class DesignAgent:
     Manages the design agent loop: Understand -> Design -> Review.
     Parses tool calls from AI responses and executes design operations.
 
-    Integrates with LayoutEngine for smart positioning and layout calculations.
+    Uses SVG-based tools for precise vector output.
     """
 
     def __init__(self, canvas_width: int = 1200, canvas_height: int = 800):
-        self.tools = DesignTools(canvas_width=canvas_width, canvas_height=canvas_height)
+        self.tools = SvgDesignTools(canvas_width=canvas_width, canvas_height=canvas_height)
         self.conversation_history: List[Dict[str, Any]] = []
         self.max_iterations = 25  # Higher limit for complex designs
         self.session_id: Optional[str] = None
 
-        # Initialize layout engine
-        self.layout = LayoutEngine(LayoutConfig(
-            canvas_width=canvas_width,
-            canvas_height=canvas_height
-        ))
-
     def get_system_prompt(self) -> str:
         """Get the system prompt with current canvas info."""
-        return DESIGN_SYSTEM_PROMPT.format(
-            canvas_width=self.tools.canvas.width,
-            canvas_height=self.tools.canvas.height,
-            object_count=len(self.tools.canvas.objects)
-        )
+        return f"{DESIGN_SYSTEM_PROMPT}\nCanvas size: {self.tools.width}x{self.tools.height}px."
 
     def get_canvas_state(self) -> Dict[str, Any]:
         """Get current canvas state as dictionary."""
-        return self.tools.canvas.to_dict()
+        return self.tools.to_state()
 
     def set_canvas_state(self, state: Dict[str, Any]) -> str:
         """Set canvas state from dictionary."""
@@ -161,22 +147,10 @@ class DesignAgent:
         return response
 
     def get_object_summary(self) -> str:
-        """Get a brief summary of objects on canvas for context."""
-        objects = self.tools.canvas.objects
-        if not objects:
-            return "The canvas is currently empty."
-
-        summary_parts = []
-        type_counts = {}
-
-        for obj in objects:
-            type_name = obj.type.value
-            type_counts[type_name] = type_counts.get(type_name, 0) + 1
-
-        for type_name, count in type_counts.items():
-            summary_parts.append(f"{count} {type_name}{'s' if count > 1 else ''}")
-
-        return f"Canvas contains: {', '.join(summary_parts)}"
+        """Get a brief summary of SVG canvas."""
+        state = self.tools.to_state()
+        svg_length = len(state.get("svg", ""))
+        return f"SVG canvas size: {state.get('width')}x{state.get('height')} (chars: {svg_length})"
 
     def process_multiple_tool_calls(self, text: str) -> List[Dict[str, Any]]:
         """
