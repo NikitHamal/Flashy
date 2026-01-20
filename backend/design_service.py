@@ -1,15 +1,14 @@
 """
-Design Service Module
+Design Service Module (SVG-based)
 
 This module provides the main service for the Flashy Design Agent.
 It manages sessions, coordinates with Gemini API, and handles
-the design generation loop with screenshot feedback.
+the design generation loop with SVG output.
 
-Enhanced Features:
-- Precise positioning with smart layout engine
-- Response filtering for clean agentic behavior
-- Canvas state synchronization
-- Screenshot-based feedback loops
+The service now works with SVG-based design:
+- AI generates SVG code directly
+- SVG is rendered and made interactive by frontend
+- Full user control over SVG elements
 """
 
 import asyncio
@@ -23,13 +22,13 @@ from gemini_webapi.constants import Model
 
 from .config import load_config
 from .design_agent import DesignAgent
-from .design_prompts import get_system_prompt, get_review_prompt, DESIGN_TOOL_RESULT_TEMPLATE
+from .design_prompts import get_svg_system_prompt, get_svg_review_prompt, SVG_TOOL_RESULT_TEMPLATE
 from .response_filter import ResponseFilter, ThoughtFilter
 
 
 class DesignService:
     """
-    Service for design agent interactions with Gemini.
+    Service for SVG-based design agent interactions with Gemini.
     Handles session management, streaming responses, and
     canvas screenshot feedback loops.
     """
@@ -122,6 +121,10 @@ class DesignService:
         json_block_pattern = r'```json\s*\{[^`]*?"(?:action|tool|name)"\s*:[^`]*?\}\s*```'
         cleaned = re.sub(json_block_pattern, '', cleaned, flags=re.DOTALL).strip()
 
+        # Remove SVG blocks
+        svg_block_pattern = r'```svg\s*.*?```'
+        cleaned = re.sub(svg_block_pattern, '', cleaned, flags=re.DOTALL).strip()
+
         # Apply response filter to remove YouTube links and tutorial text
         cleaned = self.response_filter.filter(cleaned)
 
@@ -173,31 +176,29 @@ class DesignService:
 
         raise Exception(f"Failed after {max_retries} attempts: {last_error}")
 
-    def _build_object_context(self, agent: DesignAgent) -> str:
-        """Build a context string describing current canvas objects for the AI."""
+    def _build_element_context(self, agent: DesignAgent) -> str:
+        """Build a context string describing current SVG elements for the AI."""
         state = agent.get_canvas_state()
-        objects = state.get("objects", [])
+        elements = state.get("elements", [])
 
-        if not objects:
+        if not elements:
             return "Canvas is empty."
 
-        context_lines = [f"Canvas has {len(objects)} objects:"]
-        for obj in objects[:20]:  # Limit to prevent huge prompts
-            obj_type = obj.get("type", "unknown")
-            obj_id = obj.get("id", "?")
-            x = obj.get("left", 0)
-            y = obj.get("top", 0)
-            width = obj.get("width", 0)
-            height = obj.get("height", 0)
+        context_lines = [f"Canvas has {len(elements)} elements:"]
+        for elem in elements[:20]:  # Limit to prevent huge prompts
+            elem_id = elem.get("id", "?")
+            tag = elem.get("tag", "unknown")
+            attrs = elem.get("attributes", {})
 
-            if obj_type in ("i-text", "text", "textbox"):
-                text_preview = (obj.get("text", "")[:30] + "...") if len(obj.get("text", "")) > 30 else obj.get("text", "")
-                context_lines.append(f"  - Text '{text_preview}' (id: {obj_id}) at ({x}, {y})")
-            elif obj_type == "circle":
-                r = obj.get("radius", 0)
-                context_lines.append(f"  - Circle (id: {obj_id}) at ({x}, {y}), radius={r}")
+            if tag in ("text", "tspan"):
+                text_preview = elem.get("text", "")[:30]
+                if len(elem.get("text", "")) > 30:
+                    text_preview += "..."
+                context_lines.append(f"  - <{tag}> '{text_preview}' (id: {elem_id})")
             else:
-                context_lines.append(f"  - {obj_type.capitalize()} (id: {obj_id}) at ({x}, {y}), size {width}x{height}")
+                x = attrs.get("x", attrs.get("cx", "?"))
+                y = attrs.get("y", attrs.get("cy", "?"))
+                context_lines.append(f"  - <{tag}> (id: {elem_id}) at ({x}, {y})")
 
         return "\n".join(context_lines)
 
@@ -212,15 +213,15 @@ class DesignService:
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Generate design based on user prompt.
-        Handles the agent loop with tool calls and canvas updates.
+        Handles the agent loop with tool calls and SVG updates.
 
         Yields dictionaries with:
         - thought: AI thinking content
         - text: Response text
         - tool_call: Tool being called
         - tool_result: Tool execution result
-        - canvas_state: Updated canvas state
-        - canvas_action: Frontend action to execute
+        - canvas_state: Updated canvas state (includes SVG)
+        - svg: Current SVG content
         - is_final: Whether this is the final response
         """
         client = await self.get_client()
@@ -238,33 +239,33 @@ class DesignService:
 
             # Load canvas state if provided
             if canvas_state:
-                agent.tools.load_state(canvas_state)
+                agent.set_canvas_state(canvas_state)
 
             # Get canvas dimensions
             state = agent.get_canvas_state()
             canvas_width = state.get("width", 1200)
             canvas_height = state.get("height", 800)
-            object_count = len(state.get("objects", []))
+            element_count = len(state.get("elements", []))
 
             # Build full prompt with enhanced system context
-            system_context = get_system_prompt(
+            system_context = get_svg_system_prompt(
                 canvas_width=canvas_width,
                 canvas_height=canvas_height,
-                object_count=object_count
+                element_count=element_count
             )
 
-            # Build object context
-            object_context = self._build_object_context(agent)
+            # Build element context
+            element_context = self._build_element_context(agent)
 
             full_prompt = f"""{system_context}
 
-## Current Objects on Canvas
-{object_context}
+## Current Elements on Canvas
+{element_context}
 
 ## User Request
 {prompt}
 
-Execute the design now. Calculate precise positions and use tool calls."""
+Execute the design now. Calculate precise positions and use tool calls to generate SVG."""
 
             # Handle screenshot feedback
             file_paths = files or []
@@ -306,7 +307,7 @@ Execute the design now. Calculate precise positions and use tool calls."""
             )
 
             # Process agent loop
-            max_iterations = 30  # Increased for complex designs
+            max_iterations = 30
             iteration = 0
 
             while iteration < max_iterations:
@@ -315,7 +316,8 @@ Execute the design now. Calculate precise positions and use tool calls."""
                     yield {
                         "text": "*Design interrupted.*",
                         "is_final": True,
-                        "canvas_state": agent.get_canvas_state()
+                        "canvas_state": agent.get_canvas_state(),
+                        "svg": agent.get_svg()
                     }
                     break
 
@@ -349,14 +351,16 @@ Execute the design now. Calculate precise positions and use tool calls."""
                         yield {
                             "text": final_text,
                             "is_final": True,
-                            "canvas_state": agent.get_canvas_state()
+                            "canvas_state": agent.get_canvas_state(),
+                            "svg": agent.get_svg()
                         }
                         message_parts.append({"type": "text", "content": final_text})
                     else:
                         yield {
                             "text": "",
                             "is_final": True,
-                            "canvas_state": agent.get_canvas_state()
+                            "canvas_state": agent.get_canvas_state(),
+                            "svg": agent.get_svg()
                         }
                     break
 
@@ -389,7 +393,8 @@ Execute the design now. Calculate precise positions and use tool calls."""
                     yield {
                         "text": "*Design interrupted.*",
                         "is_final": True,
-                        "canvas_state": agent.get_canvas_state()
+                        "canvas_state": agent.get_canvas_state(),
+                        "svg": agent.get_svg()
                     }
                     break
 
@@ -400,21 +405,11 @@ Execute the design now. Calculate precise positions and use tool calls."""
                         tool_call["args"]
                     )
 
-                    # Build canvas action for frontend
-                    canvas_action = None
-                    if not str(tool_result).lower().startswith("error"):
-                        canvas_action = self._build_canvas_action(
-                            tool_call["name"],
-                            tool_call.get("args") or {},
-                            tool_result
-                        )
-
                     payload = {
                         "tool_result": tool_result,
-                        "canvas_state": agent.get_canvas_state()
+                        "canvas_state": agent.get_canvas_state(),
+                        "svg": agent.get_svg()
                     }
-                    if canvas_action:
-                        payload["canvas_action"] = canvas_action
 
                     yield payload
                     message_parts.append({"type": "tool_result", "content": tool_result})
@@ -424,15 +419,13 @@ Execute the design now. Calculate precise positions and use tool calls."""
                         yield {
                             "text": "*Design interrupted.*",
                             "is_final": True,
-                            "canvas_state": agent.get_canvas_state()
+                            "canvas_state": agent.get_canvas_state(),
+                            "svg": agent.get_svg()
                         }
                         break
 
                     # Build concise result for Gemini
-                    result_prompt = DESIGN_TOOL_RESULT_TEMPLATE.format(
-                        tool_name=tool_call["name"],
-                        output=tool_result
-                    )
+                    result_prompt = agent.format_tool_result(tool_call["name"], tool_result)
 
                     # Feed result back to Gemini
                     response = await self._send_with_retry(chat, result_prompt)
@@ -442,7 +435,8 @@ Execute the design now. Calculate precise positions and use tool calls."""
                     yield {
                         "text": "*Design interrupted.*",
                         "is_final": True,
-                        "canvas_state": agent.get_canvas_state()
+                        "canvas_state": agent.get_canvas_state(),
+                        "svg": agent.get_svg()
                     }
                     break
                 except Exception as e:
@@ -454,7 +448,8 @@ Execute the design now. Calculate precise positions and use tool calls."""
                         yield {
                             "text": "*Design interrupted.*",
                             "is_final": True,
-                            "canvas_state": agent.get_canvas_state()
+                            "canvas_state": agent.get_canvas_state(),
+                            "svg": agent.get_svg()
                         }
                         break
 
@@ -467,20 +462,23 @@ Execute the design now. Calculate precise positions and use tool calls."""
                 yield {
                     "text": "*Design agent reached maximum iterations. Design may be incomplete.*",
                     "is_final": True,
-                    "canvas_state": agent.get_canvas_state()
+                    "canvas_state": agent.get_canvas_state(),
+                    "svg": agent.get_svg()
                 }
 
         except asyncio.CancelledError:
             yield {
                 "text": "*Design interrupted.*",
                 "is_final": True,
-                "canvas_state": agent.get_canvas_state()
+                "canvas_state": agent.get_canvas_state(),
+                "svg": agent.get_svg()
             }
         except Exception as e:
             yield {
                 "error": str(e),
                 "is_final": True,
-                "canvas_state": agent.get_canvas_state()
+                "canvas_state": agent.get_canvas_state(),
+                "svg": agent.get_svg()
             }
         finally:
             # Clean up
@@ -511,13 +509,13 @@ Execute the design now. Calculate precise positions and use tool calls."""
         state = agent.get_canvas_state()
         canvas_width = state.get("width", 1200)
         canvas_height = state.get("height", 800)
-        object_count = len(state.get("objects", []))
+        element_count = len(state.get("elements", []))
 
         # Use the enhanced review prompt
-        prompt = get_review_prompt(
+        prompt = get_svg_review_prompt(
             canvas_width=canvas_width,
             canvas_height=canvas_height,
-            object_count=object_count,
+            element_count=element_count,
             feedback=additional_feedback
         )
 
@@ -539,56 +537,19 @@ Execute the design now. Calculate precise positions and use tool calls."""
         except Exception:
             return None
 
-    def _extract_id_from_result(self, tool_result: str) -> Optional[str]:
-        """Extract object IDs from tool results when possible."""
-        if not tool_result:
-            return None
-        id_match = re.search(r"ID:\s*([a-zA-Z0-9_-]+)", tool_result)
-        if id_match:
-            return id_match.group(1)
-        group_match = re.search(r"Created group '([^']+)'", tool_result)
-        if group_match:
-            return group_match.group(1)
-        duplicate_match = re.search(r"Duplicated '[^']+' as '([^']+)'", tool_result)
-        if duplicate_match:
-            return duplicate_match.group(1)
-        return None
-
-    def _build_canvas_action(
-        self, tool_name: str, args: Dict[str, Any], tool_result: str
-    ) -> Optional[Dict[str, Any]]:
-        """Build canvas action payload for frontend execution."""
-        non_canvas_tools = {
-            "list_objects",
-            "get_object_properties",
-            "get_canvas_state",
-            "select_object"
-        }
-        if tool_name in non_canvas_tools:
-            return None
-
-        action_args = dict(args or {})
-        new_id = self._extract_id_from_result(tool_result)
-
-        if new_id and tool_name.startswith("add_") and "id" not in action_args:
-            action_args["id"] = new_id
-        if tool_name == "group_objects" and new_id:
-            action_args["group_id"] = new_id
-        if tool_name == "duplicate_object" and new_id:
-            action_args["new_id"] = new_id
-
-        return {
-            "tool": tool_name,
-            "args": action_args,
-            "result": tool_result
-        }
-
     def get_canvas_state(self, session_id: str) -> Dict[str, Any]:
         """Get current canvas state for a session."""
         agent = self.agents.get(session_id)
         if agent:
             return agent.get_canvas_state()
-        return {"width": 1200, "height": 800, "background": "#FFFFFF", "objects": []}
+        return {"width": 1200, "height": 800, "background": "#FFFFFF", "elements": [], "svg": ""}
+
+    def get_svg(self, session_id: str) -> str:
+        """Get current SVG content for a session."""
+        agent = self.agents.get(session_id)
+        if agent:
+            return agent.get_svg()
+        return ""
 
     def set_canvas_state(self, session_id: str, state: Dict[str, Any]) -> str:
         """Set canvas state for a session."""
@@ -617,7 +578,8 @@ Execute the design now. Calculate precise positions and use tool calls."""
 
         return {
             "result": result,
-            "canvas_state": agent.get_canvas_state()
+            "canvas_state": agent.get_canvas_state(),
+            "svg": agent.get_svg()
         }
 
     async def reset(self):

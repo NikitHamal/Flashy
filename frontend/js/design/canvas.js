@@ -1,207 +1,166 @@
 /**
- * Design Canvas Module
- * Manages fabric.js canvas instance and canvas operations
+ * Design Canvas Module (SVG-based)
+ * Manages native SVG canvas and element interactions
  */
 const DesignCanvas = {
-    canvas: null,
+    svgElement: null,
     canvasContainer: null,
+    selectionOverlay: null,
+    
+    // Canvas state
+    width: 1200,
+    height: 800,
+    background: '#FFFFFF',
+    
+    // Zoom & Pan
     zoom: 1,
     minZoom: 0.1,
     maxZoom: 5,
+    panX: 0,
+    panY: 0,
     isPanning: false,
     lastPanPoint: null,
+    
+    // Selection
+    selectedElement: null,
+    selectedId: null,
+    
+    // History
     history: [],
     historyIndex: -1,
     maxHistory: 50,
     isRecordingHistory: true,
-    canvasWidth: 1200,
-    canvasHeight: 800,
-    backgroundColor: '#FFFFFF',
+    
+    // Grid & Snap
     showGrid: false,
     snapToGrid: false,
     gridSize: 24,
-    showSmartGuides: true,
-    smartGuideThreshold: 8,
-    alignmentGuides: [],
+    
+    // Current tool
+    currentTool: 'select',
+    
+    // Session
+    sessionId: null,
 
     init() {
         this.canvasContainer = document.getElementById('canvas-container');
-        const canvasEl = document.getElementById('design-canvas');
-
-        this.canvas = new fabric.Canvas(canvasEl, {
-            width: this.canvasWidth,
-            height: this.canvasHeight,
-            backgroundColor: this.backgroundColor,
-            preserveObjectStacking: true,
-            selection: true,
-            selectionColor: 'rgba(74, 222, 128, 0.1)',
-            selectionBorderColor: '#4ade80',
-            selectionLineWidth: 1,
-            hoverCursor: 'move',
-            moveCursor: 'move',
-            defaultCursor: 'default',
-            freeDrawingCursor: 'crosshair',
-            rotationCursor: 'crosshair',
-            containerClass: 'canvas-container'
-        });
-
-        this.setupCanvasStyles();
+        this.svgElement = document.getElementById('design-svg');
+        this.selectionOverlay = document.getElementById('selection-overlay');
+        
+        if (!this.svgElement) {
+            console.error('SVG element not found');
+            return this;
+        }
+        
+        this.sessionId = 'design_' + Date.now();
+        
         this.setupEventListeners();
+        this.updateCanvasSize(this.width, this.height);
         this.updateCanvasInfo();
         this.saveHistory();
-
+        
         return this;
     },
 
-    setupCanvasStyles() {
-        fabric.Object.prototype.set({
-            transparentCorners: false,
-            cornerColor: '#4ade80',
-            cornerStrokeColor: '#4ade80',
-            borderColor: '#4ade80',
-            cornerSize: 10,
-            cornerStyle: 'circle',
-            borderScaleFactor: 1.5,
-            padding: 0
-        });
-
-        fabric.Object.prototype.controls.mtr.offsetY = -30;
-    },
-
     setupEventListeners() {
-        this.canvas.on('object:modified', () => this.saveHistory());
-        this.canvas.on('object:added', () => {
-            if (this.isRecordingHistory) this.saveHistory();
-        });
-        this.canvas.on('object:removed', () => {
-            if (this.isRecordingHistory) this.saveHistory();
-        });
-        this.canvas.on('object:moving', (opt) => this.handleObjectSnapping(opt));
-
-        this.canvas.on('selection:created', () => this.onSelectionChange());
-        this.canvas.on('selection:updated', () => this.onSelectionChange());
-        this.canvas.on('selection:cleared', () => this.onSelectionChange());
-
-        this.canvas.on('mouse:wheel', (opt) => this.handleMouseWheel(opt));
-        this.canvas.on('mouse:down', (opt) => this.handleMouseDown(opt));
-        this.canvas.on('mouse:move', (opt) => this.handleMouseMove(opt));
-        this.canvas.on('mouse:up', () => this.handleMouseUp());
-
+        // SVG click events
+        this.svgElement.addEventListener('click', (e) => this.handleSvgClick(e));
+        this.svgElement.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        document.addEventListener('mouseup', () => this.handleMouseUp());
+        
+        // Wheel for zoom
+        this.canvasContainer.addEventListener('wheel', (e) => this.handleWheel(e));
+        
+        // Keyboard
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-
-        // Detect keyboard vs mouse navigation for focus styles
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                document.body.classList.add('keyboard-nav');
-            }
+        
+        // Tool buttons
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.setTool(btn.dataset.tool));
         });
-        document.addEventListener('mousedown', () => {
-            document.body.classList.remove('keyboard-nav');
-        });
-
+        
+        // Action buttons
+        document.getElementById('btn-undo')?.addEventListener('click', () => this.undo());
+        document.getElementById('btn-redo')?.addEventListener('click', () => this.redo());
+        document.getElementById('btn-delete')?.addEventListener('click', () => this.deleteSelected());
+        document.getElementById('btn-duplicate')?.addEventListener('click', () => this.duplicateSelected());
+        
+        // Zoom controls
         document.getElementById('btn-zoom-in')?.addEventListener('click', () => this.zoomIn());
         document.getElementById('btn-zoom-out')?.addEventListener('click', () => this.zoomOut());
         document.getElementById('btn-zoom-fit')?.addEventListener('click', () => this.zoomToFit());
+        
+        // Grid/snap toggles
         document.getElementById('btn-toggle-grid')?.addEventListener('click', () => this.toggleGrid());
         document.getElementById('btn-toggle-snap')?.addEventListener('click', () => this.toggleSnap());
-        document.getElementById('btn-toggle-guides')?.addEventListener('click', () => this.toggleSmartGuides());
     },
 
-    onSelectionChange() {
-        const activeObject = this.canvas.getActiveObject();
-        if (typeof DesignProperties !== 'undefined') {
-            DesignProperties.updateFromSelection(activeObject);
+    handleSvgClick(e) {
+        if (this.currentTool !== 'select') return;
+        
+        const target = e.target;
+        
+        // Check if clicked on an element with ID
+        if (target !== this.svgElement && target.id) {
+            this.selectElement(target.id);
+        } else if (target === this.svgElement) {
+            this.clearSelection();
         }
-        this.updateActionButtons();
-
-        // Update canvas container selection state for visual feedback
-        if (this.canvasContainer) {
-            this.canvasContainer.classList.toggle('has-selection', !!activeObject);
-        }
     },
 
-    updateActionButtons() {
-        const hasSelection = !!this.canvas.getActiveObject();
-        const btnDelete = document.getElementById('btn-delete');
-        const btnDuplicate = document.getElementById('btn-duplicate');
-
-        if (btnDelete) btnDelete.disabled = !hasSelection;
-        if (btnDuplicate) btnDuplicate.disabled = !hasSelection;
-
-        const btnUndo = document.getElementById('btn-undo');
-        const btnRedo = document.getElementById('btn-redo');
-        if (btnUndo) btnUndo.disabled = this.historyIndex <= 0;
-        if (btnRedo) btnRedo.disabled = this.historyIndex >= this.history.length - 1;
-    },
-
-    handleMouseWheel(opt) {
-        const delta = opt.e.deltaY;
-        let newZoom = this.zoom * (delta > 0 ? 0.9 : 1.1);
-        newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
-
-        const point = new fabric.Point(opt.e.offsetX, opt.e.offsetY);
-        this.canvas.zoomToPoint(point, newZoom);
-        this.zoom = newZoom;
-
-        this.updateZoomDisplay();
-        opt.e.preventDefault();
-        opt.e.stopPropagation();
-    },
-
-    handleMouseDown(opt) {
-        if (opt.e.altKey || this.currentTool === 'hand') {
+    handleMouseDown(e) {
+        if (e.altKey || this.currentTool === 'pan') {
             this.isPanning = true;
-            this.lastPanPoint = { x: opt.e.clientX, y: opt.e.clientY };
-            this.canvas.selection = false;
-            this.canvas.defaultCursor = 'grabbing';
+            this.lastPanPoint = { x: e.clientX, y: e.clientY };
+            this.canvasContainer.style.cursor = 'grabbing';
+            e.preventDefault();
         }
     },
 
-    handleMouseMove(opt) {
+    handleMouseMove(e) {
         if (this.isPanning && this.lastPanPoint) {
-            const deltaX = opt.e.clientX - this.lastPanPoint.x;
-            const deltaY = opt.e.clientY - this.lastPanPoint.y;
-
-            const vpt = this.canvas.viewportTransform;
-            vpt[4] += deltaX;
-            vpt[5] += deltaY;
-            this.canvas.requestRenderAll();
-
-            this.lastPanPoint = { x: opt.e.clientX, y: opt.e.clientY };
+            const deltaX = e.clientX - this.lastPanPoint.x;
+            const deltaY = e.clientY - this.lastPanPoint.y;
+            
+            this.panX += deltaX;
+            this.panY += deltaY;
+            this.updateTransform();
+            
+            this.lastPanPoint = { x: e.clientX, y: e.clientY };
         }
     },
 
     handleMouseUp() {
         this.isPanning = false;
         this.lastPanPoint = null;
-        this.canvas.selection = true;
-        this.canvas.defaultCursor = 'default';
-        // Clear alignment guides when done moving
-        this.clearAlignmentGuides();
+        this.canvasContainer.style.cursor = '';
     },
 
-    handleObjectSnapping(opt) {
-        if (!opt.target) return;
-        const obj = opt.target;
-
-        // Grid snapping
-        if (this.snapToGrid) {
-            const grid = this.gridSize;
-            obj.set({
-                left: Math.round(obj.left / grid) * grid,
-                top: Math.round(obj.top / grid) * grid
-            });
-        }
-
-        // Smart alignment guides
-        if (this.showSmartGuides) {
-            this.updateSmartGuides(obj);
-        }
+    handleWheel(e) {
+        e.preventDefault();
+        
+        const delta = e.deltaY;
+        let newZoom = this.zoom * (delta > 0 ? 0.9 : 1.1);
+        newZoom = Math.min(Math.max(newZoom, this.minZoom), this.maxZoom);
+        
+        // Zoom towards cursor position
+        const rect = this.canvasContainer.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+        
+        const scale = newZoom / this.zoom;
+        this.panX = cursorX - scale * (cursorX - this.panX);
+        this.panY = cursorY - scale * (cursorY - this.panY);
+        
+        this.zoom = newZoom;
+        this.updateTransform();
+        this.updateZoomDisplay();
     },
 
     handleKeyDown(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
+        
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
             e.preventDefault();
             if (e.shiftKey) {
@@ -220,38 +179,169 @@ const DesignCanvas = {
         } else if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
             e.preventDefault();
             this.duplicateSelected();
-        } else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-            e.preventDefault();
-            this.selectAll();
         } else if (e.key === 'Escape') {
-            this.canvas.discardActiveObject();
-            this.canvas.requestRenderAll();
+            this.clearSelection();
         }
-
+        
+        // Tool shortcuts
         if (!e.ctrlKey && !e.metaKey) {
             switch (e.key.toLowerCase()) {
-                case 'v':
-                    this.setTool('select');
-                    break;
-                case 'h':
-                    this.setTool('hand');
-                    break;
-                case 'r':
-                    this.setTool('rectangle');
-                    break;
-                case 'c':
-                    this.setTool('circle');
-                    break;
-                case 't':
-                    this.setTool('text');
-                    break;
-                case 'l':
-                    this.setTool('line');
-                    break;
+                case 'v': this.setTool('select'); break;
+                case 'h': this.setTool('pan'); break;
+                case 'r': this.setTool('rect'); break;
+                case 'c': this.setTool('circle'); break;
+                case 't': this.setTool('text'); break;
+                case 'l': this.setTool('line'); break;
             }
         }
     },
 
+    updateTransform() {
+        const wrapper = this.canvasContainer.querySelector('.svg-canvas');
+        if (wrapper) {
+            wrapper.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+            wrapper.style.transformOrigin = '0 0';
+        }
+    },
+
+    // Selection
+    selectElement(elementId) {
+        this.clearSelection();
+        
+        const element = this.svgElement.getElementById(elementId);
+        if (!element) return;
+        
+        this.selectedElement = element;
+        this.selectedId = elementId;
+        
+        // Add selection outline
+        element.classList.add('selected');
+        
+        // Show selection handles
+        this.showSelectionHandles(element);
+        
+        // Update properties panel
+        if (typeof DesignProperties !== 'undefined') {
+            DesignProperties.updateFromElement(element);
+        }
+        
+        this.updateActionButtons();
+    },
+
+    clearSelection() {
+        if (this.selectedElement) {
+            this.selectedElement.classList.remove('selected');
+        }
+        
+        this.selectedElement = null;
+        this.selectedId = null;
+        
+        // Clear selection handles
+        if (this.selectionOverlay) {
+            this.selectionOverlay.innerHTML = '';
+        }
+        
+        // Update properties panel
+        if (typeof DesignProperties !== 'undefined') {
+            DesignProperties.clearSelection();
+        }
+        
+        this.updateActionButtons();
+    },
+
+    showSelectionHandles(element) {
+        if (!this.selectionOverlay) return;
+        
+        this.selectionOverlay.innerHTML = '';
+        
+        const bbox = element.getBBox();
+        const ctm = element.getScreenCTM();
+        const svgCtm = this.svgElement.getScreenCTM().inverse();
+        
+        // Transform bbox to screen coordinates
+        const pt1 = this.svgElement.createSVGPoint();
+        pt1.x = bbox.x;
+        pt1.y = bbox.y;
+        const screenPt1 = pt1.matrixTransform(ctm).matrixTransform(svgCtm);
+        
+        const pt2 = this.svgElement.createSVGPoint();
+        pt2.x = bbox.x + bbox.width;
+        pt2.y = bbox.y + bbox.height;
+        const screenPt2 = pt2.matrixTransform(ctm).matrixTransform(svgCtm);
+        
+        const x = Math.min(screenPt1.x, screenPt2.x);
+        const y = Math.min(screenPt1.y, screenPt2.y);
+        const width = Math.abs(screenPt2.x - screenPt1.x);
+        const height = Math.abs(screenPt2.y - screenPt1.y);
+        
+        // Create selection box
+        const box = document.createElement('div');
+        box.className = 'selection-box';
+        box.style.left = x + 'px';
+        box.style.top = y + 'px';
+        box.style.width = width + 'px';
+        box.style.height = height + 'px';
+        this.selectionOverlay.appendChild(box);
+        
+        // Create resize handles
+        const handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        handles.forEach(pos => {
+            const handle = document.createElement('div');
+            handle.className = `selection-handle ${pos}`;
+            box.appendChild(handle);
+        });
+    },
+
+    updateActionButtons() {
+        const hasSelection = !!this.selectedElement;
+        
+        const btnDelete = document.getElementById('btn-delete');
+        const btnDuplicate = document.getElementById('btn-duplicate');
+        
+        if (btnDelete) btnDelete.disabled = !hasSelection;
+        if (btnDuplicate) btnDuplicate.disabled = !hasSelection;
+        
+        const btnUndo = document.getElementById('btn-undo');
+        const btnRedo = document.getElementById('btn-redo');
+        if (btnUndo) btnUndo.disabled = this.historyIndex <= 0;
+        if (btnRedo) btnRedo.disabled = this.historyIndex >= this.history.length - 1;
+    },
+
+    // Canvas operations
+    updateCanvasSize(width, height) {
+        this.width = width;
+        this.height = height;
+        
+        this.svgElement.setAttribute('width', width);
+        this.svgElement.setAttribute('height', height);
+        this.svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        
+        this.canvasContainer.style.width = width + 'px';
+        this.canvasContainer.style.height = height + 'px';
+        
+        this.updateCanvasInfo();
+    },
+
+    setBackground(color) {
+        this.background = color;
+        this.svgElement.style.background = color;
+    },
+
+    updateCanvasInfo() {
+        const info = document.getElementById('canvas-dimensions');
+        if (info) {
+            info.textContent = `${this.width} x ${this.height}`;
+        }
+    },
+
+    updateZoomDisplay() {
+        const display = document.getElementById('zoom-level');
+        if (display) {
+            display.textContent = Math.round(this.zoom * 100) + '%';
+        }
+    },
+
+    // Zoom
     zoomIn() {
         const newZoom = Math.min(this.zoom * 1.2, this.maxZoom);
         this.setZoom(newZoom);
@@ -264,220 +354,77 @@ const DesignCanvas = {
 
     setZoom(zoom) {
         this.zoom = zoom;
-        const center = this.canvas.getCenter();
-        this.canvas.zoomToPoint(new fabric.Point(center.left, center.top), zoom);
+        this.updateTransform();
         this.updateZoomDisplay();
     },
 
     zoomToFit() {
         const wrapper = document.querySelector('.canvas-wrapper');
         if (!wrapper) return;
-
+        
         const padding = 60;
         const wrapperWidth = wrapper.clientWidth - padding * 2;
         const wrapperHeight = wrapper.clientHeight - padding * 2;
-
-        const scaleX = wrapperWidth / this.canvasWidth;
-        const scaleY = wrapperHeight / this.canvasHeight;
+        
+        const scaleX = wrapperWidth / this.width;
+        const scaleY = wrapperHeight / this.height;
         const zoom = Math.min(scaleX, scaleY, 1);
-
-        this.setZoom(zoom);
-        this.canvas.viewportTransform[4] = (wrapper.clientWidth - this.canvasWidth * zoom) / 2;
-        this.canvas.viewportTransform[5] = (wrapper.clientHeight - this.canvasHeight * zoom) / 2;
-        this.canvas.requestRenderAll();
+        
+        this.panX = (wrapper.clientWidth - this.width * zoom) / 2;
+        this.panY = (wrapper.clientHeight - this.height * zoom) / 2;
+        this.zoom = zoom;
+        
+        this.updateTransform();
+        this.updateZoomDisplay();
     },
 
-    updateZoomDisplay() {
-        const zoomDisplay = document.getElementById('zoom-level');
-        if (zoomDisplay) {
-            zoomDisplay.textContent = Math.round(this.zoom * 100) + '%';
-        }
-    },
-
-    updateCanvasInfo() {
-        const info = document.getElementById('canvas-dimensions');
-        if (info) {
-            info.textContent = `${this.canvasWidth} × ${this.canvasHeight}`;
-        }
-    },
-
+    // Grid & Snap
     toggleGrid() {
         this.showGrid = !this.showGrid;
-        const grid = document.getElementById('canvas-grid');
         const btn = document.getElementById('btn-toggle-grid');
-        if (grid) {
-            grid.classList.toggle('hidden', !this.showGrid);
-        }
-        if (btn) {
-            btn.classList.toggle('active', this.showGrid);
-        }
+        if (btn) btn.classList.toggle('active', this.showGrid);
+        // TODO: Implement grid overlay
     },
 
     toggleSnap() {
         this.snapToGrid = !this.snapToGrid;
         const btn = document.getElementById('btn-toggle-snap');
-        if (btn) {
-            btn.classList.toggle('active', this.snapToGrid);
-        }
+        if (btn) btn.classList.toggle('active', this.snapToGrid);
     },
 
-    toggleSmartGuides() {
-        this.showSmartGuides = !this.showSmartGuides;
-        const btn = document.getElementById('btn-toggle-guides');
-        if (btn) {
-            btn.classList.toggle('active', this.showSmartGuides);
-        }
-        if (!this.showSmartGuides) {
-            this.clearAlignmentGuides();
-        }
-    },
-
-    updateSmartGuides(movingObj) {
-        this.clearAlignmentGuides();
-
-        const threshold = this.smartGuideThreshold;
-        const movingBounds = movingObj.getBoundingRect(true);
-        const movingCenter = {
-            x: movingBounds.left + movingBounds.width / 2,
-            y: movingBounds.top + movingBounds.height / 2
-        };
-
-        // Canvas center guides
-        const canvasCenterX = this.canvasWidth / 2;
-        const canvasCenterY = this.canvasHeight / 2;
-
-        // Check canvas center alignment
-        if (Math.abs(movingCenter.x - canvasCenterX) < threshold) {
-            this.addGuide('vertical', canvasCenterX, 'center');
-            movingObj.set('left', canvasCenterX - movingBounds.width / 2);
-        }
-        if (Math.abs(movingCenter.y - canvasCenterY) < threshold) {
-            this.addGuide('horizontal', canvasCenterY, 'center');
-            movingObj.set('top', canvasCenterY - movingBounds.height / 2);
-        }
-
-        // Check edge alignment with canvas
-        if (Math.abs(movingBounds.left) < threshold) {
-            this.addGuide('vertical', 0, 'edge');
-            movingObj.set('left', 0);
-        }
-        if (Math.abs(movingBounds.top) < threshold) {
-            this.addGuide('horizontal', 0, 'edge');
-            movingObj.set('top', 0);
-        }
-        if (Math.abs(movingBounds.left + movingBounds.width - this.canvasWidth) < threshold) {
-            this.addGuide('vertical', this.canvasWidth, 'edge');
-            movingObj.set('left', this.canvasWidth - movingBounds.width);
-        }
-        if (Math.abs(movingBounds.top + movingBounds.height - this.canvasHeight) < threshold) {
-            this.addGuide('horizontal', this.canvasHeight, 'edge');
-            movingObj.set('top', this.canvasHeight - movingBounds.height);
-        }
-
-        // Check alignment with other objects
-        const objects = this.canvas.getObjects().filter(obj =>
-            obj !== movingObj &&
-            !obj.isGuide &&
-            obj.selectable !== false
-        );
-
-        objects.forEach(otherObj => {
-            const otherBounds = otherObj.getBoundingRect(true);
-            const otherCenter = {
-                x: otherBounds.left + otherBounds.width / 2,
-                y: otherBounds.top + otherBounds.height / 2
-            };
-
-            // Left edge alignment
-            if (Math.abs(movingBounds.left - otherBounds.left) < threshold) {
-                this.addGuide('vertical', otherBounds.left, 'object');
-                movingObj.set('left', otherBounds.left);
-            }
-            // Right edge alignment
-            if (Math.abs(movingBounds.left + movingBounds.width - otherBounds.left - otherBounds.width) < threshold) {
-                this.addGuide('vertical', otherBounds.left + otherBounds.width, 'object');
-                movingObj.set('left', otherBounds.left + otherBounds.width - movingBounds.width);
-            }
-            // Center X alignment
-            if (Math.abs(movingCenter.x - otherCenter.x) < threshold) {
-                this.addGuide('vertical', otherCenter.x, 'object');
-                movingObj.set('left', otherCenter.x - movingBounds.width / 2);
-            }
-
-            // Top edge alignment
-            if (Math.abs(movingBounds.top - otherBounds.top) < threshold) {
-                this.addGuide('horizontal', otherBounds.top, 'object');
-                movingObj.set('top', otherBounds.top);
-            }
-            // Bottom edge alignment
-            if (Math.abs(movingBounds.top + movingBounds.height - otherBounds.top - otherBounds.height) < threshold) {
-                this.addGuide('horizontal', otherBounds.top + otherBounds.height, 'object');
-                movingObj.set('top', otherBounds.top + otherBounds.height - movingBounds.height);
-            }
-            // Center Y alignment
-            if (Math.abs(movingCenter.y - otherCenter.y) < threshold) {
-                this.addGuide('horizontal', otherCenter.y, 'object');
-                movingObj.set('top', otherCenter.y - movingBounds.height / 2);
-            }
+    // Tool selection
+    setTool(toolName) {
+        this.currentTool = toolName;
+        
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === toolName);
         });
-
-        movingObj.setCoords();
-        this.canvas.requestRenderAll();
+        
+        this.canvasContainer.style.cursor = toolName === 'pan' ? 'grab' : '';
     },
 
-    addGuide(orientation, position, type) {
-        const color = type === 'center' ? '#f59e0b' : type === 'edge' ? '#3b82f6' : '#4ade80';
-        let guide;
-
-        if (orientation === 'vertical') {
-            guide = new fabric.Line([position, 0, position, this.canvasHeight], {
-                stroke: color,
-                strokeWidth: 1,
-                strokeDashArray: type === 'center' ? [8, 4] : [4, 4],
-                selectable: false,
-                evented: false,
-                isGuide: true,
-                opacity: 0.8
-            });
-        } else {
-            guide = new fabric.Line([0, position, this.canvasWidth, position], {
-                stroke: color,
-                strokeWidth: 1,
-                strokeDashArray: type === 'center' ? [8, 4] : [4, 4],
-                selectable: false,
-                evented: false,
-                isGuide: true,
-                opacity: 0.8
-            });
-        }
-
-        this.alignmentGuides.push(guide);
-        this.canvas.add(guide);
-    },
-
-    clearAlignmentGuides() {
-        this.alignmentGuides.forEach(guide => {
-            this.canvas.remove(guide);
-        });
-        this.alignmentGuides = [];
-    },
-
+    // History
     saveHistory() {
         if (!this.isRecordingHistory) return;
-
+        
         if (this.historyIndex < this.history.length - 1) {
             this.history = this.history.slice(0, this.historyIndex + 1);
         }
-
-        const json = this.canvas.toJSON(['id', 'selectable', 'hasControls']);
-        this.history.push(JSON.stringify(json));
-
+        
+        const svgContent = this.svgElement.innerHTML;
+        this.history.push({
+            svg: svgContent,
+            width: this.width,
+            height: this.height,
+            background: this.background
+        });
+        
         if (this.history.length > this.maxHistory) {
             this.history.shift();
         } else {
             this.historyIndex++;
         }
-
+        
         this.updateActionButtons();
     },
 
@@ -495,234 +442,203 @@ const DesignCanvas = {
 
     loadFromHistory() {
         this.isRecordingHistory = false;
-        const json = JSON.parse(this.history[this.historyIndex]);
-        this.canvas.loadFromJSON(json, () => {
-            this.canvas.requestRenderAll();
-            this.isRecordingHistory = true;
-            this.updateActionButtons();
-        });
+        const state = this.history[this.historyIndex];
+        
+        this.svgElement.innerHTML = state.svg;
+        this.updateCanvasSize(state.width, state.height);
+        this.setBackground(state.background);
+        
+        this.clearSelection();
+        this.isRecordingHistory = true;
+        this.updateActionButtons();
     },
 
+    // Element operations
     deleteSelected() {
-        const activeObjects = this.canvas.getActiveObjects();
-        if (activeObjects.length === 0) return;
-
-        this.canvas.discardActiveObject();
-        activeObjects.forEach(obj => this.canvas.remove(obj));
-        this.canvas.requestRenderAll();
+        if (!this.selectedElement) return;
+        
+        this.selectedElement.remove();
+        this.clearSelection();
+        this.saveHistory();
     },
 
     duplicateSelected() {
-        const activeObject = this.canvas.getActiveObject();
-        if (!activeObject) return;
+        if (!this.selectedElement) return;
+        
+        const clone = this.selectedElement.cloneNode(true);
+        const newId = 'el_' + Math.random().toString(36).substr(2, 8);
+        clone.id = newId;
+        
+        // Offset the clone
+        const x = parseFloat(clone.getAttribute('x') || clone.getAttribute('cx') || 0);
+        const y = parseFloat(clone.getAttribute('y') || clone.getAttribute('cy') || 0);
+        
+        if (clone.hasAttribute('x')) {
+            clone.setAttribute('x', x + 20);
+        } else if (clone.hasAttribute('cx')) {
+            clone.setAttribute('cx', x + 20);
+        }
+        
+        if (clone.hasAttribute('y')) {
+            clone.setAttribute('y', y + 20);
+        } else if (clone.hasAttribute('cy')) {
+            clone.setAttribute('cy', y + 20);
+        }
+        
+        this.svgElement.appendChild(clone);
+        this.selectElement(newId);
+        this.saveHistory();
+    },
 
-        activeObject.clone((cloned) => {
-            cloned.set({
-                left: cloned.left + 20,
-                top: cloned.top + 20,
-                evented: true
-            });
+    // Get element by ID
+    getElementById(id) {
+        return this.svgElement.getElementById(id);
+    },
 
-            if (cloned.type === 'activeSelection') {
-                cloned.canvas = this.canvas;
-                cloned.forEachObject((obj) => {
-                    this.canvas.add(obj);
-                });
-                cloned.setCoords();
-            } else {
-                this.canvas.add(cloned);
+    // Update SVG content from server
+    updateSVG(svgContent) {
+        if (!svgContent) return;
+        
+        // Extract content from full SVG if needed
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+        const svg = doc.querySelector('svg');
+        
+        if (svg) {
+            // Update dimensions if present
+            const width = svg.getAttribute('width');
+            const height = svg.getAttribute('height');
+            if (width && height) {
+                this.updateCanvasSize(parseInt(width), parseInt(height));
             }
-
-            this.canvas.setActiveObject(cloned);
-            this.canvas.requestRenderAll();
-        });
-    },
-
-    selectAll() {
-        const allObjects = this.canvas.getObjects();
-        if (allObjects.length === 0) return;
-
-        const selection = new fabric.ActiveSelection(allObjects, {
-            canvas: this.canvas
-        });
-        this.canvas.setActiveObject(selection);
-        this.canvas.requestRenderAll();
-    },
-
-    setCanvasSize(width, height) {
-        this.canvasWidth = width;
-        this.canvasHeight = height;
-        this.canvas.setWidth(width);
-        this.canvas.setHeight(height);
-        this.canvas.requestRenderAll();
-        this.updateCanvasInfo();
+            
+            // Update background from style
+            const bgMatch = svg.getAttribute('style')?.match(/background-color:\s*([^;]+)/);
+            if (bgMatch) {
+                this.setBackground(bgMatch[1]);
+            }
+            
+            // Update content
+            this.svgElement.innerHTML = svg.innerHTML;
+        } else {
+            // Just set as inner content
+            this.svgElement.innerHTML = svgContent;
+        }
+        
+        this.clearSelection();
         this.saveHistory();
     },
 
-    setBackgroundColor(color) {
-        this.backgroundColor = color;
-        this.canvas.setBackgroundColor(color, () => {
-            this.canvas.requestRenderAll();
-            this.saveHistory();
-        });
+    // Set complete state from server
+    setState(state) {
+        if (!state) return;
+        
+        if (state.width && state.height) {
+            this.updateCanvasSize(state.width, state.height);
+        }
+        
+        if (state.background) {
+            this.setBackground(state.background);
+        }
+        
+        if (state.svg) {
+            this.updateSVG(state.svg);
+        }
     },
 
-    clear() {
-        this.canvas.clear();
-        this.canvas.setBackgroundColor(this.backgroundColor);
-        this.canvas.requestRenderAll();
-        this.saveHistory();
-    },
-
-    toDataURL(options = {}) {
-        const defaults = {
-            format: 'png',
-            quality: 1,
-            multiplier: 2
-        };
-        return this.canvas.toDataURL({ ...defaults, ...options });
-    },
-
-    toSVG() {
-        return this.canvas.toSVG();
-    },
-
-    toJSON() {
-        return this.canvas.toJSON(['id', 'selectable', 'hasControls']);
-    },
-
-    loadFromJSON(json) {
-        return new Promise((resolve) => {
-            this.canvas.loadFromJSON(json, () => {
-                this.canvas.requestRenderAll();
-                this.canvasWidth = this.canvas.width;
-                this.canvasHeight = this.canvas.height;
-                this.backgroundColor = this.canvas.backgroundColor || '#FFFFFF';
-                this.updateCanvasInfo();
-                this.history = [];
-                this.historyIndex = -1;
-                this.saveHistory();
-                resolve();
-            });
-        });
-    },
-
+    // Get current state
     getState() {
         return {
-            width: this.canvasWidth,
-            height: this.canvasHeight,
-            background: this.backgroundColor,
-            objects: this.canvas.toJSON(['id', 'selectable', 'hasControls']).objects
+            width: this.width,
+            height: this.height,
+            background: this.background,
+            svg: this.getSVG()
         };
     },
 
+    // Get SVG content
+    getSVG() {
+        const svg = this.svgElement.cloneNode(true);
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        return svg.outerHTML;
+    },
+
+    // Get inner SVG content (without wrapper)
+    getInnerSVG() {
+        return this.svgElement.innerHTML;
+    },
+
+    // Clear canvas
+    clear() {
+        this.svgElement.innerHTML = '';
+        this.clearSelection();
+        this.saveHistory();
+    },
+
+    // Export to data URL
+    toDataURL(format = 'png', scale = 2) {
+        return new Promise((resolve, reject) => {
+            const svg = this.svgElement;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = this.width * scale;
+            canvas.height = this.height * scale;
+            
+            // Draw background
+            ctx.fillStyle = this.background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Convert SVG to image
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                
+                const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+                resolve(canvas.toDataURL(mimeType, 0.9));
+            };
+            img.onerror = reject;
+            img.src = url;
+        });
+    },
+
+    // Capture screenshot for AI review
     captureScreenshot() {
-        return this.canvas.toDataURL({
-            format: 'png',
-            quality: 0.9,
-            multiplier: 1
-        });
+        return this.toDataURL('png', 1);
     },
 
-    setTool(toolName) {
-        this.currentTool = toolName;
-
-        document.querySelectorAll('.tool-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.tool === toolName) {
-                btn.classList.add('active');
-            }
-        });
-
-        this.canvas.isDrawingMode = false;
-        this.canvas.selection = true;
-        this.canvas.defaultCursor = 'default';
-
-        if (toolName === 'hand') {
-            this.canvas.selection = false;
-            this.canvas.defaultCursor = 'grab';
-        } else if (toolName === 'pencil' || toolName === 'pen') {
-            this.canvas.isDrawingMode = true;
-            this.canvas.freeDrawingBrush.width = 2;
-            this.canvas.freeDrawingBrush.color = '#000000';
-        }
-    },
-
-    addObject(fabricObject) {
-        this.canvas.add(fabricObject);
-        this.canvas.setActiveObject(fabricObject);
-        this.canvas.requestRenderAll();
-    },
-
-    getObjectById(id) {
-        const objects = this.canvas.getObjects();
-        for (const obj of objects) {
-            if (obj.id === id) return obj;
-            if (obj.type === 'group' && obj._objects) {
-                const child = obj._objects.find(item => item.id === id);
-                if (child) return child;
-            }
-        }
-        return null;
-    },
-
-    removeObjectById(id) {
-        const obj = this.getObjectById(id);
-        if (obj) {
-            if (obj.group) {
-                obj.group.removeWithUpdate(obj);
-            } else {
-                this.canvas.remove(obj);
-            }
-            this.canvas.requestRenderAll();
-        }
-    },
-
-    updateObjectById(id, properties) {
-        const obj = this.getObjectById(id);
-        if (obj) {
-            obj.set(properties);
-            obj.setCoords();
-            if (obj.group) {
-                obj.group.addWithUpdate();
-            }
-            this.canvas.requestRenderAll();
-            this.saveHistory();
-        }
-    },
-
+    // Layer operations
     bringToFront() {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject) {
-            this.canvas.bringToFront(activeObject);
-            this.canvas.requestRenderAll();
-            this.saveHistory();
-        }
+        if (!this.selectedElement) return;
+        this.svgElement.appendChild(this.selectedElement);
+        this.saveHistory();
     },
 
     sendToBack() {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject) {
-            this.canvas.sendToBack(activeObject);
-            this.canvas.requestRenderAll();
-            this.saveHistory();
-        }
+        if (!this.selectedElement) return;
+        this.svgElement.insertBefore(this.selectedElement, this.svgElement.firstChild);
+        this.saveHistory();
     },
 
     bringForward() {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject) {
-            this.canvas.bringForward(activeObject);
-            this.canvas.requestRenderAll();
+        if (!this.selectedElement) return;
+        const next = this.selectedElement.nextElementSibling;
+        if (next) {
+            this.svgElement.insertBefore(next, this.selectedElement);
             this.saveHistory();
         }
     },
 
     sendBackward() {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject) {
-            this.canvas.sendBackwards(activeObject);
-            this.canvas.requestRenderAll();
+        if (!this.selectedElement) return;
+        const prev = this.selectedElement.previousElementSibling;
+        if (prev) {
+            this.svgElement.insertBefore(this.selectedElement, prev);
             this.saveHistory();
         }
     }

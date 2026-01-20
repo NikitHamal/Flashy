@@ -1,0 +1,1062 @@
+/**
+ * Flashy Astro - Neobrutalist Design System
+ * 
+ * Design principles:
+ * - Bold black borders
+ * - Flat, vibrant colors
+ * - No gradients or shadows (except for depth)
+ * - Stark contrasts
+ * - Raw, honest aesthetics
+ */
+
+/* =============================================================================
+   CSS VARIABLES
+   ============================================================================= */
+
+:root {
+    /* Primary Colors */
+    --color-bg: #fffef5;
+    --color-surface: #ffffff;
+    --color-text: #1a1a1a;
+    --color-text-muted: #666666;
+    
+    /* Accent Colors */
+    --color-primary: #ff6b35;
+    --color-primary-hover: #e55a2b;
+    --color-secondary: #4ecdc4;
+    --color-accent: #ffe66d;
+    
+    /* Semantic Colors */
+    --color-success: #2ecc71;
+    --color-warning: #f1c40f;
+    --color-danger: #e74c3c;
+    --color-info: #3498db;
+    
+    /* Planet Colors (Vedic) */
+    --color-sun: #ff8c00;
+    --color-moon: #c0c0c0;
+    --color-mars: #dc143c;
+    --color-mercury: #32cd32;
+    --color-jupiter: #ffd700;
+    --color-venus: #ff69b4;
+    --color-saturn: #4169e1;
+    --color-rahu: #708090;
+    --color-ketu: #8b4513;
+    
+    /* Borders */
+    --border-width: 3px;
+    --border-color: #1a1a1a;
+    --border-radius: 0;
+    
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    
+    /* Typography */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    
+    /* Layout */
+    --sidebar-width: 280px;
+    --chat-sidebar-width: 380px;
+    --header-height: 56px;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-bg: #1a1a1a;
+        --color-surface: #2a2a2a;
+        --color-text: #f5f5f5;
+        --color-text-muted: #999999;
+        --border-color: #f5f5f5;
+    }
+}
+
+/* =============================================================================
+   RESET & BASE
+   ============================================================================= */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+input, select, textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* =============================================================================
+   LAYOUT
+   ============================================================================= */
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Left Sidebar */
+.sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: var(--color-surface);
+    border-right: var(--border-width) solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-header {
+    padding: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.brand .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.sidebar-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--color-text-muted);
+}
+
+.kundali-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.kundali-item {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--border-color);
+    background: var(--color-bg);
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.1s;
+}
+
+.kundali-item:hover {
+    background: var(--color-accent);
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--border-color);
+}
+
+.kundali-item.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.kundali-item-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.kundali-item-meta {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.kundali-item.active .kundali-item-meta {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.sidebar-footer {
+    padding: var(--spacing-md);
+    border-top: var(--border-width) solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--border-color);
+    font-weight: 500;
+    transition: background-color 0.1s;
+}
+
+.nav-link:hover {
+    background: var(--color-secondary);
+}
+
+/* Main Content */
+.main-content {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--color-bg);
+}
+
+/* Empty State */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: var(--spacing-xl);
+    text-align: center;
+}
+
+.empty-icon {
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-accent);
+    border: var(--border-width) solid var(--border-color);
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-icon .material-symbols-outlined {
+    font-size: 64px;
+}
+
+.empty-state h1 {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: var(--spacing-sm);
+}
+
+.empty-state p {
+    color: var(--color-text-muted);
+    max-width: 400px;
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-actions {
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--color-surface);
+    border: 2px solid var(--border-color);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    max-width: 500px;
+}
+
+/* Right Chat Sidebar */
+.chat-sidebar {
+    width: var(--chat-sidebar-width);
+    min-width: var(--chat-sidebar-width);
+    background: var(--color-surface);
+    border-left: var(--border-width) solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    padding: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 700;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+}
+
+.welcome-message {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--color-accent);
+    border: var(--border-width) solid var(--border-color);
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    border: 2px solid var(--border-color);
+}
+
+.message-content p {
+    margin-bottom: var(--spacing-sm);
+}
+
+.message-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Chat Messages */
+.chat-message {
+    margin-bottom: var(--spacing-md);
+}
+
+.chat-message.user {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.chat-message.user .message-bubble {
+    background: var(--color-primary);
+    color: white;
+    border: var(--border-width) solid var(--border-color);
+    padding: var(--spacing-md);
+    max-width: 85%;
+}
+
+.chat-message.assistant {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.chat-message.assistant .message-bubble {
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--border-color);
+    padding: var(--spacing-md);
+    flex: 1;
+}
+
+.tool-call-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-secondary);
+    border: 2px solid var(--border-color);
+    font-size: 12px;
+    font-weight: 600;
+    margin: var(--spacing-xs) 0;
+}
+
+.thought-block {
+    padding: var(--spacing-sm);
+    background: var(--color-bg);
+    border-left: 4px solid var(--color-text-muted);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+    font-style: italic;
+}
+
+/* Chat Input */
+.chat-input-area {
+    padding: var(--spacing-md);
+    border-top: var(--border-width) solid var(--border-color);
+}
+
+.input-wrapper {
+    display: flex;
+    gap: var(--spacing-sm);
+    border: var(--border-width) solid var(--border-color);
+    background: var(--color-bg);
+}
+
+.input-wrapper textarea {
+    flex: 1;
+    padding: var(--spacing-md);
+    border: none;
+    background: transparent;
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+}
+
+.input-wrapper textarea:focus {
+    outline: none;
+}
+
+.btn-send {
+    padding: var(--spacing-md);
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-send:hover {
+    background: var(--color-primary-hover);
+}
+
+.input-hints {
+    margin-top: var(--spacing-sm);
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+/* =============================================================================
+   KUNDALI VIEW
+   ============================================================================= */
+
+.kundali-view {
+    padding: var(--spacing-lg);
+}
+
+.kundali-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.kundali-info h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: var(--spacing-xs);
+}
+
+.kundali-meta {
+    color: var(--color-text-muted);
+}
+
+.meta-sep {
+    margin: 0 var(--spacing-sm);
+}
+
+.kundali-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+/* Tabs */
+.kundali-tabs {
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--border-color);
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: var(--border-width) solid var(--border-color);
+    overflow-x: auto;
+}
+
+.tab-btn {
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-weight: 600;
+    border-right: var(--border-width) solid var(--border-color);
+    white-space: nowrap;
+}
+
+.tab-btn:last-child {
+    border-right: none;
+}
+
+.tab-btn:hover {
+    background: var(--color-bg);
+}
+
+.tab-btn.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.tab-content {
+    padding: var(--spacing-lg);
+}
+
+.tab-content.hidden {
+    display: none;
+}
+
+/* Overview Grid */
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.overview-card {
+    padding: var(--spacing-lg);
+    background: var(--color-bg);
+    border: var(--border-width) solid var(--border-color);
+}
+
+.overview-card h3 {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.info-value {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* Planets Grid */
+.planets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.planet-card {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.planet-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    border: 2px solid var(--border-color);
+}
+
+.planet-info {
+    flex: 1;
+}
+
+.planet-name {
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.planet-sign {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+/* Planet Colors */
+.planet-icon.sun { background: var(--color-sun); color: white; }
+.planet-icon.moon { background: var(--color-moon); color: black; }
+.planet-icon.mars { background: var(--color-mars); color: white; }
+.planet-icon.mercury { background: var(--color-mercury); color: white; }
+.planet-icon.jupiter { background: var(--color-jupiter); color: black; }
+.planet-icon.venus { background: var(--color-venus); color: white; }
+.planet-icon.saturn { background: var(--color-saturn); color: white; }
+.planet-icon.rahu { background: var(--color-rahu); color: white; }
+.planet-icon.ketu { background: var(--color-ketu); color: white; }
+
+/* Chart Container */
+.chart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.chart-style-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: var(--spacing-lg);
+    border: var(--border-width) solid var(--border-color);
+}
+
+.style-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-weight: 600;
+}
+
+.style-btn:first-child {
+    border-right: var(--border-width) solid var(--border-color);
+}
+
+.style-btn.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.chart-svg {
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 1;
+    border: var(--border-width) solid var(--border-color);
+    background: var(--color-bg);
+}
+
+.chart-legend {
+    margin-top: var(--spacing-lg);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    justify-content: center;
+}
+
+/* Dasha Timeline */
+.dashas-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+.current-period {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-accent);
+    border: 2px solid var(--border-color);
+    font-weight: 600;
+}
+
+.dasha-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.dasha-period {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.dasha-period.current {
+    background: var(--color-accent);
+}
+
+.dasha-planet {
+    width: 60px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.dasha-dates {
+    flex: 1;
+    font-size: 13px;
+}
+
+.dasha-duration {
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+/* Yogas List */
+.yogas-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.yoga-card {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--border-color);
+}
+
+.yoga-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm);
+}
+
+.yoga-name {
+    font-weight: 700;
+}
+
+.yoga-badge {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid currentColor;
+}
+
+.yoga-badge.benefic {
+    color: var(--color-success);
+    background: rgba(46, 204, 113, 0.1);
+}
+
+.yoga-badge.malefic {
+    color: var(--color-danger);
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.yoga-badge.neutral {
+    color: var(--color-info);
+    background: rgba(52, 152, 219, 0.1);
+}
+
+.yoga-description {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.yoga-effects {
+    font-size: 13px;
+}
+
+.yoga-strength {
+    margin-top: var(--spacing-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.strength-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--color-bg);
+    border: 2px solid var(--border-color);
+}
+
+.strength-fill {
+    height: 100%;
+    background: var(--color-primary);
+}
+
+/* =============================================================================
+   BUTTONS
+   ============================================================================= */
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--color-primary);
+    color: white;
+    font-weight: 700;
+    border: var(--border-width) solid var(--border-color);
+    transition: transform 0.1s;
+}
+
+.btn-primary:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--border-color);
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-surface);
+    font-weight: 600;
+    border: var(--border-width) solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--color-bg);
+}
+
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-danger);
+    color: white;
+    font-weight: 600;
+    border: var(--border-width) solid var(--border-color);
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--border-color);
+}
+
+.btn-icon:hover {
+    background: var(--color-bg);
+}
+
+/* =============================================================================
+   MODAL
+   ============================================================================= */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--border-color);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-small {
+    max-width: 400px;
+}
+
+.modal-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.btn-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-close:hover {
+    background: var(--color-bg);
+}
+
+.modal-body {
+    padding: var(--spacing-lg);
+}
+
+.modal-footer {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-top: var(--border-width) solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+}
+
+/* =============================================================================
+   FORMS
+   ============================================================================= */
+
+.form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--border-color);
+    background: var(--color-bg);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.form-row {
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--border-color);
+    border-top: none;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.suggestion-item {
+    padding: var(--spacing-md);
+    cursor: pointer;
+}
+
+.suggestion-item:hover {
+    background: var(--color-bg);
+}
+
+/* =============================================================================
+   UTILITIES
+   ============================================================================= */
+
+.hidden {
+    display: none !important;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.scrollbar-hide::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-hide::-webkit-scrollbar-thumb {
+    background: var(--color-text-muted);
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 1024px) {
+    .chat-sidebar {
+        width: 320px;
+        min-width: 320px;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        max-height: 30vh;
+        border-right: none;
+        border-bottom: var(--border-width) solid var(--border-color);
+    }
+    
+    .main-content {
+        flex: 1;
+    }
+    
+    .chat-sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        min-width: 100%;
+        height: 50vh;
+        border-left: none;
+        border-top: var(--border-width) solid var(--border-color);
+        transform: translateY(calc(100% - 56px));
+        transition: transform 0.3s;
+    }
+    
+    .chat-sidebar.expanded {
+        transform: translateY(0);
+    }
+    
+    .kundali-header {
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+    
+    .kundali-actions {
+        flex-wrap: wrap;
+    }
+    
+    .tab-buttons {
+        overflow-x: auto;
+    }
+    
+    .overview-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}

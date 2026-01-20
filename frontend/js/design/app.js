@@ -1,14 +1,12 @@
 /**
- * Design App Module
+ * Design App Module (SVG-based)
  * Main application controller for Flashy Designs
  */
 const DesignApp = {
-    sessionId: null,
     projectName: 'Untitled Design',
 
     async init() {
-        this.sessionId = this.generateSessionId();
-
+        // Initialize all modules
         DesignCanvas.init();
         DesignTools.init();
         DesignProperties.init();
@@ -18,13 +16,14 @@ const DesignApp = {
         this.setupProjectName();
         this.setupKeyboardShortcuts();
 
+        // Center the canvas
         DesignCanvas.zoomToFit();
 
-        console.log('[DesignApp] Initialized with session:', this.sessionId);
+        console.log('[DesignApp] Initialized with session:', DesignCanvas.sessionId);
     },
 
-    generateSessionId() {
-        return 'design_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    get sessionId() {
+        return DesignCanvas.sessionId;
     },
 
     setupProjectName() {
@@ -45,6 +44,7 @@ const DesignApp = {
 
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
+            // Skip if in input/textarea
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 if (e.key === 'Escape') {
                     e.target.blur();
@@ -52,57 +52,65 @@ const DesignApp = {
                 return;
             }
 
+            // Export modal
             if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
                 e.preventDefault();
                 DesignExport.showModal();
             }
 
+            // Import
             if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
                 e.preventDefault();
                 DesignExport.importJSON();
             }
 
+            // Reset zoom
             if ((e.ctrlKey || e.metaKey) && e.key === '0') {
                 e.preventDefault();
                 DesignCanvas.setZoom(1);
             }
 
+            // Zoom in
             if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
                 e.preventDefault();
                 DesignCanvas.zoomIn();
             }
 
+            // Zoom out
             if ((e.ctrlKey || e.metaKey) && e.key === '-') {
                 e.preventDefault();
                 DesignCanvas.zoomOut();
             }
 
-            if (e.key === '1') {
-                DesignCanvas.setZoom(1);
-            }
-
-            if (e.key === '2') {
-                DesignCanvas.zoomToFit();
-            }
-
-            if (e.key === 'g' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                const activeObject = DesignCanvas.canvas.getActiveObject();
-                if (activeObject && activeObject.type === 'activeSelection') {
-                    const objects = activeObject.getObjects();
-                    const ids = objects.map(obj => obj.id).filter(Boolean);
-                    if (ids.length > 1) {
-                        DesignTools.groupObjects(ids);
-                    }
+            // Quick zoom shortcuts
+            if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (e.key === '1') {
+                    DesignCanvas.setZoom(1);
+                }
+                if (e.key === '2') {
+                    DesignCanvas.zoomToFit();
                 }
             }
 
-            if (e.key === 'g' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+            // Layer shortcuts
+            if (e.key === '[' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                const activeObject = DesignCanvas.canvas.getActiveObject();
-                if (activeObject && activeObject.type === 'group' && activeObject.id) {
-                    DesignTools.ungroupObjects(activeObject.id);
-                }
+                DesignCanvas.sendBackward();
+            }
+
+            if (e.key === ']' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                DesignCanvas.bringForward();
+            }
+
+            if (e.key === '[' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+                e.preventDefault();
+                DesignCanvas.sendToBack();
+            }
+
+            if (e.key === ']' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+                e.preventDefault();
+                DesignCanvas.bringToFront();
             }
         });
     },
@@ -115,7 +123,7 @@ const DesignApp = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    session_id: this.sessionId,
+                    session_id: DesignCanvas.sessionId,
                     state: state
                 })
             });
@@ -126,11 +134,11 @@ const DesignApp = {
 
     async loadFromServer() {
         try {
-            const response = await fetch(`/design/canvas/${this.sessionId}`);
+            const response = await fetch(`/design/canvas/${DesignCanvas.sessionId}`);
             if (response.ok) {
                 const state = await response.json();
-                if (state && state.objects) {
-                    await DesignCanvas.loadFromJSON(state);
+                if (state) {
+                    DesignCanvas.setState(state);
                 }
             }
         } catch (error) {
@@ -139,6 +147,7 @@ const DesignApp = {
     }
 };
 
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     DesignApp.init();
 });
