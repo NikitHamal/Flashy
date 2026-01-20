@@ -1,15 +1,20 @@
 /**
- * Design Tools Module
- * Handles shape creation, drawing tools, and tool interactions
+ * Design Tools Module (SVG-based)
+ * Handles shape creation, drawing tools, and tool interactions for native SVG
  */
 const DesignTools = {
     currentTool: 'select',
     isDrawing: false,
     startPoint: null,
-    tempShape: null,
+    tempElement: null,
+    
+    // Default styling
     defaultFill: '#4ade80',
     defaultStroke: '#000000',
-    defaultStrokeWidth: 0,
+    defaultStrokeWidth: 3,
+    
+    // SVG namespace
+    svgNS: 'http://www.w3.org/2000/svg',
 
     init() {
         this.setupToolButtons();
@@ -31,329 +36,392 @@ const DesignTools = {
 
     setTool(toolName) {
         this.currentTool = toolName;
-        DesignCanvas.setTool(toolName);
-
+        
+        // Update UI
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === toolName);
+        });
+        
+        // Update cursor
+        const container = document.getElementById('canvas-container');
+        if (container) {
+            container.style.cursor = toolName === 'pan' ? 'grab' : 
+                                     toolName === 'select' ? 'default' : 'crosshair';
+        }
+        
+        // Trigger image upload for image tool
         if (toolName === 'image') {
             this.triggerImageUpload();
         }
     },
 
     setupCanvasDrawing() {
-        const canvas = DesignCanvas.canvas;
-        if (!canvas) return;
-
-        canvas.on('mouse:down', (opt) => this.onMouseDown(opt));
-        canvas.on('mouse:move', (opt) => this.onMouseMove(opt));
-        canvas.on('mouse:up', (opt) => this.onMouseUp(opt));
+        const svg = document.getElementById('design-svg');
+        if (!svg) return;
+        
+        svg.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        svg.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        svg.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        svg.addEventListener('mouseleave', (e) => this.onMouseUp(e));
     },
 
-    onMouseDown(opt) {
-        if (this.currentTool === 'select' || this.currentTool === 'hand') return;
-        if (opt.target) return;
+    getMousePosition(e) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return { x: 0, y: 0 };
+        
+        const rect = svg.getBoundingClientRect();
+        const zoom = DesignCanvas?.zoom || 1;
+        
+        return {
+            x: (e.clientX - rect.left) / zoom,
+            y: (e.clientY - rect.top) / zoom
+        };
+    },
 
-        const canvas = DesignCanvas.canvas;
-        const pointer = canvas.getPointer(opt.e);
-
+    onMouseDown(e) {
+        // Skip for select, pan tools or when clicking on existing elements
+        if (this.currentTool === 'select' || this.currentTool === 'pan') return;
+        if (e.target !== document.getElementById('design-svg')) return;
+        
+        const point = this.getMousePosition(e);
         this.isDrawing = true;
-        this.startPoint = { x: pointer.x, y: pointer.y };
-
-        this.createTempShape(pointer);
+        this.startPoint = point;
+        
+        this.createTempElement(point);
     },
 
-    onMouseMove(opt) {
-        if (!this.isDrawing || !this.tempShape) return;
-
-        const canvas = DesignCanvas.canvas;
-        const pointer = canvas.getPointer(opt.e);
-
-        this.updateTempShape(pointer);
+    onMouseMove(e) {
+        if (!this.isDrawing || !this.tempElement) return;
+        
+        const point = this.getMousePosition(e);
+        this.updateTempElement(point);
     },
 
-    onMouseUp(opt) {
+    onMouseUp(e) {
         if (!this.isDrawing) return;
-
+        
         this.isDrawing = false;
-
-        if (this.tempShape) {
-            const width = Math.abs(this.tempShape.width || this.tempShape.radius * 2 || 0);
-            const height = Math.abs(this.tempShape.height || this.tempShape.radius * 2 || 0);
-
-            if (width < 5 && height < 5) {
-                DesignCanvas.canvas.remove(this.tempShape);
-
+        
+        if (this.tempElement) {
+            // Check if shape is too small (click without drag)
+            const bbox = this.tempElement.getBBox();
+            
+            if (bbox.width < 5 && bbox.height < 5) {
+                // Remove tiny temp element
+                this.tempElement.remove();
+                
+                // Create default-sized shape at click position
                 if (this.currentTool === 'text') {
                     this.createText(this.startPoint.x, this.startPoint.y);
                 } else {
                     this.createDefaultShape(this.startPoint.x, this.startPoint.y);
                 }
             } else {
-                this.tempShape.setCoords();
-                DesignCanvas.canvas.setActiveObject(this.tempShape);
+                // Keep the drawn shape and select it
+                DesignCanvas.selectElement(this.tempElement.id);
                 DesignCanvas.saveHistory();
             }
         }
-
-        this.tempShape = null;
+        
+        this.tempElement = null;
         this.startPoint = null;
-
+        
+        // Return to select tool
         this.setTool('select');
     },
 
-    createTempShape(pointer) {
-        const canvas = DesignCanvas.canvas;
-        let shape = null;
-
-        const commonProps = {
-            left: pointer.x,
-            top: pointer.y,
-            fill: this.defaultFill,
-            stroke: this.defaultStroke,
-            strokeWidth: this.defaultStrokeWidth,
-            originX: 'left',
-            originY: 'top',
-            id: this.generateId()
-        };
-
+    createTempElement(point) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return;
+        
+        const id = this.generateId();
+        let element = null;
+        
         switch (this.currentTool) {
+            case 'rect':
             case 'rectangle':
-                shape = new fabric.Rect({
-                    ...commonProps,
-                    width: 0,
-                    height: 0,
-                    rx: 0,
-                    ry: 0
-                });
+                element = document.createElementNS(this.svgNS, 'rect');
+                element.setAttribute('x', point.x);
+                element.setAttribute('y', point.y);
+                element.setAttribute('width', 0);
+                element.setAttribute('height', 0);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'circle':
-                shape = new fabric.Circle({
-                    ...commonProps,
-                    radius: 0,
-                    originX: 'center',
-                    originY: 'center'
-                });
+                element = document.createElementNS(this.svgNS, 'circle');
+                element.setAttribute('cx', point.x);
+                element.setAttribute('cy', point.y);
+                element.setAttribute('r', 0);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
-            case 'triangle':
-                shape = new fabric.Triangle({
-                    ...commonProps,
-                    width: 0,
-                    height: 0
-                });
+                
+            case 'ellipse':
+                element = document.createElementNS(this.svgNS, 'ellipse');
+                element.setAttribute('cx', point.x);
+                element.setAttribute('cy', point.y);
+                element.setAttribute('rx', 0);
+                element.setAttribute('ry', 0);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'line':
-                shape = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
-                    stroke: this.defaultStroke || '#000000',
-                    strokeWidth: this.defaultStrokeWidth || 2,
-                    id: this.generateId()
-                });
+                element = document.createElementNS(this.svgNS, 'line');
+                element.setAttribute('x1', point.x);
+                element.setAttribute('y1', point.y);
+                element.setAttribute('x2', point.x);
+                element.setAttribute('y2', point.y);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth || 2);
                 break;
-
+                
+            case 'triangle':
+                element = document.createElementNS(this.svgNS, 'polygon');
+                element.setAttribute('points', `${point.x},${point.y} ${point.x},${point.y} ${point.x},${point.y}`);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
+                break;
+                
             case 'polygon':
-                shape = new fabric.Polygon(this.createPolygonPoints(pointer, 0, 6), {
-                    ...commonProps,
-                    originX: 'center',
-                    originY: 'center'
-                });
+                element = document.createElementNS(this.svgNS, 'polygon');
+                element.setAttribute('points', this.createPolygonPoints(point, 0, 6));
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'star':
-                shape = new fabric.Polygon(this.createStarPoints(pointer, 0, 0, 5), {
-                    ...commonProps,
-                    originX: 'center',
-                    originY: 'center'
-                });
+                element = document.createElementNS(this.svgNS, 'polygon');
+                element.setAttribute('points', this.createStarPoints(point, 0, 0, 5));
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'text':
+                // Don't create temp element for text, will create on mouse up
                 return;
-
+                
             default:
                 return;
         }
-
-        if (shape) {
-            this.tempShape = shape;
-            canvas.add(shape);
-            canvas.requestRenderAll();
+        
+        if (element) {
+            element.id = id;
+            this.tempElement = element;
+            svg.appendChild(element);
         }
     },
 
-    updateTempShape(pointer) {
-        if (!this.tempShape || !this.startPoint) return;
-
-        const canvas = DesignCanvas.canvas;
-        const dx = pointer.x - this.startPoint.x;
-        const dy = pointer.y - this.startPoint.y;
-
+    updateTempElement(point) {
+        if (!this.tempElement || !this.startPoint) return;
+        
+        const dx = point.x - this.startPoint.x;
+        const dy = point.y - this.startPoint.y;
+        
         switch (this.currentTool) {
+            case 'rect':
             case 'rectangle':
-            case 'triangle':
-                this.tempShape.set({
-                    width: Math.abs(dx),
-                    height: Math.abs(dy),
-                    left: dx > 0 ? this.startPoint.x : pointer.x,
-                    top: dy > 0 ? this.startPoint.y : pointer.y
-                });
+                this.tempElement.setAttribute('x', dx > 0 ? this.startPoint.x : point.x);
+                this.tempElement.setAttribute('y', dy > 0 ? this.startPoint.y : point.y);
+                this.tempElement.setAttribute('width', Math.abs(dx));
+                this.tempElement.setAttribute('height', Math.abs(dy));
                 break;
-
+                
             case 'circle':
                 const radius = Math.sqrt(dx * dx + dy * dy) / 2;
-                this.tempShape.set({
-                    radius: radius,
-                    left: this.startPoint.x + dx / 2,
-                    top: this.startPoint.y + dy / 2
-                });
+                this.tempElement.setAttribute('cx', this.startPoint.x + dx / 2);
+                this.tempElement.setAttribute('cy', this.startPoint.y + dy / 2);
+                this.tempElement.setAttribute('r', radius);
                 break;
-
+                
+            case 'ellipse':
+                this.tempElement.setAttribute('cx', this.startPoint.x + dx / 2);
+                this.tempElement.setAttribute('cy', this.startPoint.y + dy / 2);
+                this.tempElement.setAttribute('rx', Math.abs(dx) / 2);
+                this.tempElement.setAttribute('ry', Math.abs(dy) / 2);
+                break;
+                
             case 'line':
-                this.tempShape.set({
-                    x2: pointer.x,
-                    y2: pointer.y
-                });
+                this.tempElement.setAttribute('x2', point.x);
+                this.tempElement.setAttribute('y2', point.y);
                 break;
-
+                
+            case 'triangle':
+                // Equilateral-ish triangle
+                const width = Math.abs(dx);
+                const height = Math.abs(dy);
+                const baseX = dx > 0 ? this.startPoint.x : point.x;
+                const baseY = dy > 0 ? this.startPoint.y + height : this.startPoint.y;
+                const topX = baseX + width / 2;
+                const topY = dy > 0 ? this.startPoint.y : this.startPoint.y + height;
+                this.tempElement.setAttribute('points', 
+                    `${topX},${topY} ${baseX},${baseY} ${baseX + width},${baseY}`);
+                break;
+                
             case 'polygon':
                 const polyRadius = Math.sqrt(dx * dx + dy * dy) / 2;
-                this.tempShape.set({
-                    points: this.createPolygonPoints({ x: this.startPoint.x, y: this.startPoint.y }, polyRadius, 6),
-                    left: this.startPoint.x,
-                    top: this.startPoint.y
-                });
+                const polyCenter = { x: this.startPoint.x + dx / 2, y: this.startPoint.y + dy / 2 };
+                this.tempElement.setAttribute('points', this.createPolygonPoints(polyCenter, polyRadius, 6));
                 break;
-
+                
             case 'star':
-                const outerRadius = Math.sqrt(dx * dx + dy * dy) / 2;
-                const innerRadius = outerRadius * 0.4;
-                this.tempShape.set({
-                    points: this.createStarPoints({ x: this.startPoint.x, y: this.startPoint.y }, outerRadius, innerRadius, 5),
-                    left: this.startPoint.x,
-                    top: this.startPoint.y
-                });
+                const starOuterRadius = Math.sqrt(dx * dx + dy * dy) / 2;
+                const starInnerRadius = starOuterRadius * 0.4;
+                const starCenter = { x: this.startPoint.x + dx / 2, y: this.startPoint.y + dy / 2 };
+                this.tempElement.setAttribute('points', this.createStarPoints(starCenter, starOuterRadius, starInnerRadius, 5));
                 break;
         }
-
-        this.tempShape.setCoords();
-        canvas.requestRenderAll();
     },
 
     createDefaultShape(x, y) {
-        const canvas = DesignCanvas.canvas;
-        let shape = null;
-
-        const commonProps = {
-            left: x,
-            top: y,
-            fill: this.defaultFill,
-            stroke: this.defaultStroke,
-            strokeWidth: this.defaultStrokeWidth,
-            id: this.generateId()
-        };
-
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const id = this.generateId();
+        let element = null;
+        
         switch (this.currentTool) {
+            case 'rect':
             case 'rectangle':
-                shape = new fabric.Rect({
-                    ...commonProps,
-                    width: 100,
-                    height: 100,
-                    rx: 0,
-                    ry: 0
-                });
+                element = document.createElementNS(this.svgNS, 'rect');
+                element.setAttribute('x', x);
+                element.setAttribute('y', y);
+                element.setAttribute('width', 100);
+                element.setAttribute('height', 100);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'circle':
-                shape = new fabric.Circle({
-                    ...commonProps,
-                    radius: 50
-                });
+                element = document.createElementNS(this.svgNS, 'circle');
+                element.setAttribute('cx', x + 50);
+                element.setAttribute('cy', y + 50);
+                element.setAttribute('r', 50);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
-            case 'triangle':
-                shape = new fabric.Triangle({
-                    ...commonProps,
-                    width: 100,
-                    height: 100
-                });
+                
+            case 'ellipse':
+                element = document.createElementNS(this.svgNS, 'ellipse');
+                element.setAttribute('cx', x + 60);
+                element.setAttribute('cy', y + 40);
+                element.setAttribute('rx', 60);
+                element.setAttribute('ry', 40);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'line':
-                shape = new fabric.Line([x, y, x + 100, y], {
-                    stroke: this.defaultStroke || '#000000',
-                    strokeWidth: 2,
-                    id: this.generateId()
-                });
+                element = document.createElementNS(this.svgNS, 'line');
+                element.setAttribute('x1', x);
+                element.setAttribute('y1', y);
+                element.setAttribute('x2', x + 100);
+                element.setAttribute('y2', y);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth || 2);
                 break;
-
+                
+            case 'triangle':
+                element = document.createElementNS(this.svgNS, 'polygon');
+                element.setAttribute('points', `${x + 50},${y} ${x},${y + 100} ${x + 100},${y + 100}`);
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
+                break;
+                
             case 'polygon':
-                shape = new fabric.Polygon(this.createPolygonPoints({ x: x + 50, y: y + 50 }, 50, 6), {
-                    ...commonProps
-                });
+                element = document.createElementNS(this.svgNS, 'polygon');
+                element.setAttribute('points', this.createPolygonPoints({ x: x + 50, y: y + 50 }, 50, 6));
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
-
+                
             case 'star':
-                shape = new fabric.Polygon(this.createStarPoints({ x: x + 50, y: y + 50 }, 50, 20, 5), {
-                    ...commonProps
-                });
+                element = document.createElementNS(this.svgNS, 'polygon');
+                element.setAttribute('points', this.createStarPoints({ x: x + 50, y: y + 50 }, 50, 20, 5));
+                element.setAttribute('fill', this.defaultFill);
+                element.setAttribute('stroke', this.defaultStroke);
+                element.setAttribute('stroke-width', this.defaultStrokeWidth);
                 break;
         }
-
-        if (shape) {
-            canvas.add(shape);
-            canvas.setActiveObject(shape);
-            canvas.requestRenderAll();
+        
+        if (element) {
+            element.id = id;
+            svg.appendChild(element);
+            DesignCanvas.selectElement(id);
             DesignCanvas.saveHistory();
+            return id;
         }
+        
+        return null;
     },
 
     createText(x, y, text = 'Text') {
-        const canvas = DesignCanvas.canvas;
-        const textObj = new fabric.IText(text, {
-            left: x,
-            top: y,
-            fontFamily: 'Inter',
-            fontSize: 32,
-            fill: '#000000',
-            id: this.generateId()
-        });
-
-        canvas.add(textObj);
-        canvas.setActiveObject(textObj);
-        textObj.enterEditing();
-        textObj.selectAll();
-        canvas.requestRenderAll();
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const id = this.generateId();
+        const element = document.createElementNS(this.svgNS, 'text');
+        
+        element.id = id;
+        element.setAttribute('x', x);
+        element.setAttribute('y', y);
+        element.setAttribute('font-family', 'Inter, sans-serif');
+        element.setAttribute('font-size', '32');
+        element.setAttribute('fill', '#000000');
+        element.textContent = text;
+        
+        svg.appendChild(element);
+        DesignCanvas.selectElement(id);
         DesignCanvas.saveHistory();
+        
+        return id;
     },
 
     createPolygonPoints(center, radius, sides) {
+        if (radius <= 0) return `${center.x},${center.y}`;
+        
         const points = [];
         const angle = (2 * Math.PI) / sides;
         const startAngle = -Math.PI / 2;
-
+        
         for (let i = 0; i < sides; i++) {
-            points.push({
-                x: center.x + radius * Math.cos(startAngle + i * angle),
-                y: center.y + radius * Math.sin(startAngle + i * angle)
-            });
+            const x = center.x + radius * Math.cos(startAngle + i * angle);
+            const y = center.y + radius * Math.sin(startAngle + i * angle);
+            points.push(`${x},${y}`);
         }
-
-        return points;
+        
+        return points.join(' ');
     },
 
     createStarPoints(center, outerRadius, innerRadius, points) {
+        if (outerRadius <= 0) return `${center.x},${center.y}`;
+        if (innerRadius <= 0) innerRadius = outerRadius * 0.4;
+        
         const starPoints = [];
         const angle = Math.PI / points;
         const startAngle = -Math.PI / 2;
-
+        
         for (let i = 0; i < points * 2; i++) {
             const radius = i % 2 === 0 ? outerRadius : innerRadius;
-            starPoints.push({
-                x: center.x + radius * Math.cos(startAngle + i * angle),
-                y: center.y + radius * Math.sin(startAngle + i * angle)
-            });
+            const x = center.x + radius * Math.cos(startAngle + i * angle);
+            const y = center.y + radius * Math.sin(startAngle + i * angle);
+            starPoints.push(`${x},${y}`);
         }
-
-        return starPoints;
+        
+        return starPoints.join(' ');
     },
 
     triggerImageUpload() {
@@ -367,6 +435,9 @@ const DesignTools = {
             }
         };
         input.click();
+        
+        // Return to select after triggering
+        setTimeout(() => this.setTool('select'), 100);
     },
 
     addImageFromFile(file) {
@@ -378,27 +449,25 @@ const DesignTools = {
     },
 
     addImageFromURL(url, options = {}) {
-        fabric.Image.fromURL(url, (img) => {
-            const maxSize = Math.min(DesignCanvas.canvasWidth, DesignCanvas.canvasHeight) * 0.5;
-            const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
-
-            img.set({
-                left: options.x || DesignCanvas.canvasWidth / 2,
-                top: options.y || DesignCanvas.canvasHeight / 2,
-                originX: 'center',
-                originY: 'center',
-                scaleX: options.scaleX || scale,
-                scaleY: options.scaleY || scale,
-                id: this.generateId()
-            });
-
-            DesignCanvas.canvas.add(img);
-            DesignCanvas.canvas.setActiveObject(img);
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
-
-            this.setTool('select');
-        }, { crossOrigin: 'anonymous' });
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const id = this.generateId();
+        const element = document.createElementNS(this.svgNS, 'image');
+        
+        element.id = id;
+        element.setAttributeNS('http://www.w3.org/1999/xlink', 'href', url);
+        element.setAttribute('x', options.x || 100);
+        element.setAttribute('y', options.y || 100);
+        element.setAttribute('width', options.width || 200);
+        element.setAttribute('height', options.height || 200);
+        element.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        
+        svg.appendChild(element);
+        DesignCanvas.selectElement(id);
+        DesignCanvas.saveHistory();
+        
+        return id;
     },
 
     setupQuickActions() {
@@ -406,7 +475,7 @@ const DesignTools = {
         document.getElementById('btn-redo')?.addEventListener('click', () => DesignCanvas.redo());
         document.getElementById('btn-delete')?.addEventListener('click', () => DesignCanvas.deleteSelected());
         document.getElementById('btn-duplicate')?.addEventListener('click', () => DesignCanvas.duplicateSelected());
-
+        
         document.getElementById('btn-bring-front')?.addEventListener('click', () => DesignCanvas.bringToFront());
         document.getElementById('btn-bring-forward')?.addEventListener('click', () => DesignCanvas.bringForward());
         document.getElementById('btn-send-backward')?.addEventListener('click', () => DesignCanvas.sendBackward());
@@ -414,925 +483,573 @@ const DesignTools = {
     },
 
     generateId() {
-        return 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        return 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     },
 
-    addRectangle(x, y, width, height, fill, stroke, strokeWidth, opacity, rx, ry, angle, id) {
-        const rect = new fabric.Rect({
-            left: x,
-            top: y,
-            width: width,
-            height: height,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            rx: rx || 0,
-            ry: ry || 0,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
+    // =========================================================================
+    // PROGRAMMATIC SHAPE CREATION (for AI tools)
+    // =========================================================================
 
-        DesignCanvas.addObject(rect);
-        return rect.id;
+    addRectangle(x, y, width, height, fill, stroke, strokeWidth, opacity, rx, ry, id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'rect');
+        element.id = id || this.generateId();
+        element.setAttribute('x', x);
+        element.setAttribute('y', y);
+        element.setAttribute('width', width);
+        element.setAttribute('height', height);
+        element.setAttribute('fill', fill || this.defaultFill);
+        if (stroke) element.setAttribute('stroke', stroke);
+        if (strokeWidth) element.setAttribute('stroke-width', strokeWidth);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        if (rx) element.setAttribute('rx', rx);
+        if (ry) element.setAttribute('ry', ry);
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
     addCircle(x, y, radius, fill, stroke, strokeWidth, opacity, id) {
-        const circle = new fabric.Circle({
-            left: x,
-            top: y,
-            radius: radius,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(circle);
-        return circle.id;
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'circle');
+        element.id = id || this.generateId();
+        element.setAttribute('cx', x);
+        element.setAttribute('cy', y);
+        element.setAttribute('r', radius);
+        element.setAttribute('fill', fill || this.defaultFill);
+        if (stroke) element.setAttribute('stroke', stroke);
+        if (strokeWidth) element.setAttribute('stroke-width', strokeWidth);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
-    addEllipse(x, y, rx, ry, fill, stroke, strokeWidth, opacity, angle, id) {
-        const ellipse = new fabric.Ellipse({
-            left: x,
-            top: y,
-            rx: rx,
-            ry: ry,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(ellipse);
-        return ellipse.id;
-    },
-
-    addTriangle(x, y, width, height, fill, stroke, strokeWidth, opacity, angle, id) {
-        const triangle = new fabric.Triangle({
-            left: x,
-            top: y,
-            width: width,
-            height: height,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(triangle);
-        return triangle.id;
+    addEllipse(x, y, rx, ry, fill, stroke, strokeWidth, opacity, id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'ellipse');
+        element.id = id || this.generateId();
+        element.setAttribute('cx', x);
+        element.setAttribute('cy', y);
+        element.setAttribute('rx', rx);
+        element.setAttribute('ry', ry);
+        element.setAttribute('fill', fill || this.defaultFill);
+        if (stroke) element.setAttribute('stroke', stroke);
+        if (strokeWidth) element.setAttribute('stroke-width', strokeWidth);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
     addLine(x1, y1, x2, y2, stroke, strokeWidth, opacity, id) {
-        const line = new fabric.Line([x1, y1, x2, y2], {
-            stroke: stroke || '#000000',
-            strokeWidth: strokeWidth || 2,
-            opacity: opacity !== undefined ? opacity : 1,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(line);
-        return line.id;
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'line');
+        element.id = id || this.generateId();
+        element.setAttribute('x1', x1);
+        element.setAttribute('y1', y1);
+        element.setAttribute('x2', x2);
+        element.setAttribute('y2', y2);
+        element.setAttribute('stroke', stroke || '#000000');
+        element.setAttribute('stroke-width', strokeWidth || 2);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
-    addText(x, y, text, fontSize, fontFamily, fontWeight, fill, textAlign, opacity, angle, id) {
-        const textObj = new fabric.IText(text, {
-            left: x,
-            top: y,
-            text: text,
-            fontSize: fontSize || 24,
-            fontFamily: fontFamily || 'Inter',
-            fontWeight: fontWeight || 'normal',
-            fill: fill || '#000000',
-            textAlign: textAlign || 'left',
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(textObj);
-        return textObj.id;
+    addTextElement(x, y, text, fontSize, fontFamily, fontWeight, fill, textAnchor, opacity, id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'text');
+        element.id = id || this.generateId();
+        element.setAttribute('x', x);
+        element.setAttribute('y', y);
+        element.setAttribute('font-size', fontSize || 24);
+        element.setAttribute('font-family', fontFamily || 'Inter, sans-serif');
+        if (fontWeight) element.setAttribute('font-weight', fontWeight);
+        element.setAttribute('fill', fill || '#000000');
+        if (textAnchor) element.setAttribute('text-anchor', textAnchor);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        element.textContent = text;
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
-    addPolygon(x, y, radius, sides, fill, stroke, strokeWidth, opacity, angle, id) {
-        const points = this.createPolygonPoints({ x: 0, y: 0 }, radius, sides);
-        const polygon = new fabric.Polygon(points, {
-            left: x,
-            top: y,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(polygon);
-        return polygon.id;
+    addPolygon(points, fill, stroke, strokeWidth, opacity, id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'polygon');
+        element.id = id || this.generateId();
+        element.setAttribute('points', points);
+        element.setAttribute('fill', fill || this.defaultFill);
+        if (stroke) element.setAttribute('stroke', stroke);
+        if (strokeWidth) element.setAttribute('stroke-width', strokeWidth);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
-    addPolygonFromPoints(points, fill, stroke, strokeWidth, opacity, angle, id) {
-        if (!points || points.length === 0) return null;
-        const normalized = points.map(point => Array.isArray(point) ? point : [point.x, point.y]);
-        const xs = normalized.map(point => point[0]);
-        const ys = normalized.map(point => point[1]);
-        const minX = Math.min(...xs);
-        const minY = Math.min(...ys);
-        const adjusted = normalized.map(point => ({ x: point[0] - minX, y: point[1] - minY }));
-
-        const polygon = new fabric.Polygon(adjusted, {
-            left: minX,
-            top: minY,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(polygon);
-        return polygon.id;
+    addPath(d, fill, stroke, strokeWidth, opacity, id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = document.createElementNS(this.svgNS, 'path');
+        element.id = id || this.generateId();
+        element.setAttribute('d', d);
+        element.setAttribute('fill', fill || 'none');
+        if (stroke) element.setAttribute('stroke', stroke);
+        if (strokeWidth) element.setAttribute('stroke-width', strokeWidth);
+        if (opacity !== undefined) element.setAttribute('opacity', opacity);
+        
+        svg.appendChild(element);
+        return element.id;
     },
 
-    addStar(x, y, outerRadius, innerRadius, points, fill, stroke, strokeWidth, opacity, angle, id) {
-        const starPoints = this.createStarPoints({ x: 0, y: 0 }, outerRadius, innerRadius || outerRadius * 0.4, points || 5);
-        const star = new fabric.Polygon(starPoints, {
-            left: x,
-            top: y,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
+    // =========================================================================
+    // ELEMENT MODIFICATION
+    // =========================================================================
 
-        DesignCanvas.addObject(star);
-        return star.id;
-    },
-
-    addPath(path, fill, stroke, strokeWidth, opacity, angle, id) {
-        if (!path) return null;
-        const svgPath = new fabric.Path(path, {
-            left: 0,
-            top: 0,
-            fill: fill || this.defaultFill,
-            stroke: stroke || null,
-            strokeWidth: strokeWidth || 0,
-            opacity: opacity !== undefined ? opacity : 1,
-            angle: angle || 0,
-            id: id || this.generateId()
-        });
-
-        DesignCanvas.addObject(svgPath);
-        return svgPath.id;
-    },
-
-    addImage(url, x, y, width, height, opacity, angle, id) {
-        if (!url) return Promise.resolve(null);
-        return new Promise((resolve) => {
-            fabric.Image.fromURL(url, (img) => {
-                const props = {
-                    left: x,
-                    top: y,
-                    opacity: opacity !== undefined ? opacity : 1,
-                    angle: angle || 0,
-                    id: id || this.generateId()
-                };
-
-                if (width && height) {
-                    props.scaleX = width / img.width;
-                    props.scaleY = height / img.height;
-                } else if (width) {
-                    const scale = width / img.width;
-                    props.scaleX = scale;
-                    props.scaleY = scale;
-                } else if (height) {
-                    const scale = height / img.height;
-                    props.scaleX = scale;
-                    props.scaleY = scale;
+    modifyElement(id, properties) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (!element) return false;
+        
+        Object.entries(properties).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                // Handle special cases
+                if (key === 'text' && element.tagName === 'text') {
+                    element.textContent = value;
+                } else {
+                    // Convert camelCase to kebab-case for SVG attributes
+                    const attrName = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+                    element.setAttribute(attrName, value);
                 }
-
-                img.set(props);
-                DesignCanvas.addObject(img);
-                resolve(img.id);
-            }, { crossOrigin: 'anonymous' });
-        });
-    },
-
-    modifyObject(id, properties) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        const mappedProps = {};
-
-        if (properties.x !== undefined) mappedProps.left = properties.x;
-        if (properties.y !== undefined) mappedProps.top = properties.y;
-        if (properties.width !== undefined) {
-            if (obj.type === 'circle') {
-                mappedProps.radius = properties.width / 2;
-            } else {
-                mappedProps.width = properties.width;
             }
-        }
-        if (properties.height !== undefined) mappedProps.height = properties.height;
-        if (properties.fill !== undefined) mappedProps.fill = properties.fill;
-        if (properties.stroke !== undefined) mappedProps.stroke = properties.stroke;
-        if (properties.strokeWidth !== undefined) mappedProps.strokeWidth = properties.strokeWidth;
-        if (properties.opacity !== undefined) mappedProps.opacity = properties.opacity;
-        if (properties.angle !== undefined) mappedProps.angle = properties.angle;
-        if (properties.scaleX !== undefined) mappedProps.scaleX = properties.scaleX;
-        if (properties.scaleY !== undefined) mappedProps.scaleY = properties.scaleY;
-        if (properties.text !== undefined) mappedProps.text = properties.text;
-        if (properties.fontSize !== undefined) mappedProps.fontSize = properties.fontSize;
-        if (properties.fontFamily !== undefined) mappedProps.fontFamily = properties.fontFamily;
-        if (properties.fontWeight !== undefined) mappedProps.fontWeight = properties.fontWeight;
-        if (properties.fontStyle !== undefined) mappedProps.fontStyle = properties.fontStyle;
-        if (properties.textAlign !== undefined) mappedProps.textAlign = properties.textAlign;
-        if (properties.rx !== undefined) mappedProps.rx = properties.rx;
-        if (properties.ry !== undefined) mappedProps.ry = properties.ry;
-
-        DesignCanvas.updateObjectById(id, mappedProps);
+        });
+        
         return true;
     },
 
-    deleteObject(id) {
-        DesignCanvas.removeObjectById(id);
-        return true;
+    deleteElement(id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (element) {
+            element.remove();
+            return true;
+        }
+        return false;
     },
 
     clearCanvas() {
-        DesignCanvas.clear();
+        const svg = document.getElementById('design-svg');
+        if (svg) {
+            svg.innerHTML = '';
+        }
         return true;
     },
 
     setBackground(color) {
-        DesignCanvas.setBackgroundColor(color);
+        DesignCanvas.setBackground(color);
         return true;
     },
 
-    groupObjects(ids, groupId) {
-        const canvas = DesignCanvas.canvas;
-        const objects = ids.map(id => DesignCanvas.getObjectById(id)).filter(Boolean);
-
-        if (objects.length < 2) return null;
-
-        const group = new fabric.Group(objects, {
-            id: groupId || this.generateId()
-        });
-
-        objects.forEach(obj => canvas.remove(obj));
-        canvas.add(group);
-        canvas.setActiveObject(group);
-        canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-
-        return group.id;
-    },
-
-    ungroupObjects(groupId) {
-        const canvas = DesignCanvas.canvas;
-        const group = DesignCanvas.getObjectById(groupId);
-
-        if (!group || group.type !== 'group') return [];
-
-        const items = group._objects;
-        group._restoreObjectsState();
-        canvas.remove(group);
-
-        const ids = [];
-        items.forEach(item => {
-            if (!item.id) {
-                item.id = this.generateId();
-            }
-            ids.push(item.id);
-            canvas.add(item);
-        });
-
-        canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-
-        return ids;
-    },
-    duplicateObject(id, newId) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return null;
-
-        obj.clone((cloned) => {
-            cloned.set({
-                left: (cloned.left || 0) + 20,
-                top: (cloned.top || 0) + 20,
-                id: newId || this.generateId()
-            });
-
-            if (cloned.type === 'activeSelection') {
-                cloned.canvas = DesignCanvas.canvas;
-                cloned.forEachObject((child) => {
-                    child.id = this.generateId();
-                    DesignCanvas.canvas.add(child);
-                });
-                cloned.setCoords();
-            } else {
-                DesignCanvas.canvas.add(cloned);
-            }
-
-            DesignCanvas.canvas.setActiveObject(cloned);
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
-        });
-
-        return true;
-    },
+    // =========================================================================
+    // LAYER OPERATIONS
+    // =========================================================================
 
     bringToFront(id) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-        DesignCanvas.canvas.bringToFront(obj);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (element) {
+            svg.appendChild(element);
+            return true;
+        }
+        return false;
     },
 
     sendToBack(id) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-        DesignCanvas.canvas.sendToBack(obj);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (element) {
+            svg.insertBefore(element, svg.firstChild);
+            return true;
+        }
+        return false;
     },
 
     bringForward(id) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-        DesignCanvas.canvas.bringForward(obj);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (element && element.nextElementSibling) {
+            svg.insertBefore(element.nextElementSibling, element);
+            return true;
+        }
+        return false;
     },
 
     sendBackward(id) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-        DesignCanvas.canvas.sendBackwards(obj);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (element && element.previousElementSibling) {
+            svg.insertBefore(element, element.previousElementSibling);
+            return true;
+        }
+        return false;
     },
 
-    alignObjects(ids, alignment) {
-        const canvas = DesignCanvas.canvas;
-        const objects = ids.map(id => DesignCanvas.getObjectById(id)).filter(Boolean);
-        if (objects.length < 2) return false;
+    // =========================================================================
+    // DUPLICATION
+    // =========================================================================
 
-        const bounds = objects.map(obj => obj.getBoundingRect(true));
-        const minX = Math.min(...bounds.map(b => b.left));
-        const maxX = Math.max(...bounds.map(b => b.left + b.width));
-        const minY = Math.min(...bounds.map(b => b.top));
-        const maxY = Math.max(...bounds.map(b => b.top + b.height));
+    duplicateElement(id, newId, offsetX = 20, offsetY = 20) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return null;
+        
+        const element = svg.getElementById(id);
+        if (!element) return null;
+        
+        const clone = element.cloneNode(true);
+        clone.id = newId || this.generateId();
+        
+        // Offset the clone based on element type
+        const tagName = clone.tagName.toLowerCase();
+        
+        if (tagName === 'rect' || tagName === 'image' || tagName === 'text') {
+            const x = parseFloat(clone.getAttribute('x') || 0);
+            const y = parseFloat(clone.getAttribute('y') || 0);
+            clone.setAttribute('x', x + offsetX);
+            clone.setAttribute('y', y + offsetY);
+        } else if (tagName === 'circle' || tagName === 'ellipse') {
+            const cx = parseFloat(clone.getAttribute('cx') || 0);
+            const cy = parseFloat(clone.getAttribute('cy') || 0);
+            clone.setAttribute('cx', cx + offsetX);
+            clone.setAttribute('cy', cy + offsetY);
+        } else if (tagName === 'line') {
+            const x1 = parseFloat(clone.getAttribute('x1') || 0);
+            const y1 = parseFloat(clone.getAttribute('y1') || 0);
+            const x2 = parseFloat(clone.getAttribute('x2') || 0);
+            const y2 = parseFloat(clone.getAttribute('y2') || 0);
+            clone.setAttribute('x1', x1 + offsetX);
+            clone.setAttribute('y1', y1 + offsetY);
+            clone.setAttribute('x2', x2 + offsetX);
+            clone.setAttribute('y2', y2 + offsetY);
+        } else if (tagName === 'polygon' || tagName === 'polyline') {
+            const points = clone.getAttribute('points');
+            if (points) {
+                const newPoints = points.split(/\s+/).map(p => {
+                    const [x, y] = p.split(',').map(Number);
+                    return `${x + offsetX},${y + offsetY}`;
+                }).join(' ');
+                clone.setAttribute('points', newPoints);
+            }
+        } else if (tagName === 'path') {
+            // For paths, use transform instead
+            const transform = clone.getAttribute('transform') || '';
+            clone.setAttribute('transform', `${transform} translate(${offsetX}, ${offsetY})`);
+        }
+        
+        svg.appendChild(clone);
+        return clone.id;
+    },
+
+    // =========================================================================
+    // ALIGNMENT
+    // =========================================================================
+
+    alignElements(ids, alignment) {
+        const svg = document.getElementById('design-svg');
+        if (!svg || ids.length < 2) return false;
+        
+        const elements = ids.map(id => svg.getElementById(id)).filter(Boolean);
+        if (elements.length < 2) return false;
+        
+        // Get bounding boxes
+        const bboxes = elements.map(el => el.getBBox());
+        
+        // Calculate alignment bounds
+        const minX = Math.min(...bboxes.map(b => b.x));
+        const maxX = Math.max(...bboxes.map(b => b.x + b.width));
+        const minY = Math.min(...bboxes.map(b => b.y));
+        const maxY = Math.max(...bboxes.map(b => b.y + b.height));
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
-
-        objects.forEach((obj, index) => {
-            const rect = bounds[index];
+        
+        elements.forEach((element, i) => {
+            const bbox = bboxes[i];
+            let dx = 0, dy = 0;
+            
             switch (alignment) {
                 case 'left':
-                    obj.set('left', minX);
+                    dx = minX - bbox.x;
                     break;
                 case 'center':
-                    obj.set('left', centerX - rect.width / 2);
+                    dx = centerX - (bbox.x + bbox.width / 2);
                     break;
                 case 'right':
-                    obj.set('left', maxX - rect.width);
+                    dx = maxX - (bbox.x + bbox.width);
                     break;
                 case 'top':
-                    obj.set('top', minY);
+                    dy = minY - bbox.y;
                     break;
                 case 'middle':
-                    obj.set('top', centerY - rect.height / 2);
+                    dy = centerY - (bbox.y + bbox.height / 2);
                     break;
                 case 'bottom':
-                    obj.set('top', maxY - rect.height);
+                    dy = maxY - (bbox.y + bbox.height);
                     break;
             }
-            obj.setCoords();
+            
+            if (dx !== 0 || dy !== 0) {
+                this.translateElement(element, dx, dy);
+            }
         });
-
-        canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
+        
         return true;
     },
 
-    distributeObjects(ids, direction) {
-        const canvas = DesignCanvas.canvas;
-        const objects = ids.map(id => DesignCanvas.getObjectById(id)).filter(Boolean);
-        if (objects.length < 3) return false;
-
-        const sorted = objects.slice().sort((a, b) => {
-            const rectA = a.getBoundingRect(true);
-            const rectB = b.getBoundingRect(true);
-            return direction === 'horizontal' ? rectA.left - rectB.left : rectA.top - rectB.top;
-        });
-
+    distributeElements(ids, direction) {
+        const svg = document.getElementById('design-svg');
+        if (!svg || ids.length < 3) return false;
+        
+        const elements = ids.map(id => svg.getElementById(id)).filter(Boolean);
+        if (elements.length < 3) return false;
+        
+        const bboxes = elements.map(el => ({ el, bbox: el.getBBox() }));
+        
         if (direction === 'horizontal') {
-            const leftMost = sorted[0].getBoundingRect(true).left;
-            const rightMost = sorted[sorted.length - 1].getBoundingRect(true);
-            const totalWidth = sorted.reduce((sum, obj) => sum + obj.getBoundingRect(true).width, 0);
-            const spacing = (rightMost.left + rightMost.width - leftMost - totalWidth) / (sorted.length - 1);
-
+            bboxes.sort((a, b) => a.bbox.x - b.bbox.x);
+            const leftMost = bboxes[0].bbox.x;
+            const rightMost = bboxes[bboxes.length - 1].bbox.x + bboxes[bboxes.length - 1].bbox.width;
+            const totalWidth = bboxes.reduce((sum, b) => sum + b.bbox.width, 0);
+            const spacing = (rightMost - leftMost - totalWidth) / (bboxes.length - 1);
+            
             let current = leftMost;
-            sorted.forEach((obj) => {
-                const rect = obj.getBoundingRect(true);
-                obj.set('left', current);
-                obj.setCoords();
-                current += rect.width + spacing;
+            bboxes.forEach(({ el, bbox }) => {
+                const dx = current - bbox.x;
+                if (dx !== 0) this.translateElement(el, dx, 0);
+                current += bbox.width + spacing;
             });
         } else {
-            const topMost = sorted[0].getBoundingRect(true).top;
-            const bottomMost = sorted[sorted.length - 1].getBoundingRect(true);
-            const totalHeight = sorted.reduce((sum, obj) => sum + obj.getBoundingRect(true).height, 0);
-            const spacing = (bottomMost.top + bottomMost.height - topMost - totalHeight) / (sorted.length - 1);
-
+            bboxes.sort((a, b) => a.bbox.y - b.bbox.y);
+            const topMost = bboxes[0].bbox.y;
+            const bottomMost = bboxes[bboxes.length - 1].bbox.y + bboxes[bboxes.length - 1].bbox.height;
+            const totalHeight = bboxes.reduce((sum, b) => sum + b.bbox.height, 0);
+            const spacing = (bottomMost - topMost - totalHeight) / (bboxes.length - 1);
+            
             let current = topMost;
-            sorted.forEach((obj) => {
-                const rect = obj.getBoundingRect(true);
-                obj.set('top', current);
-                obj.setCoords();
-                current += rect.height + spacing;
+            bboxes.forEach(({ el, bbox }) => {
+                const dy = current - bbox.y;
+                if (dy !== 0) this.translateElement(el, 0, dy);
+                current += bbox.height + spacing;
             });
         }
-
-        canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
+        
         return true;
     },
 
-    // =========================================================================
-    // ADVANCED EFFECTS
-    // =========================================================================
-
-    /**
-     * Add a drop shadow to an object
-     */
-    addShadow(id, offsetX = 4, offsetY = 4, blur = 8, color = 'rgba(0, 0, 0, 0.3)', spread = 0, inset = false) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        const shadow = new fabric.Shadow({
-            color: color,
-            blur: blur,
-            offsetX: offsetX,
-            offsetY: offsetY,
-            affectStroke: false,
-            nonScaling: false
-        });
-
-        obj.set('shadow', shadow);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
-    },
-
-    /**
-     * Remove shadow from an object
-     */
-    removeShadow(id) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        obj.set('shadow', null);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
-    },
-
-    /**
-     * Apply a gradient fill to an object
-     */
-    setGradient(id, gradientType = 'linear', colors = null, angle = 0, stops = null, cx = 0.5, cy = 0.5, preset = null) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        // Handle preset gradients
-        const presetGradients = {
-            'blue_purple': { colors: ['#667eea', '#764ba2'], angle: 135 },
-            'sunset': { colors: ['#f093fb', '#f5576c', '#f7971e'], angle: 135 },
-            'ocean': { colors: ['#2193b0', '#6dd5ed'], angle: 135 },
-            'midnight': { colors: ['#232526', '#414345'], angle: 135 },
-            'emerald': { colors: ['#11998e', '#38ef7d'], angle: 135 },
-            'fire': { colors: ['#f12711', '#f5af19'], angle: 135 },
-            'rainbow': { colors: ['#ff0000', '#ff8000', '#ffff00', '#00ff00', '#0080ff', '#8000ff', '#ff00ff'], angle: 90 }
-        };
-
-        if (preset && presetGradients[preset.toLowerCase()]) {
-            const p = presetGradients[preset.toLowerCase()];
-            colors = p.colors;
-            angle = p.angle;
-        }
-
-        if (!colors || colors.length < 2) {
-            colors = ['#667eea', '#764ba2'];
-        }
-
-        // Build color stops
-        const colorStops = {};
-        if (stops && stops.length === colors.length) {
-            colors.forEach((color, i) => {
-                colorStops[stops[i]] = color;
-            });
-        } else {
-            colors.forEach((color, i) => {
-                const offset = i / (colors.length - 1);
-                colorStops[offset] = color;
-            });
-        }
-
-        let gradient;
-        if (gradientType === 'radial') {
-            gradient = new fabric.Gradient({
-                type: 'radial',
-                coords: {
-                    x1: obj.width * cx,
-                    y1: obj.height * cy,
-                    x2: obj.width * cx,
-                    y2: obj.height * cy,
-                    r1: 0,
-                    r2: Math.max(obj.width, obj.height) * 0.7
-                },
-                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
-                    offset: parseFloat(offset),
-                    color: color
-                }))
-            });
-        } else {
-            // Linear gradient
-            const rad = angle * Math.PI / 180;
-            const x1 = 0.5 - 0.5 * Math.cos(rad);
-            const y1 = 0.5 - 0.5 * Math.sin(rad);
-            const x2 = 0.5 + 0.5 * Math.cos(rad);
-            const y2 = 0.5 + 0.5 * Math.sin(rad);
-
-            gradient = new fabric.Gradient({
-                type: 'linear',
-                coords: {
-                    x1: obj.width * x1,
-                    y1: obj.height * y1,
-                    x2: obj.width * x2,
-                    y2: obj.height * y2
-                },
-                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
-                    offset: parseFloat(offset),
-                    color: color
-                }))
-            });
-        }
-
-        obj.set('fill', gradient);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
-    },
-
-    /**
-     * Remove gradient from an object, optionally restore solid color
-     */
-    removeGradient(id, restoreColor = null) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        obj.set('fill', restoreColor || '#4ade80');
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
-    },
-
-    /**
-     * Set border radius for rounded corners
-     */
-    setBorderRadius(id, radius) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        if (obj.type === 'rect') {
-            obj.set({
-                rx: radius,
-                ry: radius
-            });
-        }
-
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
-    },
-
-    /**
-     * Apply advanced text styling
-     */
-    styleText(id, options = {}) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj || (obj.type !== 'i-text' && obj.type !== 'text' && obj.type !== 'textbox')) {
-            return false;
-        }
-
-        const props = {};
-
-        if (options.letterSpacing !== undefined) {
-            props.charSpacing = options.letterSpacing * 10; // Fabric uses charSpacing in 1/1000 em
-        }
-        if (options.lineHeight !== undefined) {
-            props.lineHeight = options.lineHeight;
-        }
-        if (options.textDecoration !== undefined) {
-            props.underline = options.textDecoration === 'underline';
-            props.linethrough = options.textDecoration === 'line-through';
-        }
-        if (options.textTransform !== undefined) {
-            // Apply transform to text content
-            let text = obj.text;
-            switch (options.textTransform) {
-                case 'uppercase':
-                    text = text.toUpperCase();
-                    break;
-                case 'lowercase':
-                    text = text.toLowerCase();
-                    break;
-                case 'capitalize':
-                    text = text.replace(/\b\w/g, l => l.toUpperCase());
-                    break;
+    translateElement(element, dx, dy) {
+        const tagName = element.tagName.toLowerCase();
+        
+        if (tagName === 'rect' || tagName === 'image' || tagName === 'text') {
+            const x = parseFloat(element.getAttribute('x') || 0);
+            const y = parseFloat(element.getAttribute('y') || 0);
+            element.setAttribute('x', x + dx);
+            element.setAttribute('y', y + dy);
+        } else if (tagName === 'circle' || tagName === 'ellipse') {
+            const cx = parseFloat(element.getAttribute('cx') || 0);
+            const cy = parseFloat(element.getAttribute('cy') || 0);
+            element.setAttribute('cx', cx + dx);
+            element.setAttribute('cy', cy + dy);
+        } else if (tagName === 'line') {
+            const x1 = parseFloat(element.getAttribute('x1') || 0);
+            const y1 = parseFloat(element.getAttribute('y1') || 0);
+            const x2 = parseFloat(element.getAttribute('x2') || 0);
+            const y2 = parseFloat(element.getAttribute('y2') || 0);
+            element.setAttribute('x1', x1 + dx);
+            element.setAttribute('y1', y1 + dy);
+            element.setAttribute('x2', x2 + dx);
+            element.setAttribute('y2', y2 + dy);
+        } else if (tagName === 'polygon' || tagName === 'polyline') {
+            const points = element.getAttribute('points');
+            if (points) {
+                const newPoints = points.split(/\s+/).map(p => {
+                    const [x, y] = p.split(',').map(Number);
+                    return `${x + dx},${y + dy}`;
+                }).join(' ');
+                element.setAttribute('points', newPoints);
             }
-            props.text = text;
+        } else {
+            // Use transform for complex elements
+            const transform = element.getAttribute('transform') || '';
+            element.setAttribute('transform', `${transform} translate(${dx}, ${dy})`);
         }
+    },
 
-        // Text shadow
-        if (options.textShadowX !== undefined || options.textShadowY !== undefined ||
-            options.textShadowBlur !== undefined || options.textShadowColor !== undefined) {
-            const shadow = new fabric.Shadow({
-                color: options.textShadowColor || 'rgba(0, 0, 0, 0.3)',
-                blur: options.textShadowBlur || 2,
-                offsetX: options.textShadowX || 1,
-                offsetY: options.textShadowY || 1
-            });
-            props.shadow = shadow;
+    // =========================================================================
+    // EFFECTS
+    // =========================================================================
+
+    addDropShadow(id, dx = 4, dy = 4, blur = 4, color = 'rgba(0,0,0,0.3)') {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (!element) return false;
+        
+        // Get or create defs
+        let defs = svg.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS(this.svgNS, 'defs');
+            svg.insertBefore(defs, svg.firstChild);
         }
-
-        obj.set(props);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
+        
+        // Create filter
+        const filterId = `shadow_${id}`;
+        let filter = svg.getElementById(filterId);
+        
+        if (!filter) {
+            filter = document.createElementNS(this.svgNS, 'filter');
+            filter.id = filterId;
+            filter.setAttribute('x', '-50%');
+            filter.setAttribute('y', '-50%');
+            filter.setAttribute('width', '200%');
+            filter.setAttribute('height', '200%');
+            
+            const feDropShadow = document.createElementNS(this.svgNS, 'feDropShadow');
+            feDropShadow.setAttribute('dx', dx);
+            feDropShadow.setAttribute('dy', dy);
+            feDropShadow.setAttribute('stdDeviation', blur);
+            feDropShadow.setAttribute('flood-color', color);
+            
+            filter.appendChild(feDropShadow);
+            defs.appendChild(filter);
+        }
+        
+        element.setAttribute('filter', `url(#${filterId})`);
         return true;
     },
 
-    /**
-     * Set blend mode for an object (visual effect)
-     * Note: Fabric.js supports globalCompositeOperation for blend modes
-     */
-    setBlendMode(id, mode) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        const validModes = [
-            'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten',
-            'color-dodge', 'color-burn', 'hard-light', 'soft-light',
-            'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'
-        ];
-
-        if (validModes.includes(mode)) {
-            obj.set('globalCompositeOperation', mode);
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
+    removeFilter(id) {
+        const svg = document.getElementById('design-svg');
+        if (!svg) return false;
+        
+        const element = svg.getElementById(id);
+        if (element) {
+            element.removeAttribute('filter');
             return true;
         }
         return false;
     },
 
-    /**
-     * Apply effect preset (combines multiple effects)
-     */
-    applyEffectPreset(id, preset) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
+    // =========================================================================
+    // GRADIENTS
+    // =========================================================================
 
-        const presetLower = preset.toLowerCase().replace(/[-\s]/g, '_');
-
-        // Shadow presets
-        switch (presetLower) {
-            case 'soft_shadow':
-                return this.addShadow(id, 0, 4, 12, 'rgba(0, 0, 0, 0.15)');
-            case 'hard_shadow':
-                return this.addShadow(id, 4, 4, 0, 'rgba(0, 0, 0, 0.25)');
-            case 'glow':
-                return this.addShadow(id, 0, 0, 20, 'rgba(255, 255, 255, 0.8)');
-            case 'glow_blue':
-                return this.addShadow(id, 0, 0, 20, 'rgba(59, 130, 246, 0.8)');
-            case 'glow_purple':
-                return this.addShadow(id, 0, 0, 20, 'rgba(139, 92, 246, 0.8)');
-            case 'glow_pink':
-                return this.addShadow(id, 0, 0, 20, 'rgba(236, 72, 153, 0.8)');
-            case 'glow_green':
-                return this.addShadow(id, 0, 0, 20, 'rgba(16, 185, 129, 0.8)');
-            case 'inner_shadow':
-                // Note: True inner shadow not supported in Fabric.js, using small offset
-                return this.addShadow(id, 2, 2, 4, 'rgba(0, 0, 0, 0.2)');
-            case 'long_shadow':
-                return this.addShadow(id, 20, 20, 0, 'rgba(0, 0, 0, 0.15)');
-
-            // Gradient presets
-            case 'blue_purple':
-            case 'sunset':
-            case 'ocean':
-            case 'midnight':
-            case 'emerald':
-            case 'fire':
-            case 'rainbow':
-                return this.setGradient(id, 'linear', null, 0, null, 0.5, 0.5, presetLower);
-
-            // Filter-like presets (applied via opacity/color manipulation)
-            case 'glassmorphism':
-                // Semi-transparent with blur-like effect via opacity
-                obj.set({ opacity: 0.7 });
-                this.addShadow(id, 0, 8, 32, 'rgba(0, 0, 0, 0.1)');
-                if (obj.type === 'rect') {
-                    this.setBorderRadius(id, 16);
-                }
-                DesignCanvas.canvas.requestRenderAll();
-                DesignCanvas.saveHistory();
-                return true;
-
-            default:
-                console.warn('Unknown effect preset:', preset);
-                return false;
+    addLinearGradient(id, colors, angle = 0) {
+        const svg = document.getElementById('design-svg');
+        if (!svg || !colors || colors.length < 2) return false;
+        
+        const element = svg.getElementById(id);
+        if (!element) return false;
+        
+        // Get or create defs
+        let defs = svg.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS(this.svgNS, 'defs');
+            svg.insertBefore(defs, svg.firstChild);
         }
-    },
-
-    /**
-     * Set backdrop blur (glassmorphism effect)
-     * Note: True backdrop blur requires CSS filters, we simulate with opacity
-     */
-    setBackdropBlur(id, blur) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        // Fabric.js doesn't support backdrop-filter directly
-        // We simulate the effect with reduced opacity
-        const simulatedOpacity = Math.max(0.5, 1 - (blur / 40));
-        obj.set('opacity', simulatedOpacity);
-        DesignCanvas.canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
-        return true;
-    },
-
-    /**
-     * Add a filter effect to an object
-     * Note: Fabric.js has limited filter support for shapes (mainly for images)
-     */
-    addFilter(id, filterType, value) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        // For images, we can apply Fabric.js filters
-        if (obj.type === 'image') {
-            if (!obj.filters) obj.filters = [];
-
-            switch (filterType.toLowerCase()) {
-                case 'brightness':
-                    obj.filters.push(new fabric.Image.filters.Brightness({ brightness: value - 1 }));
-                    break;
-                case 'contrast':
-                    obj.filters.push(new fabric.Image.filters.Contrast({ contrast: value - 1 }));
-                    break;
-                case 'saturation':
-                    obj.filters.push(new fabric.Image.filters.Saturation({ saturation: value - 1 }));
-                    break;
-                case 'grayscale':
-                    obj.filters.push(new fabric.Image.filters.Grayscale());
-                    break;
-                case 'sepia':
-                    obj.filters.push(new fabric.Image.filters.Sepia());
-                    break;
-                case 'invert':
-                    obj.filters.push(new fabric.Image.filters.Invert());
-                    break;
-                case 'blur':
-                    obj.filters.push(new fabric.Image.filters.Blur({ blur: value / 10 }));
-                    break;
-                default:
-                    console.warn('Unknown filter type:', filterType);
-                    return false;
-            }
-
-            obj.applyFilters();
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
-            return true;
-        }
-
-        // For non-images, filter effects are limited
-        console.warn('Filters are primarily supported for images in Fabric.js');
-        return false;
-    },
-
-    /**
-     * Remove all filters from an object
-     */
-    removeFilters(id, filterType = null) {
-        const obj = DesignCanvas.getObjectById(id);
-        if (!obj) return false;
-
-        if (obj.type === 'image') {
-            obj.filters = [];
-            obj.applyFilters();
-            DesignCanvas.canvas.requestRenderAll();
-            DesignCanvas.saveHistory();
-        }
-        return true;
-    },
-
-    /**
-     * Set gradient background for the canvas
-     */
-    setGradientBackground(gradientType = 'linear', colors = null, angle = 0) {
-        if (!colors || colors.length < 2) {
-            colors = ['#667eea', '#764ba2'];
-        }
-
-        const canvas = DesignCanvas.canvas;
-        const width = canvas.width;
-        const height = canvas.height;
-
-        // Build color stops
-        const colorStops = {};
+        
+        // Create gradient
+        const gradientId = `gradient_${id}`;
+        let gradient = svg.getElementById(gradientId);
+        
+        if (gradient) gradient.remove();
+        
+        gradient = document.createElementNS(this.svgNS, 'linearGradient');
+        gradient.id = gradientId;
+        
+        // Set angle via x1, y1, x2, y2
+        const rad = (angle * Math.PI) / 180;
+        gradient.setAttribute('x1', `${50 - 50 * Math.cos(rad)}%`);
+        gradient.setAttribute('y1', `${50 - 50 * Math.sin(rad)}%`);
+        gradient.setAttribute('x2', `${50 + 50 * Math.cos(rad)}%`);
+        gradient.setAttribute('y2', `${50 + 50 * Math.sin(rad)}%`);
+        
+        // Add stops
         colors.forEach((color, i) => {
-            const offset = i / (colors.length - 1);
-            colorStops[offset] = color;
+            const stop = document.createElementNS(this.svgNS, 'stop');
+            stop.setAttribute('offset', `${(i / (colors.length - 1)) * 100}%`);
+            stop.setAttribute('stop-color', color);
+            gradient.appendChild(stop);
         });
+        
+        defs.appendChild(gradient);
+        element.setAttribute('fill', `url(#${gradientId})`);
+        
+        return true;
+    },
 
-        let gradient;
-        if (gradientType === 'radial') {
-            gradient = new fabric.Gradient({
-                type: 'radial',
-                coords: {
-                    x1: width / 2,
-                    y1: height / 2,
-                    x2: width / 2,
-                    y2: height / 2,
-                    r1: 0,
-                    r2: Math.max(width, height) * 0.7
-                },
-                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
-                    offset: parseFloat(offset),
-                    color: color
-                }))
-            });
-        } else {
-            const rad = angle * Math.PI / 180;
-            const x1 = 0.5 - 0.5 * Math.cos(rad);
-            const y1 = 0.5 - 0.5 * Math.sin(rad);
-            const x2 = 0.5 + 0.5 * Math.cos(rad);
-            const y2 = 0.5 + 0.5 * Math.sin(rad);
-
-            gradient = new fabric.Gradient({
-                type: 'linear',
-                coords: {
-                    x1: width * x1,
-                    y1: height * y1,
-                    x2: width * x2,
-                    y2: height * y2
-                },
-                colorStops: Object.entries(colorStops).map(([offset, color]) => ({
-                    offset: parseFloat(offset),
-                    color: color
-                }))
-            });
+    addRadialGradient(id, colors, cx = 50, cy = 50) {
+        const svg = document.getElementById('design-svg');
+        if (!svg || !colors || colors.length < 2) return false;
+        
+        const element = svg.getElementById(id);
+        if (!element) return false;
+        
+        // Get or create defs
+        let defs = svg.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS(this.svgNS, 'defs');
+            svg.insertBefore(defs, svg.firstChild);
         }
-
-        // Create a background rect with gradient
-        // Remove existing background rect if any
-        const existingBg = canvas.getObjects().find(obj => obj.id === 'canvas-background-gradient');
-        if (existingBg) {
-            canvas.remove(existingBg);
-        }
-
-        const bgRect = new fabric.Rect({
-            id: 'canvas-background-gradient',
-            left: 0,
-            top: 0,
-            width: width,
-            height: height,
-            fill: gradient,
-            selectable: false,
-            evented: false,
-            excludeFromExport: false
+        
+        // Create gradient
+        const gradientId = `radial_${id}`;
+        let gradient = svg.getElementById(gradientId);
+        
+        if (gradient) gradient.remove();
+        
+        gradient = document.createElementNS(this.svgNS, 'radialGradient');
+        gradient.id = gradientId;
+        gradient.setAttribute('cx', `${cx}%`);
+        gradient.setAttribute('cy', `${cy}%`);
+        
+        // Add stops
+        colors.forEach((color, i) => {
+            const stop = document.createElementNS(this.svgNS, 'stop');
+            stop.setAttribute('offset', `${(i / (colors.length - 1)) * 100}%`);
+            stop.setAttribute('stop-color', color);
+            gradient.appendChild(stop);
         });
-
-        canvas.insertAt(bgRect, 0);
-        canvas.requestRenderAll();
-        DesignCanvas.saveHistory();
+        
+        defs.appendChild(gradient);
+        element.setAttribute('fill', `url(#${gradientId})`);
+        
         return true;
     }
 };

@@ -4,57 +4,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flashy Designs | AI Design Agent</title>
-    <link rel="stylesheet" href="/css/main.css">
+    <title>Flashy Designs | AI SVG Design Agent</title>
     <link rel="stylesheet" href="/css/design.css">
-
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
-    <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#x1F3A8;</text></svg>">
 </head>
 
 <body>
-    <div class="design-app-container">
+    <div class="design-app">
         <!-- Left Sidebar: Tools Panel -->
         <aside class="tools-sidebar">
-            <div class="tools-header">
+            <div class="sidebar-header">
                 <a href="/" class="brand-link">
-                    <span class="material-symbols-outlined logo-icon">flash_on</span>
-                    <span class="brand-name">Flashy</span>
+                    <span class="brand-icon">&#x26A1;</span>
+                    <span class="brand-text">Flashy</span>
                 </a>
-                <span class="brand-badge">Designs</span>
+                <span class="brand-badge">Design</span>
             </div>
 
             <!-- Tool Categories -->
             <div class="tools-section">
                 <div class="tool-category">
-                    <div class="category-title">SELECT</div>
+                    <div class="category-label">SELECT</div>
                     <div class="tool-grid">
                         <button class="tool-btn active" data-tool="select" title="Select (V)">
                             <span class="material-symbols-outlined">arrow_selector_tool</span>
                         </button>
-                        <button class="tool-btn" data-tool="hand" title="Pan (H)">
+                        <button class="tool-btn" data-tool="pan" title="Pan (H)">
                             <span class="material-symbols-outlined">pan_tool</span>
                         </button>
                     </div>
                 </div>
 
                 <div class="tool-category">
-                    <div class="category-title">SHAPES</div>
+                    <div class="category-label">SHAPES</div>
                     <div class="tool-grid">
-                        <button class="tool-btn" data-tool="rectangle" title="Rectangle (R)">
+                        <button class="tool-btn" data-tool="rect" title="Rectangle (R)">
                             <span class="material-symbols-outlined">rectangle</span>
                         </button>
                         <button class="tool-btn" data-tool="circle" title="Circle (C)">
                             <span class="material-symbols-outlined">circle</span>
                         </button>
-                        <button class="tool-btn" data-tool="triangle" title="Triangle">
-                            <span class="material-symbols-outlined">change_history</span>
+                        <button class="tool-btn" data-tool="ellipse" title="Ellipse (E)">
+                            <span class="material-symbols-outlined">lens</span>
                         </button>
                         <button class="tool-btn" data-tool="line" title="Line (L)">
                             <span class="material-symbols-outlined">horizontal_rule</span>
@@ -62,35 +57,20 @@
                         <button class="tool-btn" data-tool="polygon" title="Polygon">
                             <span class="material-symbols-outlined">hexagon</span>
                         </button>
-                        <button class="tool-btn" data-tool="star" title="Star">
-                            <span class="material-symbols-outlined">star</span>
+                        <button class="tool-btn" data-tool="path" title="Path (P)">
+                            <span class="material-symbols-outlined">timeline</span>
                         </button>
                     </div>
                 </div>
 
                 <div class="tool-category">
-                    <div class="category-title">CONTENT</div>
+                    <div class="category-label">CONTENT</div>
                     <div class="tool-grid">
                         <button class="tool-btn" data-tool="text" title="Text (T)">
                             <span class="material-symbols-outlined">title</span>
                         </button>
-                        <button class="tool-btn" data-tool="image" title="Image">
+                        <button class="tool-btn" data-tool="image" title="Image (I)">
                             <span class="material-symbols-outlined">image</span>
-                        </button>
-                        <button class="tool-btn" data-tool="icon" title="Icon">
-                            <span class="material-symbols-outlined">emoji_symbols</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="tool-category">
-                    <div class="category-title">DRAW</div>
-                    <div class="tool-grid">
-                        <button class="tool-btn" data-tool="pen" title="Pen (P)">
-                            <span class="material-symbols-outlined">edit</span>
-                        </button>
-                        <button class="tool-btn" data-tool="pencil" title="Pencil">
-                            <span class="material-symbols-outlined">draw</span>
                         </button>
                     </div>
                 </div>
@@ -98,7 +78,7 @@
 
             <!-- Quick Actions -->
             <div class="tools-footer">
-                <div class="quick-actions">
+                <div class="action-row">
                     <button id="btn-undo" class="action-btn" title="Undo (Ctrl+Z)" disabled>
                         <span class="material-symbols-outlined">undo</span>
                     </button>
@@ -118,49 +98,45 @@
         <!-- Main Canvas Area -->
         <main class="canvas-main">
             <!-- Top Bar -->
-            <div class="canvas-top-bar">
-                <div class="canvas-breadcrumb">
-                    <span id="project-name">Untitled Design</span>
-                    <button id="btn-rename" class="btn-icon-sm" title="Rename">
+            <div class="canvas-topbar">
+                <div class="topbar-left">
+                    <span id="project-name" class="project-name">Untitled Design</span>
+                    <button id="btn-rename" class="icon-btn-sm" title="Rename">
                         <span class="material-symbols-outlined">edit</span>
                     </button>
                 </div>
 
-                <div class="canvas-controls">
+                <div class="topbar-center">
                     <div class="zoom-controls">
-                        <button id="btn-zoom-out" class="btn-icon-sm" title="Zoom Out">
+                        <button id="btn-zoom-out" class="icon-btn-sm" title="Zoom Out">
                             <span class="material-symbols-outlined">remove</span>
                         </button>
                         <span id="zoom-level" class="zoom-display">100%</span>
-                        <button id="btn-zoom-in" class="btn-icon-sm" title="Zoom In">
+                        <button id="btn-zoom-in" class="icon-btn-sm" title="Zoom In">
                             <span class="material-symbols-outlined">add</span>
                         </button>
-                        <button id="btn-zoom-fit" class="btn-icon-sm" title="Fit to Screen">
+                        <button id="btn-zoom-fit" class="icon-btn-sm" title="Fit to Screen">
                             <span class="material-symbols-outlined">fit_screen</span>
                         </button>
                     </div>
-                    <div class="canvas-toggle-group">
-                        <button id="btn-toggle-grid" class="btn-icon-sm" title="Toggle Grid">
+                    <div class="toggle-group">
+                        <button id="btn-toggle-grid" class="icon-btn-sm" title="Toggle Grid">
                             <span class="material-symbols-outlined">grid_on</span>
                         </button>
-                        <button id="btn-toggle-snap" class="btn-icon-sm" title="Toggle Snap to Grid">
-                            <span class="material-symbols-outlined">magnet_on</span>
-                        </button>
-                        <button id="btn-toggle-guides" class="btn-icon-sm active" title="Smart Guides">
-                            <span class="material-symbols-outlined">straighten</span>
+                        <button id="btn-toggle-snap" class="icon-btn-sm" title="Snap to Grid">
+                            <span class="material-symbols-outlined">view_module</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="canvas-actions">
-                    <button id="btn-toggle-chat" class="btn-ghost active" title="Toggle AI Chat">
-                        <span class="material-symbols-outlined">chat</span>
+                <div class="topbar-right">
+                    <button id="btn-toggle-chat" class="icon-btn active" title="AI Chat">
+                        <span class="material-symbols-outlined">smart_toy</span>
                     </button>
-                    <button id="btn-toggle-properties" class="btn-ghost" title="Toggle Properties">
+                    <button id="btn-toggle-properties" class="icon-btn" title="Properties">
                         <span class="material-symbols-outlined">tune</span>
                     </button>
-                    <div class="action-divider"></div>
-                    <button id="btn-export" class="btn-primary-sm">
+                    <button id="btn-export" class="btn-primary">
                         <span class="material-symbols-outlined">download</span>
                         Export
                     </button>
@@ -169,21 +145,27 @@
 
             <!-- Canvas Container -->
             <div class="canvas-wrapper">
-                <div id="canvas-grid" class="canvas-grid hidden"></div>
                 <div id="canvas-container" class="canvas-container">
-                    <canvas id="design-canvas"></canvas>
+                    <!-- SVG Canvas rendered here -->
+                    <div id="svg-canvas" class="svg-canvas">
+                        <svg id="design-svg" xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+                            <!-- SVG content rendered here -->
+                        </svg>
+                    </div>
+                    <!-- Selection handles overlay -->
+                    <div id="selection-overlay" class="selection-overlay"></div>
                 </div>
 
-                <!-- Canvas Info Overlay -->
+                <!-- Canvas Info -->
                 <div class="canvas-info">
-                    <span id="canvas-dimensions">1200 × 800</span>
+                    <span id="canvas-dimensions">1200 x 800</span>
                 </div>
             </div>
         </main>
 
-        <!-- Right Sidebar: Properties & AI Chat -->
-        <aside class="right-sidebar">
-            <!-- Tabs -->
+        <!-- Right Sidebar: AI Chat & Properties -->
+        <aside class="right-sidebar" id="right-sidebar">
+            <!-- Sidebar Tabs -->
             <div class="sidebar-tabs">
                 <button class="sidebar-tab active" data-tab="chat">
                     <span class="material-symbols-outlined">smart_toy</span>
@@ -198,48 +180,52 @@
             <!-- AI Chat Panel -->
             <div id="chat-panel" class="sidebar-panel active">
                 <div class="chat-header">
-                    <div class="agent-status">
-                        <div id="agent-indicator" class="status-indicator idle"></div>
+                    <div class="agent-info">
+                        <div id="agent-indicator" class="status-dot"></div>
                         <span>Flashy Designer</span>
                     </div>
-                    <button id="btn-clear-chat" class="btn-icon-xs" title="Clear Chat">
+                    <button id="btn-clear-chat" class="icon-btn-xs" title="Clear Chat">
                         <span class="material-symbols-outlined">delete_sweep</span>
                     </button>
                 </div>
 
-                <div id="design-chat-history" class="design-chat-history">
+                <div id="chat-messages" class="chat-messages">
                     <div class="chat-welcome">
-                        <div class="welcome-icon">
-                            <span class="material-symbols-outlined">palette</span>
-                        </div>
+                        <div class="welcome-icon">&#x1F3A8;</div>
                         <h3>AI Design Assistant</h3>
-                        <p>Describe what you want to create and I'll build it on the canvas. I can add shapes, text, images, and compose complex designs.</p>
+                        <p>Describe what you want to create and I'll generate SVG graphics on the canvas. I can add shapes, text, gradients, and compose complex designs.</p>
                         <div class="suggestion-chips">
-                            <button class="suggestion-chip" data-prompt="Create a modern business card with my name John Doe">Business Card</button>
-                            <button class="suggestion-chip" data-prompt="Design a social media banner with gradient background">Social Banner</button>
-                            <button class="suggestion-chip" data-prompt="Make a presentation title slide">Title Slide</button>
+                            <button class="suggestion-chip" data-prompt="Create a modern business card for John Doe, Software Engineer">
+                                Business Card
+                            </button>
+                            <button class="suggestion-chip" data-prompt="Design a social media banner with a gradient background and bold text">
+                                Social Banner
+                            </button>
+                            <button class="suggestion-chip" data-prompt="Create a minimalist logo with geometric shapes">
+                                Logo Design
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 <div class="chat-input-area">
-                    <div id="design-upload-previews" class="upload-previews hidden"></div>
-                    <div class="chat-input-wrapper">
-                        <button id="btn-attach-image" class="btn-attach" title="Attach Image">
+                    <div id="upload-previews" class="upload-previews hidden"></div>
+                    <div class="input-wrapper">
+                        <button id="btn-attach" class="attach-btn" title="Attach Reference Image">
                             <span class="material-symbols-outlined">add_photo_alternate</span>
-                            <input type="file" id="design-file-input" hidden accept="image/*" multiple>
+                            <input type="file" id="file-input" hidden accept="image/*" multiple>
                         </button>
-                        <textarea id="design-input" placeholder="Describe your design..." rows="1"></textarea>
-                        <button id="btn-send-design" class="btn-send" disabled>
+                        <textarea id="chat-input" placeholder="Describe your design..." rows="1"></textarea>
+                        <button id="btn-send" class="send-btn" disabled>
                             <span class="material-symbols-outlined">arrow_upward</span>
                         </button>
                     </div>
                     <div class="chat-actions">
-                        <button id="btn-screenshot-review" class="btn-secondary-sm" title="Send canvas to AI for review">
+                        <button id="btn-review" class="btn-secondary" title="Send canvas to AI for review">
                             <span class="material-symbols-outlined">screenshot_monitor</span>
-                            Review Design
+                            Review
                         </button>
-                        <button id="btn-interrupt" class="btn-secondary-sm hidden" title="Stop AI">
+                        <button id="btn-stop" class="btn-secondary hidden" title="Stop AI">
                             <span class="material-symbols-outlined">stop</span>
                             Stop
                         </button>
@@ -249,21 +235,21 @@
 
             <!-- Properties Panel -->
             <div id="properties-panel" class="sidebar-panel">
-                <div class="properties-header">
-                    <span>Object Properties</span>
+                <div class="panel-header">
+                    <span>Properties</span>
                 </div>
 
                 <!-- No Selection State -->
-                <div id="no-selection" class="no-selection">
+                <div id="no-selection" class="empty-state">
                     <span class="material-symbols-outlined">touch_app</span>
-                    <p>Select an object to edit its properties</p>
+                    <p>Select an element to edit</p>
                 </div>
 
-                <!-- Object Properties -->
-                <div id="object-properties" class="object-properties hidden">
-                    <!-- Transform -->
+                <!-- Element Properties -->
+                <div id="element-properties" class="properties-content hidden">
+                    <!-- Transform Group -->
                     <div class="property-group">
-                        <div class="property-group-title">Transform</div>
+                        <div class="group-header">Transform</div>
                         <div class="property-row">
                             <div class="property-field">
                                 <label>X</label>
@@ -283,59 +269,59 @@
                                 <label>H</label>
                                 <input type="number" id="prop-height" class="prop-input">
                             </div>
-                            <button id="btn-lock-ratio" class="btn-lock" title="Lock Aspect Ratio">
+                            <button id="btn-lock-ratio" class="lock-btn" title="Lock Aspect Ratio">
                                 <span class="material-symbols-outlined">lock_open</span>
                             </button>
                         </div>
                         <div class="property-row">
                             <div class="property-field full">
                                 <label>Rotation</label>
-                                <div class="input-with-suffix">
-                                    <input type="number" id="prop-angle" class="prop-input" min="-360" max="360">
-                                    <span class="suffix">°</span>
+                                <div class="input-suffix">
+                                    <input type="number" id="prop-rotation" class="prop-input" min="-360" max="360" value="0">
+                                    <span class="suffix">deg</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Appearance -->
+                    <!-- Appearance Group -->
                     <div class="property-group">
-                        <div class="property-group-title">Appearance</div>
+                        <div class="group-header">Appearance</div>
                         <div class="property-row">
                             <div class="property-field">
                                 <label>Fill</label>
-                                <div class="color-input-wrapper">
-                                    <input type="color" id="prop-fill" class="color-input" value="#4ade80">
-                                    <input type="text" id="prop-fill-hex" class="hex-input" value="#4ade80">
+                                <div class="color-field">
+                                    <input type="color" id="prop-fill" class="color-input" value="#4A90D9">
+                                    <input type="text" id="prop-fill-hex" class="hex-input" value="#4A90D9">
                                 </div>
                             </div>
                         </div>
                         <div class="property-row">
                             <div class="property-field">
                                 <label>Stroke</label>
-                                <div class="color-input-wrapper">
+                                <div class="color-field">
                                     <input type="color" id="prop-stroke" class="color-input" value="#000000">
                                     <input type="text" id="prop-stroke-hex" class="hex-input" value="#000000">
                                 </div>
                             </div>
                             <div class="property-field small">
                                 <label>Width</label>
-                                <input type="number" id="prop-stroke-width" class="prop-input" min="0" max="50" value="0">
+                                <input type="number" id="prop-stroke-width" class="prop-input" min="0" value="0">
                             </div>
                         </div>
                         <div class="property-row">
                             <div class="property-field full">
                                 <label>Opacity</label>
-                                <div class="slider-wrapper">
+                                <div class="slider-field">
                                     <input type="range" id="prop-opacity" class="prop-slider" min="0" max="100" value="100">
                                     <span id="prop-opacity-value" class="slider-value">100%</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="property-row" id="corner-radius-row">
+                        <div class="property-row" id="radius-row">
                             <div class="property-field full">
                                 <label>Corner Radius</label>
-                                <div class="slider-wrapper">
+                                <div class="slider-field">
                                     <input type="range" id="prop-radius" class="prop-slider" min="0" max="100" value="0">
                                     <span id="prop-radius-value" class="slider-value">0</span>
                                 </div>
@@ -343,21 +329,20 @@
                         </div>
                     </div>
 
-                    <!-- Text Properties (shown for text objects) -->
+                    <!-- Text Properties (shown for text elements) -->
                     <div class="property-group" id="text-properties" style="display: none;">
-                        <div class="property-group-title">Text</div>
+                        <div class="group-header">Text</div>
                         <div class="property-row">
                             <div class="property-field full">
-                                <label>Font Family</label>
+                                <label>Font</label>
                                 <select id="prop-font-family" class="prop-select">
-                                    <option value="Inter">Inter</option>
-                                    <option value="Poppins">Poppins</option>
-                                    <option value="Roboto">Roboto</option>
-                                    <option value="Open Sans">Open Sans</option>
-                                    <option value="Montserrat">Montserrat</option>
-                                    <option value="Playfair Display">Playfair Display</option>
-                                    <option value="Georgia">Georgia</option>
-                                    <option value="Arial">Arial</option>
+                                    <option value="Inter, sans-serif">Inter</option>
+                                    <option value="Poppins, sans-serif">Poppins</option>
+                                    <option value="Roboto, sans-serif">Roboto</option>
+                                    <option value="Montserrat, sans-serif">Montserrat</option>
+                                    <option value="Playfair Display, serif">Playfair Display</option>
+                                    <option value="Georgia, serif">Georgia</option>
+                                    <option value="Arial, sans-serif">Arial</option>
                                 </select>
                             </div>
                         </div>
@@ -369,23 +354,22 @@
                             <div class="property-field">
                                 <label>Weight</label>
                                 <select id="prop-font-weight" class="prop-select">
-                                    <option value="300">Light</option>
-                                    <option value="400">Regular</option>
+                                    <option value="normal">Regular</option>
                                     <option value="500">Medium</option>
                                     <option value="600">Semibold</option>
-                                    <option value="700">Bold</option>
+                                    <option value="bold">Bold</option>
                                 </select>
                             </div>
                         </div>
                         <div class="property-row">
-                            <div class="text-align-btns">
-                                <button class="align-btn active" data-align="left" title="Align Left">
+                            <div class="text-align-group">
+                                <button class="align-btn active" data-align="start" title="Align Left">
                                     <span class="material-symbols-outlined">format_align_left</span>
                                 </button>
-                                <button class="align-btn" data-align="center" title="Align Center">
+                                <button class="align-btn" data-align="middle" title="Align Center">
                                     <span class="material-symbols-outlined">format_align_center</span>
                                 </button>
-                                <button class="align-btn" data-align="right" title="Align Right">
+                                <button class="align-btn" data-align="end" title="Align Right">
                                     <span class="material-symbols-outlined">format_align_right</span>
                                 </button>
                             </div>
@@ -394,60 +378,28 @@
 
                     <!-- Layer Controls -->
                     <div class="property-group">
-                        <div class="property-group-title">Layer</div>
+                        <div class="group-header">Layer</div>
                         <div class="layer-controls">
                             <button id="btn-bring-front" class="layer-btn" title="Bring to Front">
                                 <span class="material-symbols-outlined">flip_to_front</span>
                             </button>
                             <button id="btn-bring-forward" class="layer-btn" title="Bring Forward">
-                                <span class="material-symbols-outlined">move_up</span>
+                                <span class="material-symbols-outlined">arrow_upward</span>
                             </button>
                             <button id="btn-send-backward" class="layer-btn" title="Send Backward">
-                                <span class="material-symbols-outlined">move_down</span>
+                                <span class="material-symbols-outlined">arrow_downward</span>
                             </button>
                             <button id="btn-send-back" class="layer-btn" title="Send to Back">
                                 <span class="material-symbols-outlined">flip_to_back</span>
                             </button>
                         </div>
                     </div>
-
-                    <div class="property-group">
-                        <div class="property-group-title">Arrange</div>
-                        <div class="align-grid">
-                            <button class="arrange-btn" data-align="left" title="Align Left">
-                                <span class="material-symbols-outlined">align_horizontal_left</span>
-                            </button>
-                            <button class="arrange-btn" data-align="center" title="Align Center">
-                                <span class="material-symbols-outlined">align_horizontal_center</span>
-                            </button>
-                            <button class="arrange-btn" data-align="right" title="Align Right">
-                                <span class="material-symbols-outlined">align_horizontal_right</span>
-                            </button>
-                            <button class="arrange-btn" data-align="top" title="Align Top">
-                                <span class="material-symbols-outlined">align_vertical_top</span>
-                            </button>
-                            <button class="arrange-btn" data-align="middle" title="Align Middle">
-                                <span class="material-symbols-outlined">align_vertical_center</span>
-                            </button>
-                            <button class="arrange-btn" data-align="bottom" title="Align Bottom">
-                                <span class="material-symbols-outlined">align_vertical_bottom</span>
-                            </button>
-                        </div>
-                        <div class="distribute-grid">
-                            <button class="arrange-btn" data-distribute="horizontal" title="Distribute Horizontally">
-                                <span class="material-symbols-outlined">space_bar</span>
-                            </button>
-                            <button class="arrange-btn" data-distribute="vertical" title="Distribute Vertically">
-                                <span class="material-symbols-outlined">height</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- Canvas Properties (shown when no object selected) -->
-                <div id="canvas-properties" class="canvas-properties">
+                <!-- Canvas Properties (shown when no element selected) -->
+                <div id="canvas-properties" class="properties-content">
                     <div class="property-group">
-                        <div class="property-group-title">Canvas</div>
+                        <div class="group-header">Canvas</div>
                         <div class="property-row">
                             <div class="property-field">
                                 <label>Width</label>
@@ -461,7 +413,7 @@
                         <div class="property-row">
                             <div class="property-field full">
                                 <label>Background</label>
-                                <div class="color-input-wrapper">
+                                <div class="color-field">
                                     <input type="color" id="canvas-bg" class="color-input" value="#ffffff">
                                     <input type="text" id="canvas-bg-hex" class="hex-input" value="#FFFFFF">
                                 </div>
@@ -470,9 +422,32 @@
                     </div>
 
                     <div class="property-group">
-                        <div class="property-group-title">Templates</div>
-                        <div class="template-list" id="template-list">
-                            <!-- Templates loaded dynamically -->
+                        <div class="group-header">Presets</div>
+                        <div class="preset-grid">
+                            <button class="preset-btn" data-width="1200" data-height="800">
+                                <span class="preset-name">Default</span>
+                                <span class="preset-size">1200x800</span>
+                            </button>
+                            <button class="preset-btn" data-width="1920" data-height="1080">
+                                <span class="preset-name">HD</span>
+                                <span class="preset-size">1920x1080</span>
+                            </button>
+                            <button class="preset-btn" data-width="1080" data-height="1080">
+                                <span class="preset-name">Instagram</span>
+                                <span class="preset-size">1080x1080</span>
+                            </button>
+                            <button class="preset-btn" data-width="1200" data-height="628">
+                                <span class="preset-name">Social</span>
+                                <span class="preset-size">1200x628</span>
+                            </button>
+                            <button class="preset-btn" data-width="1050" data-height="600">
+                                <span class="preset-name">Business Card</span>
+                                <span class="preset-size">1050x600</span>
+                            </button>
+                            <button class="preset-btn" data-width="800" data-height="1200">
+                                <span class="preset-name">Portrait</span>
+                                <span class="preset-size">800x1200</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -481,48 +456,42 @@
     </div>
 
     <!-- Export Modal -->
-    <div id="modal-export" class="modal hidden">
-        <div class="modal-content modal-sm">
+    <div id="export-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
             <div class="modal-header">
                 <h2>Export Design</h2>
-                <button class="btn-close-modal" id="btn-close-export">
+                <button id="btn-close-export" class="icon-btn-sm">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
             <div class="modal-body">
                 <div class="export-options">
+                    <button class="export-option" data-format="svg">
+                        <span class="material-symbols-outlined">code</span>
+                        <div class="export-info">
+                            <div class="export-title">SVG</div>
+                            <div class="export-desc">Scalable vector graphics</div>
+                        </div>
+                    </button>
                     <button class="export-option" data-format="png">
                         <span class="material-symbols-outlined">image</span>
                         <div class="export-info">
-                            <div class="export-title">PNG Image</div>
+                            <div class="export-title">PNG</div>
                             <div class="export-desc">High-quality raster image</div>
                         </div>
                     </button>
                     <button class="export-option" data-format="jpg">
                         <span class="material-symbols-outlined">photo</span>
                         <div class="export-info">
-                            <div class="export-title">JPG Image</div>
-                            <div class="export-desc">Smaller files with adjustable quality</div>
-                        </div>
-                    </button>
-                    <button class="export-option" data-format="webp">
-                        <span class="material-symbols-outlined">image</span>
-                        <div class="export-info">
-                            <div class="export-title">WebP Image</div>
-                            <div class="export-desc">Modern web-optimized format</div>
-                        </div>
-                    </button>
-                    <button class="export-option" data-format="svg">
-                        <span class="material-symbols-outlined">code</span>
-                        <div class="export-info">
-                            <div class="export-title">SVG Vector</div>
-                            <div class="export-desc">Scalable vector graphics</div>
+                            <div class="export-title">JPG</div>
+                            <div class="export-desc">Compressed image</div>
                         </div>
                     </button>
                     <button class="export-option" data-format="json">
                         <span class="material-symbols-outlined">data_object</span>
                         <div class="export-info">
-                            <div class="export-title">JSON (Backup)</div>
+                            <div class="export-title">JSON</div>
                             <div class="export-desc">Project file for later editing</div>
                         </div>
                     </button>
@@ -538,15 +507,6 @@
                                 <option value="4">4x</option>
                             </select>
                         </div>
-                        <div class="property-field">
-                            <label>Quality</label>
-                            <select id="export-quality" class="prop-select">
-                                <option value="0.6">60%</option>
-                                <option value="0.8" selected>80%</option>
-                                <option value="0.9">90%</option>
-                                <option value="1">100%</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -557,11 +517,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
-    <!-- Design Modules -->
     <script src="/js/design/canvas.js"></script>
     <script src="/js/design/tools.js"></script>
     <script src="/js/design/properties.js"></script>
