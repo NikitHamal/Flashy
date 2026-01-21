@@ -12,29 +12,25 @@ import uuid
 from typing import List, Optional
 
 from .gemini_service import GeminiService
-from .design_service import DesignService
 from .storage import save_chat_message, get_workspace as get_workspace_data, add_workspace
 from .websocket_manager import ws_manager, MessageType
-from .routers import git_routes, workspace, chat, config, design
+from .routers import git_routes, workspace, chat, config
 
 app = FastAPI()
 
 # Share service instances
 gemini_service = GeminiService()
-design_service = DesignService()
 app.state.gemini_service = gemini_service
-app.state.design_service = design_service
 
 app.include_router(git_routes.router)
 app.include_router(workspace.router)
 app.include_router(chat.router)
 app.include_router(config.router)
-app.include_router(design.router)
 
 # Exception Handlers
 @app.exception_handler(404)
 async def spa_fallback_handler(request: Request, __):
-    api_prefixes = ("/chat", "/history", "/workspace", "/workspaces", "/proxy_image", "/config", "/git", "/design")
+    api_prefixes = ("/chat", "/history", "/workspace", "/workspaces", "/proxy_image", "/config", "/git")
     path = request.url.path
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})

@@ -1,42 +1,36 @@
 # CONTINUITY.md - Session Continuity Ledger
 
 ## Goal (incl. success criteria):
-- Fix Flashy Designs agent so AI output applies to canvas and messages render correctly
-- Improve Flashy Designs UX (responsive layout, better tools, export/import, templates, alignment)
 - Enhance Flashy coding agent reliability/power with stronger tools + UI feedback
 - Maintain modular files (<800 lines) and production-grade behavior
-- Keep AI multimodal feedback loop for design screenshots
+- Provide intelligent reasoning while maintaining direct access to local file system and Git tools
 
 ## Constraints/Assumptions:
-- Gemini 3 Flash model is multimodal (can see images)
-- File upload exists for design chat
+- Gemini models are multimodal and capable of complex reasoning
 - No TODOs or stub code; production-grade only
 - Maintain modular approach (500-800 lines max per file)
 - Keep UI/UX consistent with existing app styling
 
 ## Key Decisions:
-- Unify design tool schema between backend and frontend
-- Stream tool calls plus canvas actions to frontend for live updates
+- Stream tool calls to frontend for live updates
 - Add robust streaming error handling and message rendering
+- Use a plan-based approach for complex coding tasks
 
 ## State:
 
 - Done:
-  - Unified design tool schema across backend/frontend
-  - Added canvas_action streaming and frontend canvas execution
-  - Fixed screenshot base64 decoding and image attachment handling
-  - Added grid/snap toggles, align/distribute tools, and richer export options
   - Expanded coding agent tools (read/write multiple files, apply patch) and UI tool mapping
+  - Cleaned up app by removing legacy Design Agent and related components
 
 - Now:
-  - Light validation pass
+  - Core cleanup complete.
 
 - Next:
-  - Provide summary + next steps
+  - Continue enhancing coding agent capabilities.
 
 ## Open Questions (UNCONFIRMED if needed):
 - None
 
 ## Working Set (files/ids/commands):
-- Backend: /backend/design_service.py, /backend/design_agent.py, /backend/design_tools.py, /backend/routers/design.py, /backend/tools.py, /backend/prompts.py
-- Frontend: /frontend/design.html, /frontend/css/design.css, /frontend/js/design/*.js, /frontend/js/ui/chat.js
+- Backend: /backend/agent.py, /backend/coding_agent.py, /backend/tools.py, /backend/prompts.py
+- Frontend: /frontend/index.html, /frontend/js/app.js, /frontend/js/ui/chat.js
