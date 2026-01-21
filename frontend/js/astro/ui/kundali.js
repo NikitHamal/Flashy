@@ -20,6 +20,7 @@ class AstroKundaliList {
 
         // Callbacks for external integration
         this.onSelect = null;
+        this.onEdit = null;
         this.onDelete = null;
         this.onCreate = null;
     }
@@ -149,8 +150,8 @@ class AstroKundaliList {
                 const tags = (k.tags || []).join(' ').toLowerCase();
 
                 return name.includes(this.searchQuery) ||
-                       place.includes(this.searchQuery) ||
-                       tags.includes(this.searchQuery);
+                    place.includes(this.searchQuery) ||
+                    tags.includes(this.searchQuery);
             });
         }
 
@@ -267,8 +268,11 @@ class AstroKundaliList {
             const editBtn = card.querySelector('[data-action="edit"]');
             editBtn?.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // Edit functionality can be added later
-                console.log('[AstroKundaliList] Edit not implemented yet');
+                const id = card.dataset.id;
+                const kundali = this.kundalis.find(k => k.id === id);
+                if (kundali && this.onEdit) {
+                    this.onEdit(kundali);
+                }
             });
         });
     }

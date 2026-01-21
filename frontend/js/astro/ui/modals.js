@@ -24,9 +24,17 @@ class AstroModals {
         this.selectedGender = '';
         this.selectedPlace = null;
         this.deleteTargetId = null;
+        this.editTargetKundali = null; // For edit mode
+        this.isEditMode = false;
+
+        // Geocoding optimization
+        this.debounceTimer = null;
+        this.abortController = null;
+        this.geocodingCache = new Map();
 
         // Callbacks
         this.onKundaliCreated = null;
+        this.onKundaliUpdated = null; // For edit mode
         this.onKundaliDeleted = null;
         this.onExport = null;
     }
@@ -235,26 +243,59 @@ class AstroModals {
     /**
      * Handle place input for autocomplete
      */
-    async _handlePlaceInput(query) {
+    _handlePlaceInput(query) {
+        // Clear previous timer
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+        }
+
         if (!query || query.length < 3) {
             this._hidePlaceSuggestions();
             return;
         }
 
-        // Simple geocoding using Nominatim (OpenStreetMap)
-        try {
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
-                { headers: { 'Accept-Language': 'en' } }
-            );
-
-            if (!response.ok) return;
-
-            const results = await response.json();
-            this._showPlaceSuggestions(results);
-        } catch (error) {
-            console.warn('[AstroModals] Geocoding failed:', error);
+        // Check cache
+        if (this.geocodingCache.has(query)) {
+            this._showPlaceSuggestions(this.geocodingCache.get(query));
+            return;
         }
+
+        // Set debounce timer
+        this.debounceTimer = setTimeout(async () => {
+            // Abort previous request if any
+            if (this.abortController) {
+                this.abortController.abort();
+            }
+
+            this.abortController = new AbortController();
+
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+                    {
+                        headers: { 'Accept-Language': 'en' },
+                        signal: this.abortController.signal
+                    }
+                );
+
+                if (!response.ok) return;
+
+                const results = await response.json();
+
+                // Cache the results
+                this.geocodingCache.set(query, results);
+
+                this._showPlaceSuggestions(results);
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    // Ignore abort errors
+                    return;
+                }
+                console.warn('[AstroModals] Geocoding failed:', error);
+            } finally {
+                this.abortController = null;
+            }
+        }, 500);
     }
 
     /**
@@ -336,7 +377,7 @@ class AstroModals {
     }
 
     /**
-     * Handle create form submission
+     * Handle create/edit form submission
      */
     async _handleCreateSubmit() {
         const form = this.elements.createForm;
@@ -361,58 +402,97 @@ class AstroModals {
         }
 
         // Disable submit button
+        const loadingText = this.isEditMode ? 'Saving...' : 'Creating...';
         if (this.elements.btnSubmitCreate) {
             this.elements.btnSubmitCreate.disabled = true;
             this.elements.btnSubmitCreate.innerHTML = `
                 <span class="material-symbols-outlined">hourglass_empty</span>
-                Creating...
+                ${loadingText}
             `;
         }
 
         try {
-            const result = await AstroAPI.createKundali({
-                name,
-                date,
-                time,
-                place,
-                latitude: lat,
-                longitude: lng,
-                timezone: tz,
-                gender: this.selectedGender || 'other',
-                notes,
-                tags
-            });
+            if (this.isEditMode && this.editTargetKundali) {
+                // EDIT MODE - Update existing kundali locally
+                const updatedKundali = {
+                    ...this.editTargetKundali,
+                    birth_details: {
+                        name,
+                        date,
+                        time,
+                        place,
+                        latitude: lat,
+                        longitude: lng,
+                        timezone: tz,
+                        gender: this.selectedGender || 'other'
+                    },
+                    notes,
+                    tags,
+                    chart_data: null, // Clear chart data to force recalculation
+                    updated_at: new Date().toISOString()
+                };
 
-            // Save to localStorage
-            if (result.kundalis) {
-                AstroStorage.saveKundalis(result.kundalis);
+                // Update in localStorage
+                AstroStorage.updateKundali(this.editTargetKundali.id, updatedKundali);
+
+                // Sync all kundalis to server to ensure persistence
+                try {
+                    await AstroAPI.syncKundalis(AstroStorage.getKundalis());
+                } catch (syncError) {
+                    console.warn('[AstroModals] Failed to sync update to server:', syncError);
+                }
+
+                // Callback
+                if (this.onKundaliUpdated) {
+                    this.onKundaliUpdated(updatedKundali);
+                }
+
+                this._showToast('Kundali updated successfully', 'success');
+            } else {
+                // CREATE MODE - Create via API
+                const result = await AstroAPI.createKundali({
+                    name,
+                    date,
+                    time,
+                    place,
+                    latitude: lat,
+                    longitude: lng,
+                    timezone: tz,
+                    gender: this.selectedGender || 'other',
+                    notes,
+                    tags
+                });
+
+                // Save to localStorage
+                if (result.kundalis) {
+                    AstroStorage.saveKundalis(result.kundalis);
+                }
+
+                // Set as active
+                if (result.active_kundali?.id) {
+                    AstroStorage.setActiveKundaliId(result.active_kundali.id);
+                }
+
+                // Callback
+                if (this.onKundaliCreated) {
+                    this.onKundaliCreated(result);
+                }
+
+                this._showToast('Kundali created successfully', 'success');
             }
 
-            // Set as active
-            if (result.active_kundali?.id) {
-                AstroStorage.setActiveKundaliId(result.active_kundali.id);
-            }
-
-            // Callback
-            if (this.onKundaliCreated) {
-                this.onKundaliCreated(result);
-            }
-
-            this._showToast('Kundali created successfully', 'success');
             this.closeCreate();
             this._resetCreateForm();
 
         } catch (error) {
-            console.error('[AstroModals] Failed to create kundali:', error);
-            this._showToast(`Failed to create kundali: ${error.message}`, 'error');
+            const action = this.isEditMode ? 'update' : 'create';
+            console.error(`[AstroModals] Failed to ${action} kundali:`, error);
+            this._showToast(`Failed to ${action} kundali: ${error.message}`, 'error');
         } finally {
             // Re-enable submit button
+            this._updateSubmitButton(this.isEditMode ? 'Save Changes' : 'Cast Kundali');
             if (this.elements.btnSubmitCreate) {
                 this.elements.btnSubmitCreate.disabled = false;
-                this.elements.btnSubmitCreate.innerHTML = `
-                    <span class="material-symbols-outlined">auto_awesome</span>
-                    Cast Kundali
-                `;
             }
         }
     }
@@ -457,18 +537,111 @@ class AstroModals {
     }
 
     /**
-     * Open create modal
+     * Open create modal (new kundali)
      */
     openCreate() {
+        this.isEditMode = false;
+        this.editTargetKundali = null;
+        this._resetCreateForm();
+        this._updateModalTitle('Cast New Kundali', 'auto_awesome');
+        this._updateSubmitButton('Cast Kundali');
         this.elements.createModal?.classList.remove('hidden');
         this.elements.createForm?.querySelector('#kundali-name')?.focus();
     }
 
     /**
-     * Close create modal
+     * Open edit modal for existing kundali
+     */
+    openEdit(kundali) {
+        if (!kundali) return;
+
+        this.isEditMode = true;
+        this.editTargetKundali = kundali;
+
+        // Populate form with existing data
+        const bd = kundali.birth_details || {};
+        const form = this.elements.createForm;
+        if (!form) return;
+
+        // Fill in form fields
+        const nameInput = form.querySelector('#kundali-name');
+        const dateInput = form.querySelector('#kundali-date');
+        const timeInput = form.querySelector('#kundali-time');
+        const placeInput = form.querySelector('#kundali-place');
+        const latInput = form.querySelector('#kundali-lat');
+        const lngInput = form.querySelector('#kundali-lng');
+        const tzInput = form.querySelector('#kundali-tz');
+        const notesInput = form.querySelector('#kundali-notes');
+        const tagsInput = form.querySelector('#kundali-tags');
+
+        if (nameInput) nameInput.value = bd.name || '';
+        if (dateInput) dateInput.value = bd.date || '';
+        if (timeInput) timeInput.value = bd.time || '';
+        if (placeInput) placeInput.value = bd.place || '';
+        if (latInput) latInput.value = bd.latitude || '';
+        if (lngInput) lngInput.value = bd.longitude || '';
+        if (tzInput) tzInput.value = bd.timezone || '';
+        if (notesInput) notesInput.value = kundali.notes || bd.notes || '';
+        if (tagsInput) tagsInput.value = (kundali.tags || []).join(', ');
+
+        // Set gender
+        const gender = bd.gender || kundali.gender || '';
+        this.selectedGender = gender;
+        this.elements.genderBtns?.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.gender === gender);
+        });
+        if (this.elements.genderInput) {
+            this.elements.genderInput.value = gender;
+        }
+
+        // Set selected place
+        if (bd.latitude && bd.longitude) {
+            this.selectedPlace = {
+                name: bd.place || '',
+                lat: bd.latitude,
+                lon: bd.longitude
+            };
+            document.querySelector('.coords-row')?.classList.add('active');
+        }
+
+        // Update modal UI for edit mode
+        this._updateModalTitle('Edit Kundali', 'edit');
+        this._updateSubmitButton('Save Changes');
+
+        this.elements.createModal?.classList.remove('hidden');
+        this.elements.createForm?.querySelector('#kundali-name')?.focus();
+    }
+
+    /**
+     * Update modal title
+     */
+    _updateModalTitle(text, icon) {
+        const titleEl = this.elements.createModal?.querySelector('.modal-title-area h2');
+        const iconEl = this.elements.createModal?.querySelector('.modal-icon');
+        if (titleEl) titleEl.textContent = text;
+        if (iconEl) iconEl.textContent = icon === 'edit' ? '✎' : '✦';
+    }
+
+    /**
+     * Update submit button text
+     */
+    _updateSubmitButton(text) {
+        if (this.elements.btnSubmitCreate) {
+            const icon = this.isEditMode ? 'save' : 'auto_awesome';
+            this.elements.btnSubmitCreate.innerHTML = `
+                <span class="material-symbols-outlined">${icon}</span>
+                ${text}
+            `;
+        }
+    }
+
+    /**
+     * Close create/edit modal
      */
     closeCreate() {
         this.elements.createModal?.classList.add('hidden');
+        this.isEditMode = false;
+        this.editTargetKundali = null;
     }
 
     /**

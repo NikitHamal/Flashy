@@ -79,10 +79,24 @@ class AstroApp {
         // Chat -> Active kundali updates from AI
         AstroChat.onActiveKundaliUpdate = (active) => {
             if (active?.id) {
-                const kundali = AstroKundaliList.getKundali(active.id);
+                // Refresh list from storage first to ensure we have latest data
+                AstroKundaliList.refresh();
+
+                // Try to get kundali from list, fallback to storage
+                let kundali = AstroKundaliList.getKundali(active.id);
+                if (!kundali) {
+                    kundali = AstroStorage.getKundali(active.id);
+                }
+
                 if (kundali) {
-                    AstroKundaliList.selectKundali(active.id);
-                    AstroChart.displayKundali(kundali);
+                    // Only display if kundali has valid birth_details
+                    const bd = kundali.birth_details || {};
+                    if (bd.date && bd.time) {
+                        AstroKundaliList.selectKundali(active.id);
+                        AstroChart.displayKundali(kundali);
+                    } else {
+                        console.warn('[AstroApp] Skipping display - kundali missing birth_details:', active.id);
+                    }
                 }
             }
         };
@@ -91,6 +105,11 @@ class AstroApp {
         AstroKundaliList.onSelect = (kundali) => {
             AstroChart.displayKundali(kundali);
             this._updateTopBar(kundali);
+        };
+
+        // Kundali List -> Edit request
+        AstroKundaliList.onEdit = (kundali) => {
+            AstroModals.openEdit(kundali);
         };
 
         // Kundali List -> Delete request
@@ -113,6 +132,20 @@ class AstroApp {
                 if (kundali) {
                     AstroKundaliList.selectKundali(result.active_kundali.id);
                     AstroChart.displayKundali(kundali);
+                }
+            }
+        };
+
+        // Modal -> Kundali updated (edit mode)
+        AstroModals.onKundaliUpdated = (updatedKundali) => {
+            AstroKundaliList.refresh();
+
+            // Re-display the chart with updated data
+            if (updatedKundali?.id) {
+                const kundali = AstroKundaliList.getKundali(updatedKundali.id);
+                if (kundali) {
+                    AstroChart.displayKundali(kundali);
+                    this._updateTopBar(kundali);
                 }
             }
         };

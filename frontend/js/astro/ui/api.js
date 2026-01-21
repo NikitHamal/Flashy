@@ -50,14 +50,14 @@ class AstroAPI {
      */
     async streamConsultation(message, kundalis = [], activeKundaliId = null, callbacks = {}) {
         const {
-            onThought = () => {},
-            onText = () => {},
-            onToolCall = () => {},
-            onToolResult = () => {},
-            onKundaliUpdate = () => {},
-            onActiveKundaliUpdate = () => {},
-            onError = () => {},
-            onComplete = () => {}
+            onThought = () => { },
+            onText = () => { },
+            onToolCall = () => { },
+            onToolResult = () => { },
+            onKundaliUpdate = () => { },
+            onActiveKundaliUpdate = () => { },
+            onError = () => { },
+            onComplete = () => { }
         } = callbacks;
 
         // Cancel any existing request
@@ -228,11 +228,12 @@ class AstroAPI {
      * @returns {Promise<Object>}
      */
     async updateChartData(kundaliId, chartData) {
-        const response = await fetch(`${this.baseUrl}/kundali/${kundaliId}/chart`, {
+        const response = await fetch(`${this.baseUrl}/kundali/chart-data`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 session_id: this.sessionId,
+                kundali_id: kundaliId,
                 chart_data: chartData
             })
         });
@@ -252,10 +253,8 @@ class AstroAPI {
      * @returns {Promise<Object>}
      */
     async deleteKundali(kundaliId) {
-        const response = await fetch(`${this.baseUrl}/kundali/${kundaliId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: this.sessionId })
+        const response = await fetch(`${this.baseUrl}/kundali/${this.sessionId}/${kundaliId}`, {
+            method: 'DELETE'
         });
 
         if (!response.ok) {
@@ -273,10 +272,13 @@ class AstroAPI {
      * @returns {Promise<Object>}
      */
     async setActiveKundali(kundaliId) {
-        const response = await fetch(`${this.baseUrl}/kundali/${kundaliId}/activate`, {
+        const response = await fetch(`${this.baseUrl}/active-kundali`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: this.sessionId })
+            body: JSON.stringify({
+                session_id: this.sessionId,
+                kundali_id: kundaliId
+            })
         });
 
         if (!response.ok) {
@@ -295,7 +297,7 @@ class AstroAPI {
      * @returns {Promise<Object>}
      */
     async syncKundalis(kundalis) {
-        const response = await fetch(`${this.baseUrl}/kundalis/sync`, {
+        const response = await fetch(`${this.baseUrl}/sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -358,7 +360,7 @@ class AstroAPI {
      * @returns {Promise<Object>}
      */
     async getPlanetInfo(planet) {
-        const response = await fetch(`${this.baseUrl}/planets/${planet}`);
+        const response = await fetch(`${this.baseUrl}/reference/planet/${planet}`);
 
         if (!response.ok) {
             return { planet, info: null };
@@ -373,8 +375,12 @@ class AstroAPI {
      * @returns {Promise<Object>}
      */
     async resetServerSession() {
-        const response = await fetch(`${this.baseUrl}/session/${this.sessionId}/reset`, {
-            method: 'POST'
+        const response = await fetch(`${this.baseUrl}/session/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: this.sessionId
+            })
         });
 
         if (!response.ok) {

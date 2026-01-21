@@ -214,11 +214,13 @@ ASTRO_TOOLS_GUIDE = """
 
 ### Kundali Management
 - `create_kundali(name, date, time, place, latitude, longitude, timezone, gender, notes, tags)`
-  Create a new birth chart with complete birth details.
+  Create a new birth chart. **MANDATORY**: You must use `search_place` first to obtain the correct `latitude`, `longitude`, and `timezone` for the given `place`. Use the values returned by `search_place` exactly.
   - date format: YYYY-MM-DD
   - time format: HH:MM (24-hour)
   - timezone: "Asia/Kolkata", "+05:30", etc.
   - gender: "male", "female", or "other"
+
+- `search_place(query)` - Search for a city/location to get its latitude, longitude, and timezone. **CRITICAL**: Use this before creating any new chart to ensure accuracy.
 
 - `get_kundali(kundali_id)` - Retrieve full chart details
 - `list_kundalis(limit, offset)` - List all stored charts

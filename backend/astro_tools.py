@@ -11,6 +11,9 @@ for the AI agent to query astrological information.
 
 import uuid
 import json
+import requests
+import traceback
+import inspect
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
@@ -156,19 +159,33 @@ class AstroTools:
             # Settings
             {"name": "set_ayanamsa", "description": "Set the ayanamsa system for calculations"},
             {"name": "get_available_ayanamsas", "description": "List available ayanamsa systems"},
+
+            # Geocoding
+            {"name": "search_place", "description": "Search for a place to get its coordinates and timezone"}
         ]
 
     async def execute(self, tool_name: str, **kwargs) -> str:
         """Execute an astrology tool and return result."""
         method = getattr(self, tool_name, None)
         if method is None:
-            return f"Error: Unknown tool '{tool_name}'"
+            return json.dumps({
+                "status": "error",
+                "message": f"Unknown tool '{tool_name}'"
+            })
 
         try:
-            result = method(**kwargs)
+            # Check if method is async or sync
+            if inspect.iscoroutinefunction(method):
+                result = await method(**kwargs)
+            else:
+                result = method(**kwargs)
             return result
         except Exception as e:
-            return f"Error executing {tool_name}: {str(e)}"
+            traceback.print_exc()
+            return json.dumps({
+                "status": "error",
+                "message": f"Error executing {tool_name}: {str(e)}"
+            }, indent=2)
 
     # =========================================================================
     # KUNDALI CRUD OPERATIONS
@@ -180,9 +197,9 @@ class AstroTools:
         date: str,
         time: str,
         place: str,
-        latitude: float,
-        longitude: float,
-        timezone: str,
+        latitude: Any = None,
+        longitude: Any = None,
+        timezone: str = None,
         gender: str = "male",
         notes: str = "",
         tags: List[str] = None
@@ -195,8 +212,8 @@ class AstroTools:
             date: Birth date in YYYY-MM-DD format
             time: Birth time in HH:MM format (24-hour)
             place: Birth place name
-            latitude: Birth place latitude
-            longitude: Birth place longitude
+            latitude: Birth place latitude (float)
+            longitude: Birth place longitude (float)
             timezone: Timezone string (e.g., "Asia/Kolkata" or "+05:30")
             gender: Gender (male/female/other)
             notes: Optional notes
@@ -205,6 +222,29 @@ class AstroTools:
         Returns:
             JSON string with created kundali details
         """
+        # Validate technical requirements
+        missing = []
+        if latitude is None: missing.append("latitude")
+        if longitude is None: missing.append("longitude")
+        if timezone is None: missing.append("timezone")
+
+        if missing:
+            return json.dumps({
+                "status": "error",
+                "message": f"I need the following technical details to cast the sacred chart for {name}: {', '.join(missing)}. "
+                           f"Please use the 'search_place' tool for '{place}' to find these details before calling me again."
+            }, indent=2)
+
+        # Ensure numeric types
+        try:
+            lat_f = float(latitude)
+            lon_f = float(longitude)
+        except (ValueError, TypeError):
+            return json.dumps({
+                "status": "error",
+                "message": "Latitude and longitude must be numbers. Use 'search_place' to get accurate coordinates."
+            }, indent=2)
+
         kundali_id = f"kundali_{uuid.uuid4().hex[:12]}"
         now = datetime.utcnow().isoformat() + "Z"
 
@@ -213,8 +253,8 @@ class AstroTools:
             date=date,
             time=time,
             place=place,
-            latitude=latitude,
-            longitude=longitude,
+            latitude=lat_f,
+            longitude=lon_f,
             timezone=timezone,
             gender=gender
         )
@@ -237,6 +277,60 @@ class AstroTools:
             "message": f"Created kundali for {name}",
             "kundali": kundali.to_dict()
         }, indent=2)
+
+    def search_place(self, query: str) -> str:
+        """
+        Search for a place and get its coordinates and timezone.
+
+        Args:
+            query: City name or place description
+
+        Returns:
+            JSON string with place details (lat, lon, timezone)
+        """
+        try:
+            # Use Nominatim for geocoding
+            url = f"https://nominatim.openstreetmap.org/search?format=json&q={requests.utils.quote(query)}&limit=1"
+            headers = {"User-Agent": "FlashyAstroAgent/1.0"}
+            response = requests.get(url, headers=headers, timeout=10)
+            results = response.json()
+
+            if not results:
+                return json.dumps({
+                    "status": "error",
+                    "message": f"I cannot find the coordinates for '{query}' in my cosmic records. Please provide a more specific city or country name."
+                })
+
+            place = results[0]
+            lat = float(place["lat"])
+            lon = float(place["lon"])
+
+            # Simple timezone approximation based on longitude
+            offset_hours = round(lon / 15.0)
+            sign = "+" if offset_hours >= 0 else "-"
+            # Format as UTC+HH:00
+            timezone_approx = f"UTC{sign}{abs(offset_hours):02g}:00"
+
+            # Region specific overrides
+            display_name = place.get("display_name", "").lower()
+            if "india" in display_name:
+                timezone_approx = "Asia/Kolkata"
+            elif "nepal" in display_name:
+                timezone_approx = "Asia/Kathmandu"
+
+            return json.dumps({
+                "status": "success",
+                "query": query,
+                "display_name": place["display_name"],
+                "latitude": lat,
+                "longitude": lon,
+                "timezone": timezone_approx
+            }, indent=2)
+        except Exception as e:
+            return json.dumps({
+                "status": "error",
+                "message": f"Error searching place: {str(e)}"
+            })
 
     def get_kundali(self, kundali_id: str) -> str:
         """Get full kundali details by ID."""
@@ -261,24 +355,16 @@ class AstroTools:
         # Apply pagination
         paginated = kundalis_list[offset:offset + limit]
 
-        summaries = []
+        # Return full kundali data so frontend can use it for chart display
+        kundalis_data = []
         for k in paginated:
-            bd = k.birth_details if isinstance(k.birth_details, dict) else k.birth_details.to_dict()
-            summaries.append({
-                "id": k.id,
-                "name": bd.get("name"),
-                "date": bd.get("date"),
-                "place": bd.get("place"),
-                "gender": bd.get("gender"),
-                "created_at": k.created_at,
-                "tags": k.tags
-            })
+            kundalis_data.append(k.to_dict())
 
         return json.dumps({
             "status": "success",
             "total": len(self.kundalis),
-            "showing": len(summaries),
-            "kundalis": summaries
+            "showing": len(kundalis_data),
+            "kundalis": kundalis_data
         }, indent=2)
 
     def update_kundali(

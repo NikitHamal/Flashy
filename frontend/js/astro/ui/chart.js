@@ -210,40 +210,210 @@ class AstroChart {
      * Calculate chart data from birth details
      */
     async _calculateChart(kundali) {
-        const bd = kundali.birth_details;
-        if (!bd || !this.calculationEngine) {
-            throw new Error('Missing birth details or calculation engine');
+        // Normalize birth details - handle both nested and flat structures
+        const bd = kundali.birth_details || {};
+        const birthDetails = {
+            date: bd.date || kundali.date,
+            time: bd.time || kundali.time,
+            place: bd.place || kundali.place,
+            latitude: bd.latitude ?? kundali.latitude,
+            longitude: bd.longitude ?? kundali.longitude,
+            timezone: bd.timezone || kundali.timezone
+        };
+
+        // Validate required fields
+        if (!birthDetails.date || !birthDetails.time) {
+            console.warn('[AstroChart] Missing date or time in birth details, using placeholder');
+            return this._createPlaceholderChartData(birthDetails);
+        }
+
+        if (birthDetails.latitude === undefined || birthDetails.longitude === undefined ||
+            isNaN(birthDetails.latitude) || isNaN(birthDetails.longitude)) {
+            console.warn('[AstroChart] Missing or invalid coordinates in birth details, using placeholder');
+            return this._createPlaceholderChartData(birthDetails);
+        }
+
+        // Check for calculation engine
+        if (!this.calculationEngine) {
+            // Try to load it again
+            try {
+                const engineModule = await import('../core/engine.js');
+                this.calculationEngine = engineModule.default;
+            } catch (loadError) {
+                console.warn('[AstroChart] Chart calculation skipped - engine not available:', loadError.message);
+                // Return a minimal placeholder structure so the UI can still show something
+                return this._createPlaceholderChartData(birthDetails);
+            }
         }
 
         // Parse date and time
-        const [year, month, day] = bd.date.split('-').map(Number);
-        const [hour, minute] = bd.time.split(':').map(Number);
+        const [year, month, day] = birthDetails.date.split('-').map(Number);
+        const [hour, minute] = birthDetails.time.split(':').map(Number);
+
+        // Create Date object for calculations
+        // Note: JavaScript months are 0-indexed
+        const birthDate = new Date(year, month - 1, day, hour, minute, 0);
 
         // Get ayanamsa
         const ayanamsa = AstroStorage.getAyanamsa();
         this.calculationEngine.setAyanamsaSystem(ayanamsa);
 
-        // Calculate Julian Day
-        const jd = this.calculationEngine.dateToJulian(year, month, day, hour, minute, 0);
+        // Get ayanamsa value for this date
+        const ayanamsaValue = this.calculationEngine.getAyanamsa(birthDate);
 
-        // Calculate planets
-        const planets = this.calculationEngine.calculatePlanets(jd, bd.latitude, bd.longitude);
+        // Calculate planets using Date object
+        const rawPlanets = this.calculationEngine.calculatePlanets(birthDate);
 
-        // Calculate lagna (ascendant)
-        const lagna = this.calculationEngine.calculateLagna(jd, bd.latitude, bd.longitude);
+        // Calculate lagna (tropical) and convert to sidereal
+        const tropicalLagna = this.calculationEngine.calculateLagna(birthDate, birthDetails.latitude, birthDetails.longitude);
+        const siderealLagna = (tropicalLagna - ayanamsaValue + 360) % 360;
+
+        // Convert tropical positions to sidereal and add nakshatra/rasi info
+        const planets = {};
+        const RASI_NAMES = ['Mesha', 'Vrishabha', 'Mithuna', 'Karka', 'Simha', 'Kanya',
+            'Tula', 'Vrishchika', 'Dhanu', 'Makara', 'Kumbha', 'Meena'];
+        const NAKSHATRA_NAMES = [
+            'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra',
+            'Punarvasu', 'Pushya', 'Ashlesha', 'Magha', 'Purva Phalguni', 'Uttara Phalguni',
+            'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha',
+            'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishtha', 'Shatabhisha',
+            'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'
+        ];
+
+        Object.entries(rawPlanets).forEach(([name, data]) => {
+            const siderealLon = (data.elon - ayanamsaValue + 360) % 360;
+            const signIndex = Math.floor(siderealLon / 30);
+            const nakshatraIndex = Math.floor(siderealLon / (360 / 27));
+            const nakshatraPada = Math.floor((siderealLon % (360 / 27)) / (360 / 27 / 4)) + 1;
+
+            planets[name] = {
+                longitude: siderealLon,
+                tropicalLongitude: data.elon,
+                latitude: data.elat || 0,
+                distance: data.dist,
+                speed: data.speed,
+                retrograde: data.speed < 0,
+                rasi: {
+                    index: signIndex,
+                    name: RASI_NAMES[signIndex],
+                    degree: siderealLon % 30
+                },
+                nakshatra: {
+                    index: nakshatraIndex,
+                    name: NAKSHATRA_NAMES[nakshatraIndex],
+                    pada: nakshatraPada,
+                    lord: this._getNakshatraLord(nakshatraIndex)
+                }
+            };
+        });
+
+        // Build lagna object
+        const lagnaSignIndex = Math.floor(siderealLagna / 30);
+        const lagnaNakshatraIndex = Math.floor(siderealLagna / (360 / 27));
+        const lagna = {
+            longitude: siderealLagna,
+            tropicalLongitude: tropicalLagna,
+            rasi: {
+                index: lagnaSignIndex,
+                name: RASI_NAMES[lagnaSignIndex],
+                degree: siderealLagna % 30
+            },
+            nakshatra: {
+                index: lagnaNakshatraIndex,
+                name: NAKSHATRA_NAMES[lagnaNakshatraIndex],
+                pada: Math.floor((siderealLagna % (360 / 27)) / (360 / 27 / 4)) + 1
+            }
+        };
+
+        // Calculate Julian Day for reference
+        const jd = this.calculationEngine.dateToJulian(birthDate);
 
         // Build chart data structure
         const chartData = {
             jd,
+            birthDate: birthDate.toISOString(),
             ayanamsa,
+            ayanamsaValue,
             lagna,
             planets,
             houses: this._calculateHouses(lagna, planets),
             nakshatras: this._extractNakshatras(planets),
+            divisionals: this._buildDivisionals(lagna, planets),
             vargas: {}
         };
 
         return chartData;
+    }
+
+    /**
+     * Get Nakshatra lord for Vimshottari dasha
+     */
+    _getNakshatraLord(nakshatraIndex) {
+        const lords = [
+            'Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury',
+            'Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury',
+            'Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury'
+        ];
+        return lords[nakshatraIndex] || 'Unknown';
+    }
+
+    /**
+     * Create placeholder chart data when calculation engine is unavailable
+     */
+    _createPlaceholderChartData(birthDetails) {
+        return {
+            jd: null,
+            ayanamsa: AstroStorage.getAyanamsa(),
+            lagna: { longitude: 0, rasi: { index: 0, name: 'Mesha' } },
+            planets: {},
+            houses: {},
+            nakshatras: {},
+            divisionals: { D1: { houses: {} } },
+            vargas: {},
+            _placeholder: true,
+            _message: 'Chart calculation not available. Please ensure the astronomical engine is loaded.'
+        };
+    }
+
+    /**
+     * Build divisional chart data structures
+     */
+    _buildDivisionals(lagna, planets) {
+        const vargas = {
+            D1: 1, D2: 2, D3: 3, D4: 4, D7: 7, D9: 9, D10: 10, D12: 12,
+            D16: 16, D20: 20, D24: 24, D27: 27, D30: 30, D40: 40, D45: 45, D60: 60
+        };
+
+        const divisionals = {};
+
+        Object.entries(vargas).forEach(([varga, div]) => {
+            const lagnaVargaSign = Math.floor(lagna.longitude * div / 30) % 12;
+            const houses = {};
+
+            // Initialize houses (indexed by sign index 0-11)
+            for (let s = 0; s < 12; s++) {
+                houses[s] = {
+                    number: ((s - lagnaVargaSign + 12) % 12) + 1,
+                    planets: []
+                };
+            }
+
+            // Place planets in varga positions
+            Object.entries(planets).forEach(([name, data]) => {
+                const planetVargaSign = Math.floor(data.longitude * div / 30) % 12;
+                if (houses[planetVargaSign]) {
+                    houses[planetVargaSign].planets.push({
+                        name,
+                        longitude: (data.longitude * div) % 360,
+                        retrograde: data.retrograde || false
+                    });
+                }
+            });
+
+            divisionals[varga] = { houses, lagna: lagnaVargaSign };
+        });
+
+        return divisionals;
     }
 
     /**
