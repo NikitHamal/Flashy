@@ -236,6 +236,72 @@ async def export_as_json(
     )
 
 
+@router.get("/export/svg/{session_id}")
+async def generate_svg_export(
+    request: Request,
+    session_id: str,
+    pretty: bool = Query(True, description="Pretty print SVG"),
+    optimize: bool = Query(True, description="Optimize SVG output"),
+    download: bool = Query(False, description="Return as attachment for download")
+):
+    """
+    Generate SVG directly from backend canvas state using SVG renderer.
+    This creates clean, production-ready SVG without requiring frontend canvas.
+    """
+    design_service = request.app.state.design_service
+
+    try:
+        svg_data = design_service.export_svg(
+            session_id=session_id,
+            pretty=pretty,
+            optimize=optimize
+        )
+
+        if not svg_data:
+            raise HTTPException(status_code=404, detail="No canvas data found for session")
+
+        headers = {}
+        if download:
+            headers["Content-Disposition"] = f"attachment; filename=design_{session_id}.svg"
+
+        return Response(
+            content=svg_data,
+            media_type="image/svg+xml",
+            headers=headers
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"SVG export failed: {str(e)}")
+
+
+@router.get("/preview/svg/{session_id}")
+async def get_svg_preview(
+    request: Request,
+    session_id: str,
+    max_size: int = Query(400, description="Maximum dimension for preview")
+):
+    """
+    Get a scaled SVG preview suitable for thumbnails.
+    Returns a smaller, optimized SVG for display.
+    """
+    design_service = request.app.state.design_service
+
+    try:
+        svg_data = design_service.get_svg_preview(
+            session_id=session_id,
+            max_size=max_size
+        )
+
+        if not svg_data:
+            raise HTTPException(status_code=404, detail="No canvas data found for session")
+
+        return Response(
+            content=svg_data,
+            media_type="image/svg+xml"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"SVG preview failed: {str(e)}")
+
+
 @router.post("/import/json")
 async def import_from_json(
     request: Request,

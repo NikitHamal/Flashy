@@ -22,6 +22,7 @@ from .design_effects import (
     EffectPresets, hex_to_rgba, lighten_color, darken_color,
     create_linear_gradient, create_radial_gradient, create_shadow
 )
+from .svg_renderer import SVGRenderer, SVGConfig, render_canvas_to_svg
 
 
 class ObjectType(Enum):
@@ -241,6 +242,9 @@ class DesignTools:
             {"name": "set_canvas_size", "description": "Set canvas dimensions"},
             {"name": "clear_canvas", "description": "Clear all objects"},
             {"name": "get_canvas_state", "description": "Get current canvas state"},
+
+            # Export
+            {"name": "export_svg", "description": "Export canvas as SVG string"},
 
             # History
             {"name": "undo", "description": "Undo last action"},
@@ -1537,3 +1541,65 @@ class DesignTools:
             return f"Set background to {color}"
 
         return "Error: Provide either 'color' or 'gradient_type' with 'colors'"
+
+    # === SVG Export ===
+
+    def export_svg(
+        self,
+        pretty: bool = True,
+        optimize: bool = True,
+        viewport_width: int = None,
+        viewport_height: int = None
+    ) -> str:
+        """
+        Export the current canvas state as an SVG string.
+
+        Args:
+            pretty: Pretty print the SVG with indentation
+            optimize: Optimize SVG output (remove unnecessary attributes)
+            viewport_width: Optional viewport width (default: canvas width)
+            viewport_height: Optional viewport height (default: canvas height)
+
+        Returns:
+            SVG string representation of the canvas
+        """
+        config = SVGConfig(
+            indent=pretty,
+            pretty_print=pretty,
+            optimize=optimize,
+            viewport_width=viewport_width,
+            viewport_height=viewport_height
+        )
+
+        canvas_dict = self.canvas.to_dict()
+        svg_string = render_canvas_to_svg(canvas_dict, config)
+
+        return svg_string
+
+    def get_svg_preview(self, max_size: int = 400) -> str:
+        """
+        Get a scaled-down SVG preview suitable for thumbnails.
+
+        Args:
+            max_size: Maximum dimension for preview
+
+        Returns:
+            Scaled SVG string
+        """
+        width = self.canvas.width
+        height = self.canvas.height
+        scale = min(max_size / width, max_size / height)
+
+        preview_width = int(width * scale)
+        preview_height = int(height * scale)
+
+        config = SVGConfig(
+            indent=False,
+            pretty_print=False,
+            optimize=True,
+            viewport_width=preview_width,
+            viewport_height=preview_height
+        )
+
+        canvas_dict = self.canvas.to_dict()
+        return render_canvas_to_svg(canvas_dict, config)

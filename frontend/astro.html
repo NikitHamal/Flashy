@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashy Jyotish | Vedic Astrology Agent</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/astro.css">
+
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+</head>
+
+<body>
+    <div class="astro-app-container">
+        <!-- Left Sidebar: Kundali List -->
+        <aside class="kundali-sidebar">
+            <div class="sidebar-header">
+                <a href="/" class="brand-link">
+                    <span class="material-symbols-outlined logo-icon">flash_on</span>
+                    <span class="brand-name">Flashy</span>
+                </a>
+                <span class="brand-badge">Jyotish</span>
+            </div>
+
+            <!-- Kundali Actions -->
+            <div class="kundali-actions">
+                <button id="btn-new-kundali" class="btn-new-kundali" title="Create New Kundali">
+                    <span class="material-symbols-outlined">add_circle</span>
+                    New Kundali
+                </button>
+            </div>
+
+            <!-- Kundali Search -->
+            <div class="kundali-search">
+                <span class="material-symbols-outlined search-icon">search</span>
+                <input type="text" id="kundali-search" placeholder="Search charts...">
+            </div>
+
+            <!-- Kundali List -->
+            <div id="kundali-list" class="kundali-list">
+                <!-- Empty state shown when no kundalis -->
+                <div id="kundali-empty-state" class="kundali-empty-state">
+                    <div class="empty-icon">
+                        <span class="material-symbols-outlined">auto_awesome</span>
+                    </div>
+                    <h3>No Birth Charts</h3>
+                    <p>Create your first Kundali to begin your cosmic journey</p>
+                    <button id="btn-create-first" class="btn-create-first">
+                        <span class="material-symbols-outlined">add</span>
+                        Create Kundali
+                    </button>
+                </div>
+                <!-- Kundali cards will be rendered here -->
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <div class="ayanamsa-selector">
+                    <label>Ayanamsa</label>
+                    <select id="ayanamsa-select">
+                        <option value="Lahiri" selected>Lahiri (Chitrapaksha)</option>
+                        <option value="Raman">Raman</option>
+                        <option value="Krishnamurti">KP (Krishnamurti)</option>
+                        <option value="FaganBradley">Fagan-Bradley</option>
+                        <option value="Yukteshwar">Yukteshwar</option>
+                        <option value="TrueChitra">True Chitra</option>
+                        <option value="PushyaPaksha">Pushya Paksha</option>
+                    </select>
+                </div>
+                <div class="sidebar-stats">
+                    <span id="chart-count">0 charts</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chart Area -->
+        <main class="chart-main">
+            <!-- Top Bar -->
+            <div class="chart-top-bar">
+                <div class="chart-breadcrumb">
+                    <span id="active-chart-name">Select or Create a Chart</span>
+                    <span id="active-chart-info" class="chart-info-badge"></span>
+                </div>
+
+                <div class="chart-controls">
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="north" title="North Indian Style">
+                            <span class="material-symbols-outlined">grid_view</span>
+                        </button>
+                        <button class="view-btn" data-view="south" title="South Indian Style">
+                            <span class="material-symbols-outlined">apps</span>
+                        </button>
+                    </div>
+                    <div class="chart-tabs">
+                        <button class="chart-tab active" data-chart="D1" title="Rashi Chart">D1</button>
+                        <button class="chart-tab" data-chart="D9" title="Navamsha">D9</button>
+                        <button class="chart-tab" data-chart="D10" title="Dashamsha">D10</button>
+                        <button class="chart-tab" data-chart="D7" title="Saptamsha">D7</button>
+                        <button class="chart-tab dropdown" data-chart="more" title="More Vargas">
+                            <span class="material-symbols-outlined">more_horiz</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-actions">
+                    <button id="btn-dasha" class="btn-ghost" title="View Dasha Timeline">
+                        <span class="material-symbols-outlined">timeline</span>
+                    </button>
+                    <button id="btn-yogas" class="btn-ghost" title="View Yogas">
+                        <span class="material-symbols-outlined">auto_awesome</span>
+                    </button>
+                    <button id="btn-shadbala" class="btn-ghost" title="Planetary Strength">
+                        <span class="material-symbols-outlined">bar_chart</span>
+                    </button>
+                    <div class="action-divider"></div>
+                    <button id="btn-export-chart" class="btn-accent-sm">
+                        <span class="material-symbols-outlined">download</span>
+                        Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chart Display Area -->
+            <div class="chart-wrapper">
+                <!-- No Chart Selected State -->
+                <div id="no-chart-state" class="no-chart-state">
+                    <div class="no-chart-visual">
+                        <div class="cosmic-rings">
+                            <div class="ring ring-1"></div>
+                            <div class="ring ring-2"></div>
+                            <div class="ring ring-3"></div>
+                            <div class="center-star">✦</div>
+                        </div>
+                    </div>
+                    <h2>Begin Your Cosmic Journey</h2>
+                    <p>Create a birth chart to unlock the secrets of the stars, or ask the Jyotishi to guide you</p>
+                    <div class="no-chart-actions">
+                        <button id="btn-start-create" class="btn-primary-lg">
+                            <span class="material-symbols-outlined">add_circle</span>
+                            Create Birth Chart
+                        </button>
+                        <span class="action-or">or</span>
+                        <button id="btn-ask-jyotishi" class="btn-secondary-lg">
+                            <span class="material-symbols-outlined">psychology</span>
+                            Ask the Jyotishi
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chart Container (hidden until chart loaded) -->
+                <div id="chart-container" class="chart-container hidden">
+                    <!-- Chart SVG will be rendered here -->
+                    <div id="chart-svg-container" class="chart-svg-container"></div>
+
+                    <!-- Planet Info Panel (overlay) -->
+                    <div id="planet-info-panel" class="planet-info-panel hidden">
+                        <div class="planet-info-header">
+                            <span id="planet-info-name" class="planet-name"></span>
+                            <button class="btn-close-panel">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div id="planet-info-content" class="planet-info-content"></div>
+                    </div>
+                </div>
+
+                <!-- Chart Summary Cards -->
+                <div id="chart-summary" class="chart-summary hidden">
+                    <div class="summary-card lagna-card">
+                        <div class="card-icon">
+                            <span class="material-symbols-outlined">brightness_7</span>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Lagna</span>
+                            <span id="summary-lagna" class="card-value">—</span>
+                        </div>
+                    </div>
+                    <div class="summary-card moon-card">
+                        <div class="card-icon">
+                            <span class="material-symbols-outlined">nights_stay</span>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Moon Sign</span>
+                            <span id="summary-moon" class="card-value">—</span>
+                        </div>
+                    </div>
+                    <div class="summary-card nakshatra-card">
+                        <div class="card-icon">
+                            <span class="material-symbols-outlined">stars</span>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Nakshatra</span>
+                            <span id="summary-nakshatra" class="card-value">—</span>
+                        </div>
+                    </div>
+                    <div class="summary-card dasha-card">
+                        <div class="card-icon">
+                            <span class="material-symbols-outlined">schedule</span>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Current Dasha</span>
+                            <span id="summary-dasha" class="card-value">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: AI Jyotishi Chat (Always Visible) -->
+        <aside class="jyotishi-sidebar">
+            <div class="jyotishi-header">
+                <div class="jyotishi-identity">
+                    <div class="jyotishi-avatar">
+                        <span class="avatar-symbol">॥</span>
+                    </div>
+                    <div class="jyotishi-info">
+                        <span class="jyotishi-name">Jyotish Guru</span>
+                        <div class="jyotishi-status">
+                            <div id="jyotishi-indicator" class="status-indicator idle"></div>
+                            <span id="jyotishi-status-text">Ready to consult</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="jyotishi-actions">
+                    <button id="btn-clear-chat" class="btn-icon-xs" title="Clear Chat">
+                        <span class="material-symbols-outlined">delete_sweep</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat History -->
+            <div id="jyotishi-chat-history" class="jyotishi-chat-history">
+                <div class="chat-welcome">
+                    <div class="welcome-greeting">
+                        <span class="devanagari">नमस्ते</span>
+                        <span class="english">Namaste, Seeker</span>
+                    </div>
+                    <p class="welcome-message">
+                        I am a Vedic Jyotishi with the divine vision of the Vedas.
+                        I see charts not as symbols but as living karmic maps.
+                        The planets speak to me; the nakshatras whisper their secrets.
+                    </p>
+                    <p class="welcome-truth">
+                        <strong>Be warned:</strong> I do not sugar-coat. Truth, even bitter, is medicine.
+                        The stars do not lie, and neither shall I.
+                    </p>
+                    <div class="welcome-suggestions">
+                        <span class="suggestions-label">Quick Actions</span>
+                        <div class="suggestion-chips">
+                            <button class="suggestion-chip" data-prompt="Create a kundali for me. I was born on">
+                                <span class="material-symbols-outlined">add_circle</span>
+                                Create My Chart
+                            </button>
+                            <button class="suggestion-chip" data-prompt="What does my Moon sign reveal about my emotional nature?">
+                                <span class="material-symbols-outlined">psychology</span>
+                                Read My Moon
+                            </button>
+                            <button class="suggestion-chip" data-prompt="Analyze my current Dasha period and what it means for me">
+                                <span class="material-symbols-outlined">timeline</span>
+                                Current Dasha
+                            </button>
+                            <button class="suggestion-chip" data-prompt="What career paths are indicated in my chart?">
+                                <span class="material-symbols-outlined">work</span>
+                                Career Guidance
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-area">
+                <div id="thinking-indicator" class="thinking-indicator hidden">
+                    <div class="thinking-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="thinking-text">Consulting the cosmic charts...</span>
+                </div>
+                <div class="chat-input-wrapper">
+                    <textarea id="jyotishi-input" placeholder="Ask the Jyotishi anything..." rows="1"></textarea>
+                    <button id="btn-send-message" class="btn-send" disabled>
+                        <span class="material-symbols-outlined">arrow_upward</span>
+                    </button>
+                </div>
+                <div class="chat-tools">
+                    <button id="btn-voice-input" class="btn-tool" title="Voice Input">
+                        <span class="material-symbols-outlined">mic</span>
+                    </button>
+                    <button id="btn-interrupt" class="btn-tool btn-stop hidden" title="Stop Generation">
+                        <span class="material-symbols-outlined">stop_circle</span>
+                        Stop
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Create Kundali Modal -->
+    <div id="modal-create-kundali" class="modal hidden">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <span class="modal-icon">✦</span>
+                    <h2>Cast New Kundali</h2>
+                </div>
+                <button class="btn-close-modal" id="btn-close-create">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form-create-kundali" class="kundali-form">
+                    <p class="form-intro">
+                        The sacred details of birth are required to cast an accurate chart.
+                        Precision in time is paramount — even 4 minutes shifts the Ascendant.
+                    </p>
+
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="material-symbols-outlined">person</span>
+                            Identity
+                        </h3>
+                        <div class="form-row">
+                            <div class="form-field full">
+                                <label for="kundali-name">Full Name <span class="required">*</span></label>
+                                <input type="text" id="kundali-name" required
+                                    placeholder="The name carries its own vibration">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="kundali-gender">Gender <span class="required">*</span></label>
+                                <div class="gender-select">
+                                    <button type="button" class="gender-btn" data-gender="male">
+                                        <span class="material-symbols-outlined">male</span>
+                                        Male
+                                    </button>
+                                    <button type="button" class="gender-btn" data-gender="female">
+                                        <span class="material-symbols-outlined">female</span>
+                                        Female
+                                    </button>
+                                    <button type="button" class="gender-btn" data-gender="other">
+                                        <span class="material-symbols-outlined">deployed_code_account</span>
+                                        Other
+                                    </button>
+                                </div>
+                                <input type="hidden" id="kundali-gender" value="">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="material-symbols-outlined">calendar_month</span>
+                            Birth Moment
+                        </h3>
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="kundali-date">Birth Date <span class="required">*</span></label>
+                                <input type="date" id="kundali-date" required>
+                            </div>
+                            <div class="form-field">
+                                <label for="kundali-time">Birth Time <span class="required">*</span></label>
+                                <input type="time" id="kundali-time" required step="60">
+                                <span class="field-hint">24-hour format preferred</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label>
+                                    <input type="checkbox" id="kundali-time-uncertain">
+                                    Time is approximate/uncertain
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="material-symbols-outlined">location_on</span>
+                            Birth Location
+                        </h3>
+                        <div class="form-row">
+                            <div class="form-field full">
+                                <label for="kundali-place">Place of Birth <span class="required">*</span></label>
+                                <div class="place-input-wrapper">
+                                    <input type="text" id="kundali-place" required
+                                        placeholder="City, Country" autocomplete="off">
+                                    <div id="place-suggestions" class="place-suggestions hidden"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row coords-row">
+                            <div class="form-field">
+                                <label for="kundali-lat">Latitude</label>
+                                <input type="number" id="kundali-lat" step="0.0001"
+                                    placeholder="Auto-filled">
+                            </div>
+                            <div class="form-field">
+                                <label for="kundali-lng">Longitude</label>
+                                <input type="number" id="kundali-lng" step="0.0001"
+                                    placeholder="Auto-filled">
+                            </div>
+                            <div class="form-field">
+                                <label for="kundali-tz">Timezone</label>
+                                <input type="text" id="kundali-tz"
+                                    placeholder="Auto-filled">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section collapsible">
+                        <h3 class="section-title expandable" id="toggle-optional">
+                            <span class="material-symbols-outlined">notes</span>
+                            Additional Details
+                            <span class="material-symbols-outlined expand-icon">expand_more</span>
+                        </h3>
+                        <div id="optional-fields" class="optional-fields collapsed">
+                            <div class="form-row">
+                                <div class="form-field full">
+                                    <label for="kundali-notes">Notes</label>
+                                    <textarea id="kundali-notes" rows="2"
+                                        placeholder="Any additional context (health, family history, specific concerns)"></textarea>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field full">
+                                    <label for="kundali-tags">Tags</label>
+                                    <input type="text" id="kundali-tags"
+                                        placeholder="family, client, self (comma-separated)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-create" class="btn-secondary">Cancel</button>
+                <button type="submit" form="form-create-kundali" id="btn-submit-create" class="btn-primary">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                    Cast Kundali
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Varga Selection Modal -->
+    <div id="modal-varga-select" class="modal hidden">
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h2>Divisional Charts (Vargas)</h2>
+                <button class="btn-close-modal" id="btn-close-varga">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="varga-grid">
+                    <button class="varga-btn active" data-varga="D1">
+                        <span class="varga-name">D1</span>
+                        <span class="varga-desc">Rashi - Life Overview</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D2">
+                        <span class="varga-name">D2</span>
+                        <span class="varga-desc">Hora - Wealth</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D3">
+                        <span class="varga-name">D3</span>
+                        <span class="varga-desc">Drekkana - Siblings</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D4">
+                        <span class="varga-name">D4</span>
+                        <span class="varga-desc">Chaturthamsha - Fortune</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D7">
+                        <span class="varga-name">D7</span>
+                        <span class="varga-desc">Saptamsha - Children</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D9">
+                        <span class="varga-name">D9</span>
+                        <span class="varga-desc">Navamsha - Marriage/Soul</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D10">
+                        <span class="varga-name">D10</span>
+                        <span class="varga-desc">Dashamsha - Career</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D12">
+                        <span class="varga-name">D12</span>
+                        <span class="varga-desc">Dwadashamsha - Parents</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D16">
+                        <span class="varga-name">D16</span>
+                        <span class="varga-desc">Shodashamsha - Vehicles</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D20">
+                        <span class="varga-name">D20</span>
+                        <span class="varga-desc">Vimshamsha - Spirituality</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D24">
+                        <span class="varga-name">D24</span>
+                        <span class="varga-desc">Chaturvimshamsha - Education</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D27">
+                        <span class="varga-name">D27</span>
+                        <span class="varga-desc">Bhamsha - Strength</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D30">
+                        <span class="varga-name">D30</span>
+                        <span class="varga-desc">Trimshamsha - Misfortunes</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D40">
+                        <span class="varga-name">D40</span>
+                        <span class="varga-desc">Khavedamsha - Auspicious</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D45">
+                        <span class="varga-name">D45</span>
+                        <span class="varga-desc">Akshavedamsha - Character</span>
+                    </button>
+                    <button class="varga-btn" data-varga="D60">
+                        <span class="varga-name">D60</span>
+                        <span class="varga-desc">Shashtiamsha - Past Karma</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dasha Timeline Modal -->
+    <div id="modal-dasha" class="modal hidden">
+        <div class="modal-content modal-xl">
+            <div class="modal-header">
+                <h2>Dasha Timeline</h2>
+                <button class="btn-close-modal" id="btn-close-dasha">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="dasha-content" class="dasha-content">
+                    <!-- Dasha timeline rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yogas Modal -->
+    <div id="modal-yogas" class="modal hidden">
+        <div class="modal-content modal-xl">
+            <div class="modal-header">
+                <h2>Yogas (Planetary Combinations)</h2>
+                <button class="btn-close-modal" id="btn-close-yogas">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="yogas-content" class="yogas-content">
+                    <!-- Yogas list rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Planetary Strength Modal -->
+    <div id="modal-shadbala" class="modal hidden">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Shadbala (Planetary Strength)</h2>
+                <button class="btn-close-modal" id="btn-close-shadbala">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="shadbala-content" class="shadbala-content">
+                    <!-- Shadbala charts rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="modal-export" class="modal hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Export Chart</h2>
+                <button class="btn-close-modal" id="btn-close-export">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="export-options">
+                    <button class="export-option" data-format="png">
+                        <span class="material-symbols-outlined">image</span>
+                        <div class="export-info">
+                            <div class="export-title">PNG Image</div>
+                            <div class="export-desc">High-quality chart image</div>
+                        </div>
+                    </button>
+                    <button class="export-option" data-format="svg">
+                        <span class="material-symbols-outlined">code</span>
+                        <div class="export-info">
+                            <div class="export-title">SVG Vector</div>
+                            <div class="export-desc">Scalable vector graphics</div>
+                        </div>
+                    </button>
+                    <button class="export-option" data-format="pdf">
+                        <span class="material-symbols-outlined">picture_as_pdf</span>
+                        <div class="export-info">
+                            <div class="export-title">PDF Report</div>
+                            <div class="export-desc">Full analysis document</div>
+                        </div>
+                    </button>
+                    <button class="export-option" data-format="json">
+                        <span class="material-symbols-outlined">data_object</span>
+                        <div class="export-info">
+                            <div class="export-title">JSON Data</div>
+                            <div class="export-desc">Raw chart data backup</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="modal-delete" class="modal hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Delete Kundali</h2>
+                <button class="btn-close-modal" id="btn-close-delete">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="delete-warning">
+                    <span class="material-symbols-outlined warning-icon">warning</span>
+                    Are you sure you want to delete <strong id="delete-name"></strong>?
+                    This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-delete" class="btn-secondary">Cancel</button>
+                <button id="btn-confirm-delete" class="btn-danger">
+                    <span class="material-symbols-outlined">delete</span>
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- Astronomy Engine (NASA JPL DE405) -->
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+
+    <!-- Astro Modules -->
+    <script type="module" src="/js/astro/ui/app.js"></script>
+</body>
+
+</html>

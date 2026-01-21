@@ -12,5 +12,12 @@
         "name": "Coffe Shop",
         "created_at": 1768686366.7606692,
         "last_accessed": 1768712579.3698394
+    },
+    "69912ed7-45a6-4cf9-b974-b36c8d403891": {
+        "id": "69912ed7-45a6-4cf9-b974-b36c8d403891",
+        "path": "F:\\Github\\Graphy",
+        "name": "Graphy",
+        "created_at": 1769022695.175366,
+        "last_accessed": 1769022695.175372
     }
 }
