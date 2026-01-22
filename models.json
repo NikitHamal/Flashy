@@ -1,0 +1,249 @@
+{
+  "data": [
+    {
+      "id": "qwen3-max-2025-09-23",
+      "name": "Qwen3-Max",
+      "object": "model",
+      "owned_by": "qwen",
+      "info": {
+        "id": "qwen3-max-2025-09-23",
+        "user_id": "4a8cd1c0-a7f6-4cfa-b5dd-d6bdab408271",
+        "base_model_id": null,
+        "name": "Qwen3-Max",
+        "meta": {
+          "profile_image_url": "/static/favicon.png",
+          "description": "Qwen3-Max is the most advanced language model in the Qwen series, excelling in complex reasoning, instruction following, mathematics, coding, role-playing, creative writing, and more.",
+          "capabilities": {
+            "vision": true,
+            "document": true,
+            "video": true,
+            "audio": true,
+            "citations": true,
+            "thinking_budget": true,
+            "thinking": true
+          },
+          "short_description": "The most powerful language model in the Qwen series.",
+          "max_context_length": 262144,
+          "max_thinking_generation_length": 81920,
+          "max_summary_generation_length": 32768,
+          "abilities": {
+            "vision": 1,
+            "document": 1,
+            "video": 1,
+            "audio": 1,
+            "mcp": 1,
+            "citations": 1,
+            "thinking_budget": 1,
+            "thinking": 1
+          },
+          "chat_type": [
+            "t2t",
+            "t2v",
+            "t2i",
+            "image_edit",
+            "search",
+            "artifacts",
+            "web_dev",
+            "deep_research",
+            "travel",
+            "learn"
+          ],
+          "mcp": [
+            "image-generation",
+            "code-interpreter",
+            "amap",
+            "fire-crawl"
+          ],
+          "modality": [
+            "text"
+          ]
+        },
+        "access_control": null,
+        "is_active": true,
+        "is_visitor_active": true,
+        "updated_at": 1732711466,
+        "created_at": 1732711466
+      },
+      "preset": true,
+      "action_ids": []
+    },
+    {
+      "id": "qwen3-vl-plus",
+      "name": "Qwen3-VL-235B-A22B",
+      "object": "model",
+      "owned_by": "qwen",
+      "info": {
+        "id": "qwen3-vl-plus",
+        "user_id": "4a8cd1c0-a7f6-4cfa-b5dd-d6bdab408271",
+        "base_model_id": null,
+        "name": "Qwen3-VL-235B-A22B",
+        "meta": {
+          "profile_image_url": "/static/favicon.png",
+          "description": "Qwen3-VL is the most advanced vision-language model in the Qwen series, seamlessly integrating text and vision with no performance trade-off. It excels in visual reasoning, OCR, spatial understanding, and GUI-based agent tasks, supports 256K context (up to 1M), and handles images, videos, and complex documents with state-of-the-art accuracy.",
+          "capabilities": {
+            "vision": true,
+            "document": true,
+            "video": true,
+            "citations": true,
+            "thinking_budget": true,
+            "thinking": true
+          },
+          "short_description": "Strong Vision-Language Model Based on Qwen3",
+          "max_context_length": 262144,
+          "max_thinking_generation_length": 81920,
+          "max_summary_generation_length": 32768,
+          "abilities": {
+            "vision": 1,
+            "document": 1,
+            "video": 1,
+            "citations": 1,
+            "thinking_budget": 1,
+            "thinking": 1
+          },
+          "chat_type": [
+            "t2t",
+            "t2v",
+            "t2i",
+            "image_edit",
+            "artifacts",
+            "web_dev",
+            "deep_research",
+            "travel"
+          ],
+          "modality": [
+            "text",
+            "image",
+            "video"
+          ]
+        },
+        "access_control": null,
+        "is_active": true,
+        "is_visitor_active": false,
+        "updated_at": 1732711466,
+        "created_at": 1732711466
+      },
+      "preset": true,
+      "action_ids": []
+    },
+    {
+      "id": "qwen3-coder-plus",
+      "name": "Qwen3-Coder",
+      "object": "model",
+      "owned_by": "qwen",
+      "info": {
+        "id": "qwen3-coder-plus",
+        "user_id": "4a8cd1c0-a7f6-4cfa-b5dd-d6bdab408271",
+        "base_model_id": null,
+        "name": "Qwen3-Coder",
+        "meta": {
+          "profile_image_url": "/static/favicon.png",
+          "description": "Qwen3-Coder is a powerful coding-specialized language model excelling in code generation, tool use, and agentic tasks.",
+          "capabilities": {
+            "document": true,
+            "vision": true,
+            "video": true,
+            "audio": true,
+            "citations": true
+          },
+          "short_description": "A strong coding agent capable of long-horizon tasks",
+          "max_context_length": 1048576,
+          "max_generation_length": 65536,
+          "abilities": {
+            "document": 1,
+            "vision": 1,
+            "video": 1,
+            "audio": 1,
+            "mcp": 1,
+            "citations": 1
+          },
+          "chat_type": [
+            "t2t",
+            "t2v",
+            "t2i",
+            "image_edit",
+            "search",
+            "artifacts",
+            "web_dev",
+            "deep_research",
+            "travel",
+            "learn"
+          ],
+          "mcp": [
+            "image-generation",
+            "code-interpreter",
+            "amap",
+            "fire-crawl"
+          ],
+          "modality": [
+            "text"
+          ]
+        },
+        "access_control": null,
+        "is_active": true,
+        "is_visitor_active": true,
+        "updated_at": 1732711466,
+        "created_at": 1732711466
+      },
+      "preset": true,
+      "action_ids": []
+    },
+    {
+      "id": "qwen3-vl-32b",
+      "name": "Qwen3-VL-32B",
+      "object": "model",
+      "owned_by": "qwen",
+      "info": {
+        "id": "qwen3-vl-32b",
+        "user_id": "4a8cd1c0-a7f6-4cfa-b5dd-d6bdab408271",
+        "base_model_id": null,
+        "name": "Qwen3-VL-32B",
+        "meta": {
+          "profile_image_url": "/static/favicon.png",
+          "description": "Qwen3-VL-32B is the largest dense model in the Qwen3-VL family with stronger language and vision capabilities. It achieves performance on par with top-tier large models, excelling in visual reasoning, precise object grounding, OCR, spatial comprehension, and GUI-based agent tasks. It supports long context up to 256K (extrapolatable to 1M), making it ideal for applications involving long videos, lengthy documents, and other complicated multimodal inputs.",
+          "capabilities": {
+            "vision": true,
+            "document": true,
+            "video": true,
+            "citations": true,
+            "thinking_budget": true,
+            "thinking": true
+          },
+          "short_description": "A powerful dense vision-language model in the Qwen3-VL series.",
+          "max_context_length": 131072,
+          "max_thinking_generation_length": 81920,
+          "max_summary_generation_length": 32768,
+          "abilities": {
+            "vision": 1,
+            "document": 1,
+            "video": 1,
+            "citations": 1,
+            "thinking_budget": 1,
+            "thinking": 1
+          },
+          "chat_type": [
+            "t2t",
+            "t2v",
+            "t2i",
+            "image_edit",
+            "artifacts",
+            "web_dev",
+            "deep_research",
+            "travel"
+          ],
+          "modality": [
+            "text",
+            "image",
+            "video"
+          ]
+        },
+        "access_control": null,
+        "is_active": true,
+        "is_visitor_active": false,
+        "updated_at": 1732711466,
+        "created_at": 1732711466
+      },
+      "preset": true,
+      "action_ids": []
+    }
+  ]
+}

@@ -352,12 +352,34 @@ const UI = {
         }
 
         if (chunk.thought) {
-            const thoughtPart = { type: 'thought', content: chunk.thought };
-            // Insert before dots
-            const tempDiv = document.createElement('div');
-            this._renderPart(tempDiv, thoughtPart, 'ai');
-            dots.before(tempDiv.firstChild);
+            let activeThought = bubble.querySelector('.thought-block.active');
+            if (!activeThought) {
+                activeThought = document.createElement('div');
+                activeThought.className = 'thought-block active expanded'; // Default to expanded during generation
+                activeThought.dataset.raw = '';
+                activeThought.innerHTML = `
+                    <div class="thought-header">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>Thought Process</span>
+                        <span class="material-symbols-outlined chevron">expand_more</span>
+                    </div>
+                    <div class="thought-content"></div>
+                `;
+                activeThought.querySelector('.thought-header').onclick = () => activeThought.classList.toggle('expanded');
+                // Insert before dots
+                dots.before(activeThought);
+            }
+            activeThought.dataset.raw += chunk.thought;
+            activeThought.querySelector('.thought-content').innerHTML = marked.parse(activeThought.dataset.raw);
         }
+        if (chunk.text && chunk.text.trim().length > 0) {
+            // If we receive non-empty text, deactivate any active thought block
+            bubble.querySelectorAll('.thought-block.active').forEach(el => {
+                el.classList.remove('active');
+                el.classList.remove('expanded'); // Collapse once finished thinking
+            });
+        }
+
         if (chunk.text) {
             let activeText = bubble.querySelector('.message-text.active');
             if (!activeText) {
@@ -372,7 +394,7 @@ const UI = {
             activeText.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         }
         if (chunk.tool_call) {
-            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.message-text.active, .thought-block.active').forEach(el => el.classList.remove('active'));
             const toolPill = this._createToolPill(chunk.tool_call);
             toolPill.classList.add('executing');
             toolPill.id = `tool-${Date.now()}`;
@@ -397,7 +419,7 @@ const UI = {
         }
 
         if (chunk.is_final) {
-            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.message-text.active, .thought-block.active').forEach(el => el.classList.remove('active'));
             this.setAgentState('idle');
             if (dots) dots.remove();
         }

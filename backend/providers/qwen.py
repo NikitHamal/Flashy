@@ -39,7 +39,7 @@ class QwenProvider(BaseProvider):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         
         if not model or model == "G_2_5_FLASH":
-            model = "qwen3-235b-a22b"
+            model = "qwen3-max-2025-09-23"
             
         proxy = kwargs.get("proxy")
         
@@ -183,22 +183,9 @@ class QwenProvider(BaseProvider):
 
     @classmethod
     async def get_models(cls) -> List[Dict[str, Any]]:
-        models_url = "https://chat.qwen.ai/api/models"
-        try:
-            async with AsyncSession(impersonate="chrome") as session:
-                resp = await session.get(models_url)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    models_list = data.get("data", [])
-                    return [
-                        {"id": m.get("id"), "name": m.get("id")}
-                        for m in models_list
-                    ]
-        except Exception:
-            pass
-            
         return [
-            {"id": "qwen3-235b-a22b", "name": "Qwen 3 (235B)"},
-            {"id": "qwen3-max-preview", "name": "Qwen 3 Max Preview"},
-            {"id": "qwen-max-latest", "name": "Qwen Max Latest"}
+            {"id": "qwen3-max-2025-09-23", "name": "Qwen3-Max"},
+            {"id": "qwen3-vl-plus", "name": "Qwen3-VL-235B-A22B"},
+            {"id": "qwen3-coder-plus", "name": "Qwen3-Coder"},
+            {"id": "qwen3-vl-32b", "name": "Qwen3-VL-32B"}
         ]

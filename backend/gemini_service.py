@@ -2,7 +2,7 @@
 Gemini Service Module
 
 This module provides the main service for Flashy Coding Agent interactions
-with various LLM providers (Gemini, DeepInfra, Qwen).
+with various LLM providers (Gemini, DeepInfra, Qwen, Gradient).
 
 Enhanced Features:
 - Multi-provider support
@@ -359,7 +359,6 @@ class GeminiService:
                             
                         # Prepare kwargs
                         kwargs = {
-                            "model": self.config.get("model", ""),
                             "proxy": self.config.get("proxy")
                         }
                         
@@ -374,7 +373,7 @@ class GeminiService:
                         
                         async for chunk in provider_service_inst.generate_stream(
                             self.provider_sessions[session_id], 
-                            model=self.config.get("model", ""), 
+                            self.config.get("model", ""), 
                             **kwargs
                         ):
                              if "error" in chunk:
@@ -602,7 +601,6 @@ class GeminiService:
                     
                     # Prepare kwargs
                     kwargs = {
-                        "model": self.config.get("model", ""),
                         "proxy": self.config.get("proxy")
                     }
 
