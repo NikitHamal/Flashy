@@ -396,10 +396,32 @@ function setupEventListeners() {
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
                 document.getElementById('settings-psidcc').value = config.Secure_1PSIDCC || '';
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
+
+                // New Providers
+                document.getElementById('settings-active-provider').value = config.active_provider || 'gemini';
+                document.getElementById('settings-model').value = config.model || '';
+
+                updateProviderSettingsVisibility(config.active_provider || 'gemini');
+
             } catch (e) {
                 console.error("Failed to load settings", e);
             }
         });
+
+        // Provider Selection Change Event
+        const providerSelect = document.getElementById('settings-active-provider');
+        if (providerSelect) {
+            providerSelect.addEventListener('change', (e) => {
+                updateProviderSettingsVisibility(e.target.value);
+            });
+        }
+    }
+
+    function updateProviderSettingsVisibility(provider) {
+        document.querySelectorAll('.provider-settings-section').forEach(el => el.classList.add('hidden'));
+
+        const target = document.getElementById(`settings-provider-${provider}`);
+        if (target) target.classList.remove('hidden');
     }
 
     // Toggle Visibility
@@ -430,7 +452,9 @@ function setupEventListeners() {
                 Secure_1PSID: document.getElementById('settings-psid').value,
                 Secure_1PSIDTS: document.getElementById('settings-psidts').value,
                 Secure_1PSIDCC: document.getElementById('settings-psidcc').value,
-                GITHUB_PAT: document.getElementById('settings-github-pat').value
+                GITHUB_PAT: document.getElementById('settings-github-pat').value,
+                active_provider: document.getElementById('settings-active-provider').value,
+                model: document.getElementById('settings-model').value
             };
             try {
                 saveSettingsBtn.disabled = true;
@@ -440,6 +464,9 @@ function setupEventListeners() {
 
                 settingsModal.classList.add('hidden');
                 saveSettingsBtn.textContent = 'Save Changes';
+
+                // Refresh models in UI if provider changed
+                await refreshModels();
             } catch (e) {
                 alert("Failed to save settings: " + e.message);
                 saveSettingsBtn.textContent = 'Save Changes';
@@ -627,6 +654,7 @@ function setupEventListeners() {
             }
         });
     }
+    setupModelSelector();
 }
 
 async function refreshState(updateUI = true) {
@@ -1056,3 +1084,99 @@ function initResizers() {
 const style = document.createElement('style');
 style.textContent = '.hidden { display: none !important; }';
 document.head.appendChild(style);
+let cachedModels = [];
+
+async function setupModelSelector() {
+    const selectorBtn = document.getElementById('btn-model-selector');
+    const modelMenu = document.getElementById('model-dropdown-menu');
+
+    if (!selectorBtn || !modelMenu) return;
+
+    selectorBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modelMenu.classList.toggle('hidden');
+    });
+
+    // Initial load
+    await refreshModels();
+}
+
+async function refreshModels() {
+    try {
+        const config = await API.getConfig();
+        const activeProvider = config.active_provider;
+        const cacheKey = `models_${activeProvider}`;
+
+        // Try to load from cache first
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            cachedModels = JSON.parse(cached);
+            renderModelDropdown();
+        }
+
+        // Fetch fresh models
+        const models = await API.getModels();
+        cachedModels = models;
+        localStorage.setItem(cacheKey, JSON.stringify(models));
+        renderModelDropdown();
+
+        // Update current model name display
+        const activeModelId = config.model;
+
+        if (activeProvider === 'gemini') {
+            document.getElementById('current-model-name').textContent = 'Agent Flashy';
+        } else {
+            const model = cachedModels.find(m => m.id === activeModelId);
+            document.getElementById('current-model-name').textContent = model ? model.name : (activeModelId || 'Select Model');
+        }
+    } catch (e) {
+        console.error("Failed to refresh models", e);
+    }
+}
+
+function renderModelDropdown() {
+    const modelMenu = document.getElementById('model-dropdown-menu');
+    if (!modelMenu) return;
+
+    if (cachedModels.length === 0) {
+        modelMenu.innerHTML = '<div class="dropdown-item">No models available</div>';
+        return;
+    }
+
+    modelMenu.innerHTML = cachedModels.map(m => `
+        <div class="dropdown-item" data-id="${m.id}" data-name="${m.name}">
+            <div class="item-info">
+                <span class="item-title">${m.name}</span>
+                <span class="item-meta">${m.id}</span>
+            </div>
+        </div>
+    `).join('');
+
+    modelMenu.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', async () => {
+            const id = item.getAttribute('data-id');
+            const name = item.getAttribute('data-name');
+            await selectModel(id, name);
+        });
+    });
+}
+
+async function selectModel(id, name) {
+    try {
+        const config = await API.getConfig();
+        config.model = id;
+        await API.saveConfig(config);
+
+        const activeProvider = config.active_provider;
+        if (activeProvider === 'gemini') {
+            document.getElementById('current-model-name').textContent = 'Agent Flashy';
+        } else {
+            document.getElementById('current-model-name').textContent = name;
+        }
+
+        document.getElementById('model-dropdown-menu').classList.add('hidden');
+        console.log(`Model selected: ${name} (${id})`);
+    } catch (e) {
+        alert("Failed to save model selection: " + e.message);
+    }
+}

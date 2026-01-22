@@ -17,3 +17,5 @@ node_modules/
 temp/
 flashy_uploads/
 data/
+temp_g4f*
+temp_*

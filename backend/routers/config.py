@@ -6,11 +6,16 @@ from ..config import load_config, save_config
 router = APIRouter()
 
 class ConfigUpdate(BaseModel):
-    Secure_1PSID: str
-    Secure_1PSIDTS: str
+    Secure_1PSID: Optional[str] = None
+    Secure_1PSIDTS: Optional[str] = None
     Secure_1PSIDCC: Optional[str] = None
     GITHUB_PAT: Optional[str] = None
     model: Optional[str] = None
+    active_provider: Optional[str] = None
+    deepinfra_api_key: Optional[str] = None
+    glm_api_key: Optional[str] = None
+    glm_user_id: Optional[str] = None
+    qwen_api_key: Optional[str] = None
 
 @router.get("/config")
 async def get_config():

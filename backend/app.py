@@ -104,7 +104,9 @@ async def chat_endpoint(
         async def response_generator():
             try:
                 async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
-                    if "tool_call" in chunk:
+                    if "error" in chunk:
+                        yield json.dumps(chunk) + "\n"
+                    elif "tool_call" in chunk:
                         yield json.dumps(chunk) + "\n"
                     elif "tool_result" in chunk:
                         yield json.dumps(chunk) + "\n"
@@ -260,7 +262,9 @@ async def handle_ws_chat(connection_id: str, session_id: str, message: str, work
                         file_paths.append(fpath)
             
             async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
-                if "thought" in chunk:
+                if "error" in chunk:
+                    await ws_manager.send_to_session(session_id, MessageType.ERROR, {"message": chunk["error"]})
+                elif "thought" in chunk:
                     await ws_manager.send_to_session(session_id, MessageType.THOUGHT, {"content": chunk["thought"]})
                 elif "tool_call" in chunk:
                     await ws_manager.send_to_session(session_id, MessageType.TOOL_CALL, {"name": chunk["tool_call"]["name"], "args": chunk["tool_call"]["args"]})

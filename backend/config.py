@@ -7,8 +7,9 @@ DEFAULT_CONFIG = {
     "Secure_1PSID": "",
     "Secure_1PSIDTS": "",
     "Secure_1PSIDCC": "",
-    "model": "G_2_0_PRO",
-    "GITHUB_PAT": ""
+    "model": "G_2_5_FLASH",
+    "GITHUB_PAT": "",
+    "active_provider": "gemini"
 }
 
 def load_config():

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flashy | AI Coding Agent</title>
     <link rel="stylesheet" href="/css/main.css">
-    
+
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet"
@@ -187,9 +187,15 @@
                                             <span class="material-symbols-outlined">add</span>
                                             <input type="file" id="file-input" hidden multiple>
                                         </button>
-                                        <div class="model-selector">
+                                        <div class="model-selector" id="btn-model-selector">
                                             <span class="material-symbols-outlined">bolt</span>
-                                            <span>Agent Flash</span>
+                                            <span id="current-model-name">Agent Flashy</span>
+                                            <span class="material-symbols-outlined"
+                                                style="font-size: 16px;">expand_more</span>
+
+                                            <div id="model-dropdown-menu" class="dropdown-menu hidden">
+                                                <!-- Models will be dynamically loaded here -->
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="action-right">
@@ -346,35 +352,53 @@
             </div>
             <div class="modal-body">
                 <div class="settings-group">
-                    <label>Gemini Web Authentication</label>
-                    <p class="settings-hint">Extract these from your browser cookies on gemini.google.com</p>
+                    <label>Active Provider</label>
                     <div class="settings-field">
-                        <label>__Secure-1PSID</label>
-                        <div class="input-with-action">
-                            <input type="password" id="settings-psid" placeholder="Enter __Secure-1PSID">
-                            <button class="btn-toggle-visibility" data-target="settings-psid">
-                                <span class="material-symbols-outlined">visibility</span>
-                            </button>
+                        <select id="settings-active-provider" class="dropdown-select">
+                            <option value="gemini">Google Gemini (Web)</option>
+                            <option value="deepinfra">DeepInfra</option>
+                            <option value="qwen">Qwen (Alibaba)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="settings-provider-gemini" class="provider-settings-section">
+                    <div class="settings-group">
+                        <label>Gemini Web Authentication</label>
+                        <p class="settings-hint">Extract these from your browser cookies on gemini.google.com</p>
+                        <div class="settings-field">
+                            <label>__Secure-1PSID</label>
+                            <div class="input-with-action">
+                                <input type="password" id="settings-psid" placeholder="Enter __Secure-1PSID">
+                                <button class="btn-toggle-visibility" data-target="settings-psid">
+                                    <span class="material-symbols-outlined">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-field">
+                            <label>__Secure-1PSIDTS</label>
+                            <div class="input-with-action">
+                                <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
+                                <button class="btn-toggle-visibility" data-target="settings-psidts">
+                                    <span class="material-symbols-outlined">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-field">
+                            <label>__Secure-1PSIDCC</label>
+                            <div class="input-with-action">
+                                <input type="password" id="settings-psidcc" placeholder="Enter __Secure-1PSIDCC">
+                                <button class="btn-toggle-visibility" data-target="settings-psidcc">
+                                    <span class="material-symbols-outlined">visibility</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="settings-field">
-                        <label>__Secure-1PSIDTS</label>
-                        <div class="input-with-action">
-                            <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
-                            <button class="btn-toggle-visibility" data-target="settings-psidts">
-                                <span class="material-symbols-outlined">visibility</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="settings-field">
-                        <label>__Secure-1PSIDCC</label>
-                        <div class="input-with-action">
-                            <input type="password" id="settings-psidcc" placeholder="Enter __Secure-1PSIDCC">
-                            <button class="btn-toggle-visibility" data-target="settings-psidcc">
-                                <span class="material-symbols-outlined">visibility</span>
-                            </button>
-                        </div>
-                    </div>
+                </div>
+
+                <!-- No API keys needed for free providers -->
+
+                <div class="settings-group">
                     <div class="settings-field">
                         <label>GitHub Personal Access Token (PAT)</label>
                         <div class="input-with-action">
@@ -383,6 +407,14 @@
                                 <span class="material-symbols-outlined">visibility</span>
                             </button>
                         </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-field">
+                        <label>Model ID (Optional)</label>
+                        <p class="settings-hint">Override default model (e.g., meta-llama/Meta-Llama-3-8B-Instruct)</p>
+                        <input type="text" id="settings-model" placeholder="Model ID">
                     </div>
                 </div>
             </div>
@@ -397,14 +429,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/websocket.js"></script>
-    
+
     <!-- UI Modules -->
     <script src="/js/ui/core.js"></script>
     <script src="/js/ui/chat.js"></script>
     <script src="/js/ui/git.js"></script>
     <script src="/js/ui/files.js"></script>
     <script src="/js/ui/terminal.js"></script>
-    
+
     <script src="/js/app.js"></script>
 </body>
 

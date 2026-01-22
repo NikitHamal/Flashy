@@ -231,5 +231,11 @@ const API = {
             throw new Error(err.detail || "Clone failed");
         }
         return await response.json();
+    },
+
+    async getModels() {
+        const response = await fetch(`${this.baseUrl}/models`);
+        if (!response.ok) throw new Error('Failed to load models');
+        return await response.json();
     }
 };

@@ -1,1 +1,88 @@
-{}
+{
+    "session_1769039734822": {
+        "id": "session_1769039734822",
+        "workspace_id": "9d2d9be0-4632-422f-a2e4-965b112538e3",
+        "title": "hi...",
+        "created_at": 1769039759.2886858,
+        "messages": [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "type": "text",
+                        "content": "hi"
+                    }
+                ],
+                "images": [],
+                "timestamp": 1769039759.28869
+            },
+            {
+                "role": "ai",
+                "parts": [
+                    {
+                        "type": "error",
+                        "content": "DeepInfra Error: 403 - "
+                    },
+                    {
+                        "type": "text",
+                        "content": ""
+                    }
+                ],
+                "images": [],
+                "timestamp": 1769039760.261272
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "type": "text",
+                        "content": "hi"
+                    }
+                ],
+                "images": [],
+                "timestamp": 1769039881.5406113
+            },
+            {
+                "role": "ai",
+                "parts": [
+                    {
+                        "type": "error",
+                        "content": "GLM Error: 400 "
+                    },
+                    {
+                        "type": "text",
+                        "content": ""
+                    }
+                ],
+                "images": [],
+                "timestamp": 1769039882.3193102
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "type": "text",
+                        "content": "hi"
+                    }
+                ],
+                "images": [],
+                "timestamp": 1769040060.7856755
+            },
+            {
+                "role": "ai",
+                "parts": [
+                    {
+                        "type": "error",
+                        "content": "DeepInfra Connection error: 'Response' object has no attribute 'aiter_bytes'"
+                    },
+                    {
+                        "type": "text",
+                        "content": ""
+                    }
+                ],
+                "images": [],
+                "timestamp": 1769040062.8557608
+            }
+        ]
+    }
+}

@@ -12,5 +12,12 @@
         "name": "Coffe Shop",
         "created_at": 1768686366.7606692,
         "last_accessed": 1768712579.3698394
+    },
+    "9d2d9be0-4632-422f-a2e4-965b112538e3": {
+        "id": "9d2d9be0-4632-422f-a2e4-965b112538e3",
+        "path": "E:\\Tools\\Graphy",
+        "name": "Graphy",
+        "created_at": 1769037073.0676866,
+        "last_accessed": 1769040062.8559303
     }
 }
