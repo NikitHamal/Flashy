@@ -39,7 +39,7 @@ class QwenProvider(BaseProvider):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         
         if not model or model == "G_2_5_FLASH":
-            model = "qwen3-max-2025-09-23"
+            model = "qwen3.5-plus"
             
         proxy = kwargs.get("proxy")
         
@@ -184,8 +184,16 @@ class QwenProvider(BaseProvider):
     @classmethod
     async def get_models(cls) -> List[Dict[str, Any]]:
         return [
-            {"id": "qwen3-max-2025-09-23", "name": "Qwen3-Max"},
-            {"id": "qwen3-vl-plus", "name": "Qwen3-VL-235B-A22B"},
+            {"id": "qwen3.5-plus", "name": "Qwen3.5-Plus"},
+            {"id": "qwen3.5-flash", "name": "Qwen3.5-Flash"},
+            {"id": "qwen3.5-397b-a17b", "name": "Qwen3.5-397B-A17B"},
+            {"id": "qwen3.5-122b-a10b", "name": "Qwen3.5-122B-A10B"},
+            {"id": "qwen3.5-27b", "name": "Qwen3.5-27B"},
+            {"id": "qwen3.5-35b-a3b", "name": "Qwen3.5-35B-A3B"},
+            {"id": "qwen3-max-2026-01-23", "name": "Qwen3-Max"},
+            {"id": "qwen-plus-2025-07-28", "name": "Qwen3-235B-A22B-2507"},
             {"id": "qwen3-coder-plus", "name": "Qwen3-Coder"},
-            {"id": "qwen3-vl-32b", "name": "Qwen3-VL-32B"}
+            {"id": "qwen3-vl-plus", "name": "Qwen3-VL-235B-A22B"},
+            {"id": "qwen3-omni-flash-2025-12-01", "name": "Qwen3-Omni-Flash"},
+            {"id": "qwen-max-latest", "name": "Qwen2.5-Max"}
         ]

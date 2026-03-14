@@ -14,7 +14,7 @@ from typing import List, Optional
 from .gemini_service import GeminiService
 from .storage import save_chat_message, get_workspace as get_workspace_data, add_workspace
 from .websocket_manager import ws_manager, MessageType
-from .routers import git_routes, workspace, chat, config
+from .routers import git_routes, workspace, chat, config, agents, memory
 
 app = FastAPI()
 
@@ -26,6 +26,8 @@ app.include_router(git_routes.router)
 app.include_router(workspace.router)
 app.include_router(chat.router)
 app.include_router(config.router)
+app.include_router(agents.router)
+app.include_router(memory.router)
 
 # Exception Handlers
 @app.exception_handler(404)

@@ -2,7 +2,7 @@
 Gemini Service Module
 
 This module provides the main service for Flashy Coding Agent interactions
-with various LLM providers (Gemini, DeepInfra, Qwen, Gradient).
+with various LLM providers (Gemini, DeepInfra, Qwen).
 
 Enhanced Features:
 - Multi-provider support
@@ -81,28 +81,44 @@ class GeminiService:
         return self.config.get("active_provider", "gemini")
 
     async def get_gemini_client(self) -> GeminiClient:
-        """Get or initialize Gemini client."""
-        if self.gemini_client is None:
-            self.config = load_config()
+        """Get or initialize Gemini client with explicit user cookies."""
+        if not hasattr(self, "_init_lock"):
+            self._init_lock = asyncio.Lock()
 
-            self.gemini_client = GeminiClient(
-                self.config["Secure_1PSID"],
-                self.config["Secure_1PSIDTS"],
-                proxy=None
-            )
+        async with self._init_lock:
+            if self.gemini_client is None:
+                # Force reload config to get latest user settings
+                self.config = load_config()
+                
+                psid = self.config.get("Secure_1PSID", "").strip()
+                psidts = self.config.get("Secure_1PSIDTS", "").strip()
+                
+                if not psid:
+                    print("[GeminiService] Warning: __Secure-1PSID is missing in config.")
 
-            # Inject additional cookies if present
-            if self.config.get("Secure_1PSIDCC"):
-                self.gemini_client.cookies["__Secure-1PSIDCC"] = self.config["Secure_1PSIDCC"]
+                print(f"[GeminiService] Initializing GeminiClient with explicit cookies (PSID: {psid[:10]}...)")
+                
+                # Create client with EXPLICIT cookies only
+                self.gemini_client = GeminiClient(
+                    psid,
+                    psidts,
+                    proxy=None
+                )
 
-            await self.gemini_client.init(
-                timeout=600,
-                auto_close=False,
-                close_delay=300,
-                auto_refresh=True
-            )
-
-        return self.gemini_client
+                try:
+                    await self.gemini_client.init(
+                        timeout=30,
+                        auto_close=False,
+                        close_delay=300,
+                        auto_refresh=False
+                    )
+                    print("[GeminiService] Gemini client initialized successfully.")
+                except Exception as e:
+                    print(f"[GeminiService] Failed to initialize client: {e}")
+                    self.gemini_client = None # Reset so next call tries again
+                    raise
+                
+            return self.gemini_client
 
     def get_agent(self, session_id: str) -> CodingAgent:
         """Get or create a coding agent for a session."""
@@ -111,18 +127,22 @@ class GeminiService:
                 workspace_path=self.workspace_path,
                 session_id=session_id
             )
+            # Register in global registry for transparency/activity UI
+            from .agents import agent_registry
+            agent_registry.register_session(session_id, self.agents[session_id])
+            
         return self.agents[session_id]
 
-    async def get_gemini_chat_session(self, session_id: str, history: Any = None):
+    async def get_gemini_chat_session(self, session_id: str, history: Any = None, fresh: bool = False):
         """Get or create a Gemini chat session object."""
         client = await self.get_gemini_client()
 
-        if session_id not in self.sessions:
+        if session_id not in self.sessions or fresh:
             model_name = self.config.get("model", "G_2_5_FLASH")
-            model = getattr(Model, model_name, Model.G_2_5_FLASH)
+            model = self._resolve_gemini_model(model_name)
 
-            # Try to restore from saved metadata
-            saved_meta = get_chat_metadata(session_id)
+            # Try to restore from saved metadata if not forcing a fresh session
+            saved_meta = get_chat_metadata(session_id) if not fresh else None
             if saved_meta:
                 chat = client.start_chat(
                     model=model,
@@ -133,6 +153,8 @@ class GeminiService:
                 print(f"[GeminiService] Restored session {session_id}")
             else:
                 chat = client.start_chat(model=model)
+                if fresh:
+                    print(f"[GeminiService] Started fresh session for {session_id}")
 
             self.sessions[session_id] = chat
 
@@ -176,6 +198,77 @@ class GeminiService:
 
         return cleaned
 
+    def _default_gemini_model(self) -> Model:
+        """Select a safe default Gemini model across gemini_webapi versions."""
+        for attr in (
+            "G_3_0_FLASH",
+            "G_3_0_FLASH_THINKING",
+            "G_3_1_PRO",
+            "G_3_0_PRO",
+            "G_2_5_FLASH",
+            "G_2_5_PRO",
+        ):
+            if hasattr(Model, attr):
+                return getattr(Model, attr)
+        # Fall back to the first available model (or UNSPECIFIED if present)
+        if hasattr(Model, "UNSPECIFIED"):
+            return getattr(Model, "UNSPECIFIED")
+        return next(iter(Model))
+
+    def _resolve_gemini_model(self, model_name: Any) -> Model:
+        """Resolve a configured model name to a gemini_webapi Model enum."""
+        if isinstance(model_name, Model):
+            return model_name
+
+        # Allow custom model dicts when supported by the library
+        if isinstance(model_name, dict):
+            if hasattr(Model, "from_dict"):
+                try:
+                    return Model.from_dict(model_name)
+                except Exception:
+                    pass
+            return self._default_gemini_model()
+
+        if not model_name:
+            return self._default_gemini_model()
+
+        if isinstance(model_name, str):
+            # Direct enum lookup (e.g., "G_3_0_FLASH")
+            if hasattr(Model, model_name):
+                return getattr(Model, model_name)
+
+            # Legacy enum aliases
+            legacy_enum_aliases = {
+                "G_2_5_FLASH": ["G_3_0_FLASH", "G_3_0_FLASH_THINKING", "G_2_5_FLASH"],
+                "G_2_0_FLASH": ["G_3_0_FLASH", "G_3_0_FLASH_THINKING", "G_2_0_FLASH"],
+                "G_2_5_PRO": ["G_3_1_PRO", "G_3_0_PRO", "G_2_5_PRO"],
+                "G_2_0_PRO": ["G_3_1_PRO", "G_3_0_PRO", "G_2_0_PRO"],
+            }
+            if model_name in legacy_enum_aliases:
+                for attr in legacy_enum_aliases[model_name]:
+                    if hasattr(Model, attr):
+                        return getattr(Model, attr)
+
+            # Legacy model name strings
+            legacy_name_aliases = {
+                "gemini-2.5-flash": "gemini-3.0-flash",
+                "gemini-2.5-pro": "gemini-3.0-pro",
+                "gemini-1.5-flash": "gemini-3.0-flash",
+                "gemini-1.5-pro": "gemini-3.0-pro",
+            }
+            candidate_names = [model_name]
+            if model_name in legacy_name_aliases:
+                candidate_names.insert(0, legacy_name_aliases[model_name])
+
+            if hasattr(Model, "from_name"):
+                for name in candidate_names:
+                    try:
+                        return Model.from_name(name)
+                    except Exception:
+                        continue
+
+        return self._default_gemini_model()
+
     def _separate_thinking(self, text: str) -> tuple:
         """Separate thinking from response using enhanced filter."""
         if not text:
@@ -196,18 +289,25 @@ class GeminiService:
         last_error = None
 
         if provider == "gemini":
+            current_chat = chat
+            
             for attempt in range(max_retries):
                 try:
                     if files:
                         response = await asyncio.wait_for(
-                            chat.send_message(message, files=files),
+                            current_chat.send_message(message, files=files),
                             timeout=timeout
                         )
                     else:
                         response = await asyncio.wait_for(
-                            chat.send_message(message),
+                            current_chat.send_message(message),
                             timeout=timeout
                         )
+                    
+                    # Update the session cache if we switched chats successfully
+                    if session_id and current_chat != chat:
+                        self.sessions[session_id] = current_chat
+                        
                     return response
 
                 except asyncio.CancelledError:
@@ -221,14 +321,35 @@ class GeminiService:
 
                 except Exception as e:
                     last_error = str(e)
-                    print(f"[GeminiService] Attempt {attempt + 1}/{max_retries}: {last_error}")
-
                     error_str = str(e).lower()
+                    print(f"[GeminiService] Attempt {attempt + 1}/{max_retries} Failed: {error_str}")
+
                     if "invalid response" in error_str or "failed to generate" in error_str:
+                        # Vital Step: Refresh Session on Invalid Response
+                        if session_id and attempt < max_retries - 1:
+                            print(f"[GeminiService] Detected dead session {session_id}. Recovering with fresh chat...")
+                            try:
+                                # Start a completely fresh chat (skips potentially corrupted metadata)
+                                current_chat = await self.get_gemini_chat_session(session_id, fresh=True)
+                                
+                                # Update our session cache immediately
+                                self.sessions[session_id] = current_chat
+                                
+                                # If this was a long follow-up request, wrap it to provide context
+                                if len(message) > 50: 
+                                    message = f"[System: Connection lost. Resuming task. Previous context might be truncated.]\n\nTask progress follows:\n{message}"
+                            except Exception as rec_e:
+                                print(f"[GeminiService] Recovery failed: {rec_e}")
+                        
                         if attempt < max_retries - 1:
-                            await asyncio.sleep(2 ** attempt)
+                            await asyncio.sleep(1) # Short sleep
                             continue
-                    raise
+                            
+                    # For other errors, or if recovery failed/not possible
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 ** attempt)
+                    else:
+                        raise
             
             raise Exception(f"Failed after {max_retries} attempts: {last_error}")
         
@@ -320,6 +441,10 @@ class GeminiService:
                         }
                         break
                     
+                    # Update activity in global registry
+                    from .agents import agent_registry
+                    agent_registry.update_session(session_id)
+                    
                     # --- Generation Step ---
                     response_text = ""
                     api_thoughts = ""
@@ -327,10 +452,10 @@ class GeminiService:
                     if provider_name == "gemini":
                         if iteration == 0:
                             # Initial user request
-                             gemini_resp = await self._send_with_retry(chat_session, current_prompt, files=files if iteration == 0 else None)
+                             gemini_resp = await self._send_with_retry(chat_session, current_prompt, files=files if iteration == 0 else None, session_id=session_id)
                         else:
                             # Feedback loop
-                             gemini_resp = await self._send_with_retry(chat_session, current_prompt)
+                             gemini_resp = await self._send_with_retry(chat_session, current_prompt, session_id=session_id)
                         
                         response_text = gemini_resp.text or ""
                         api_thoughts = getattr(gemini_resp, 'thoughts', None) or ""
@@ -370,6 +495,7 @@ class GeminiService:
                              
                         accumulated_text = ""
                         accumulated_thought = ""
+                        in_think_block = False
                         
                         async for chunk in provider_service_inst.generate_stream(
                             self.provider_sessions[session_id], 
@@ -383,11 +509,35 @@ class GeminiService:
                              if "thought" in chunk:
                                  accumulated_thought += chunk["thought"]
                                  yield {"thought": chunk["thought"]}
-                                 # We'll merge these later or track them
                                  
                              if "text" in chunk:
-                                 accumulated_text += chunk["text"]
-                                 yield {"text": chunk["text"]} # Stream raw text
+                                 text = chunk["text"]
+                                 accumulated_text += text
+                                 
+                                 # Detect <think> tags in the stream
+                                 if '<think>' in text:
+                                     in_think_block = True
+                                     parts = text.split('<think>', 1)
+                                     if parts[0]: yield {"text": parts[0]}
+                                     if parts[1]: 
+                                         accumulated_thought += parts[1]
+                                         yield {"thought": parts[1]}
+                                     continue
+                                 
+                                 if '</think>' in text:
+                                     in_think_block = False
+                                     parts = text.split('</think>', 1)
+                                     if parts[0]: 
+                                         accumulated_thought += parts[0]
+                                         yield {"thought": parts[0]}
+                                     if parts[1]: yield {"text": parts[1]}
+                                     continue
+                                     
+                                 if in_think_block:
+                                     accumulated_thought += text
+                                     yield {"thought": text}
+                                 else:
+                                     yield {"text": text}
                                  
                         response_text = accumulated_text
                         api_thoughts = accumulated_thought
@@ -481,7 +631,7 @@ class GeminiService:
                             if provider_name == "gemini":
                                 # Send a direct image generation request to Gemini
                                 image_prompt = f"Generate an image: {prompt}. Use your image generation capabilities to create this image now."
-                                image_response = await self._send_with_retry(chat_session, image_prompt)
+                                image_response = await self._send_with_retry(chat_session, image_prompt, session_id=session_id)
                                 
                                 # Check if images were generated
                                 if hasattr(image_response, 'images') and image_response.images:
@@ -629,9 +779,16 @@ class GeminiService:
             import traceback
             traceback.print_exc()
             error_msg = f"Error ({type(e).__name__}): {str(e)}"
+            
+            # Add helpful hints for common Gemini errors
+            error_str = str(e).lower()
+            if "invalid response" in error_str or "403" in error_str or "failed to generate" in error_str:
+                error_msg += "\n\n**Hint:** Your Gemini cookies (Secure-1PSID) might be invalid or expired. Please update them in Settings > General."
+            
             yield {"error": error_msg, "is_final": True}
             message_parts.append({"type": "error", "content": error_msg})
-            raise
+            # Don't re-raise, just finish gracefully so UI doesn't break
+            return
 
         finally:
             # Clean up interrupted state
@@ -676,7 +833,7 @@ Execute this task autonomously and provide a complete summary of what you accomp
             if provider_name == "gemini":
                 client = await self.get_gemini_client()
                 model_name = self.config.get("model", "G_2_5_FLASH")
-                model = getattr(Model, model_name, Model.G_2_5_FLASH)
+                model = self._resolve_gemini_model(model_name)
                 chat = client.start_chat(model=model)
                 response = await asyncio.wait_for(chat.send_message(prompt), timeout=120)
                 response_text = response.text or ""

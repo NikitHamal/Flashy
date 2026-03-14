@@ -98,6 +98,12 @@
                         <button id="btn-toggle-git" class="btn-ghost" title="Git Status">
                             <span class="material-symbols-outlined">account_tree</span>
                         </button>
+                        <button id="btn-toggle-memory" class="btn-ghost" title="Project Memory">
+                            <span class="material-symbols-outlined">psychology</span>
+                        </button>
+                        <button id="btn-toggle-activity" class="btn-ghost" title="Agent Activity">
+                            <span class="material-symbols-outlined">hub</span>
+                        </button>
                         <button id="btn-toggle-plan" class="btn-ghost" title="View Plan">
                             <span class="material-symbols-outlined">assignment</span>
                         </button>
@@ -222,6 +228,44 @@
                             <div class="plan-empty">No active plan found (plan.md)</div>
                         </div>
                     </aside>
+
+                    <!-- Right Sidebar: Memory (New) -->
+                    <aside id="memory-sidebar" class="memory-sidebar hidden">
+                        <div class="explorer-header">
+                            <span>PROJECT MEMORY</span>
+                            <div class="header-actions">
+                                <button id="btn-add-memory" class="btn-icon-xs" title="Add Memory">
+                                    <span class="material-symbols-outlined">add</span>
+                                </button>
+                                <button id="btn-refresh-memory" class="btn-icon-xs" title="Refresh Memory">
+                                    <span class="material-symbols-outlined">refresh</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="memory-search">
+                            <input type="text" id="memory-search-input" placeholder="Search memories..."
+                                class="memory-search-input">
+                        </div>
+                        <div id="memory-content" class="memory-content">
+                            <!-- Memory content injected here -->
+                            <div class="memory-empty">Loading memories...</div>
+                        </div>
+                    </aside>
+
+                    <!-- Activity Panel (Floating) -->
+                    <div id="agent-activity-panel" class="agent-activity-panel hidden">
+                        <div class="activity-header">
+                            <span>AGENT SWARM ACTIVITY</span>
+                            <button id="btn-close-activity"
+                                onclick="document.getElementById('agent-activity-panel').classList.add('hidden')"
+                                class="btn-icon-xs">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div id="agent-activity-content" class="activity-content">
+                            <!-- Activity cards -->
+                        </div>
+                    </div>
 
                     <!-- Right Sidebar: Git (New) -->
                     <aside id="git-sidebar" class="git-sidebar hidden">
@@ -351,71 +395,119 @@
                 </button>
             </div>
             <div class="modal-body">
-                <div class="settings-group">
-                    <label>Active Provider</label>
-                    <div class="settings-field">
-                        <select id="settings-active-provider" class="dropdown-select">
-                            <option value="gemini">Google Gemini (Web)</option>
-                            <option value="deepinfra">DeepInfra</option>
-                            <option value="qwen">Qwen (Alibaba)</option>
-                            <option value="gradient">Gradient Network</option>
-                        </select>
-                    </div>
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="general">General</button>
+                    <button class="settings-tab" data-tab="agents">Agents</button>
+                    <button class="settings-tab" data-tab="advanced">Advanced</button>
                 </div>
 
-                <div id="settings-provider-gemini" class="provider-settings-section">
+                <!-- General Tab -->
+                <div id="tab-general" class="settings-section active">
                     <div class="settings-group">
-                        <label>Gemini Web Authentication</label>
-                        <p class="settings-hint">Extract these from your browser cookies on gemini.google.com</p>
+                        <label>Active Provider</label>
                         <div class="settings-field">
-                            <label>__Secure-1PSID</label>
-                            <div class="input-with-action">
-                                <input type="password" id="settings-psid" placeholder="Enter __Secure-1PSID">
-                                <button class="btn-toggle-visibility" data-target="settings-psid">
-                                    <span class="material-symbols-outlined">visibility</span>
-                                </button>
+                            <select id="settings-active-provider" class="dropdown-select">
+                                <option value="gemini">Google Gemini (Web)</option>
+                                <option value="deepinfra">DeepInfra</option>
+                                <option value="qwen">Qwen (Alibaba)</option>
+                                <option value="gradient">Gradient Network</option>
+                                <option value="kimi">Kimi K2</option>
+                                <option value="deepseek">DeepSeek</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-gemini" class="provider-settings-section">
+                        <div class="settings-group">
+                            <label>Gemini Web Authentication</label>
+                            <p class="settings-hint">Extract these from cookies on gemini.google.com</p>
+                            <div class="settings-field">
+                                <label>__Secure-1PSID</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-psid" placeholder="Enter __Secure-1PSID">
+                                    <button class="btn-toggle-visibility" data-target="settings-psid">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="settings-field">
+                                <label>__Secure-1PSIDTS</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
+                                    <button class="btn-toggle-visibility" data-target="settings-psidts">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="settings-group">
                         <div class="settings-field">
-                            <label>__Secure-1PSIDTS</label>
-                            <div class="input-with-action">
-                                <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
-                                <button class="btn-toggle-visibility" data-target="settings-psidts">
-                                    <span class="material-symbols-outlined">visibility</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="settings-field">
-                            <label>__Secure-1PSIDCC</label>
-                            <div class="input-with-action">
-                                <input type="password" id="settings-psidcc" placeholder="Enter __Secure-1PSIDCC">
-                                <button class="btn-toggle-visibility" data-target="settings-psidcc">
-                                    <span class="material-symbols-outlined">visibility</span>
-                                </button>
-                            </div>
+                            <label>Default Model ID (Optional)</label>
+                            <p class="settings-hint">Override default model (e.g., meta-llama/Meta-Llama-3-8B-Instruct)
+                            </p>
+                            <input type="text" id="settings-model" placeholder="Model ID">
                         </div>
                     </div>
                 </div>
 
-                <!-- No API keys needed for free providers -->
-
-                <div class="settings-group">
-                    <div class="settings-field">
-                        <label>GitHub Personal Access Token (PAT)</label>
-                        <div class="input-with-action">
-                            <input type="password" id="settings-github-pat" placeholder="ghp_xxxxxxxxxxxx">
-                            <button class="btn-toggle-visibility" data-target="settings-github-pat">
-                                <span class="material-symbols-outlined">visibility</span>
-                            </button>
+                <!-- Agents Tab -->
+                <div id="tab-agents" class="settings-section">
+                    <div class="settings-group">
+                        <label>Agent Configuration Swarm</label>
+                        <p class="settings-hint">Customize which provider/model each agent uses</p>
+                        <div class="settings-field">
+                            <label>Select Agent to Configure</label>
+                            <select id="agent-type-selector" class="dropdown-select">
+                                <option value="orchestrator">Orchestrator (Task Routing)</option>
+                                <option value="architect">Code Architect</option>
+                                <option value="developer">Developer</option>
+                                <option value="reviewer">Code Reviewer</option>
+                                <option value="researcher">Researcher</option>
+                                <option value="explorer">Codebase Explorer</option>
+                                <option value="learner">The Learner</option>
+                                <option value="documentation">Documentation Sub-Agent</option>
+                                <option value="refactor">Refactor Sub-Agent</option>
+                                <option value="testing">Testing Sub-Agent</option>
+                                <option value="deploy">Deploy Sub-Agent</option>
+                            </select>
                         </div>
+                        <div class="settings-field">
+                            <label>Provider</label>
+                            <select id="agent-provider-selector" class="dropdown-select">
+                                <option value="gemini">Google Gemini</option>
+                                <option value="deepinfra">DeepInfra</option>
+                                <option value="qwen">Qwen</option>
+                                <option value="gradient">Gradient Network</option>
+                                <option value="kimi">Kimi K2</option>
+                                <option value="deepseek">DeepSeek</option>
+                            </select>
+                        </div>
+                        <div class="settings-field">
+                            <label>Model ID</label>
+                            <input type="text" id="agent-model-input"
+                                placeholder="Model ID (e.g., moonshotai/Kimi-K2-Instruct)">
+                        </div>
+                        <button id="btn-save-agent-config" class="btn-secondary">
+                            <span class="material-symbols-outlined">save</span> Save Agent Config
+                        </button>
                     </div>
                 </div>
 
-                <div class="settings-group">
-                    <div class="settings-field">
-                        <label>Model ID (Optional)</label>
-                        <p class="settings-hint">Override default model (e.g., meta-llama/Meta-Llama-3-8B-Instruct)</p>
-                        <input type="text" id="settings-model" placeholder="Model ID">
+                <!-- Advanced Tab -->
+                <div id="tab-advanced" class="settings-section">
+                    <div class="settings-group">
+                        <label>GitHub Configuration</label>
+                        <div class="settings-field">
+                            <label>Personal Access Token (PAT)</label>
+                            <div class="input-with-action">
+                                <input type="password" id="settings-github-pat" placeholder="ghp_xxxxxxxxxxxx">
+                                <button class="btn-toggle-visibility" data-target="settings-github-pat">
+                                    <span class="material-symbols-outlined">visibility</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -434,9 +526,11 @@
     <!-- UI Modules -->
     <script src="/js/ui/core.js"></script>
     <script src="/js/ui/chat.js"></script>
-    <script src="/js/ui/git.js"></script>
     <script src="/js/ui/files.js"></script>
     <script src="/js/ui/terminal.js"></script>
+    <script src="/js/ui/git.js"></script>
+    <script src="/js/ui/memory.js"></script>
+    <script src="/js/ui/activity.js"></script>
 
     <script src="/js/app.js"></script>
 </body>

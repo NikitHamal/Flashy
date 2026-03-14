@@ -90,6 +90,11 @@ class CodingAgent:
     """
 
     def __init__(self, workspace_path: str = None, session_id: str = None):
+        from .agents import AgentType
+        self.agent_type = AgentType.ORCHESTRATOR # Flashy agent acting as orchestrator by default
+        self.provider_name = "gemini"
+        self.model = "G_2_5_FLASH"
+        
         self.tools = Tools(workspace_path, session_id=session_id)
         self.conversation_history: List[Dict[str, Any]] = []
         self.session_id = session_id

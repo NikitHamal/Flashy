@@ -352,12 +352,12 @@ const UI = {
         }
 
         if (chunk.thought) {
-            let activeThought = bubble.querySelector('.thought-block.active');
-            if (!activeThought) {
-                activeThought = document.createElement('div');
-                activeThought.className = 'thought-block active expanded'; // Default to expanded during generation
-                activeThought.dataset.raw = '';
-                activeThought.innerHTML = `
+            let thoughtBlock = bubble.querySelector('.thought-block');
+            if (!thoughtBlock) {
+                thoughtBlock = document.createElement('div');
+                thoughtBlock.className = 'thought-block expanded'; // Default to expanded during generation
+                thoughtBlock.dataset.raw = '';
+                thoughtBlock.innerHTML = `
                     <div class="thought-header">
                         <span class="material-symbols-outlined">psychology</span>
                         <span>Thought Process</span>
@@ -365,18 +365,18 @@ const UI = {
                     </div>
                     <div class="thought-content"></div>
                 `;
-                activeThought.querySelector('.thought-header').onclick = () => activeThought.classList.toggle('expanded');
-                // Insert before dots
-                dots.before(activeThought);
+                thoughtBlock.querySelector('.thought-header').onclick = () => thoughtBlock.classList.toggle('expanded');
+                // Insert at the beginning of the bubble
+                bubble.prepend(thoughtBlock);
             }
-            activeThought.dataset.raw += chunk.thought;
-            activeThought.querySelector('.thought-content').innerHTML = marked.parse(activeThought.dataset.raw);
+            thoughtBlock.dataset.raw += chunk.thought;
+            thoughtBlock.querySelector('.thought-content').innerHTML = marked.parse(thoughtBlock.dataset.raw);
         }
+
         if (chunk.text && chunk.text.trim().length > 0) {
-            // If we receive non-empty text, deactivate any active thought block
-            bubble.querySelectorAll('.thought-block.active').forEach(el => {
-                el.classList.remove('active');
-                el.classList.remove('expanded'); // Collapse once finished thinking
+            // Collapse thought block when text starts flowing
+            bubble.querySelectorAll('.thought-block.expanded').forEach(el => {
+                el.classList.remove('expanded');
             });
         }
 
@@ -393,8 +393,9 @@ const UI = {
             activeText.innerHTML = marked.parse(activeText.dataset.raw);
             activeText.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         }
+
         if (chunk.tool_call) {
-            bubble.querySelectorAll('.message-text.active, .thought-block.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
             const toolPill = this._createToolPill(chunk.tool_call);
             toolPill.classList.add('executing');
             toolPill.id = `tool-${Date.now()}`;
@@ -415,11 +416,11 @@ const UI = {
             if (typeof refreshPlan === 'function') refreshPlan();
         }
         if (chunk.images) {
-            this._renderImages(bubble, chunk.images); // Note: _renderImages currently appends, might need adjustment to stay before dots
+            this._renderImages(bubble, chunk.images);
         }
 
         if (chunk.is_final) {
-            bubble.querySelectorAll('.message-text.active, .thought-block.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
             this.setAgentState('idle');
             if (dots) dots.remove();
         }

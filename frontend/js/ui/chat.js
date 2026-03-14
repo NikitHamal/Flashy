@@ -226,25 +226,57 @@ Object.assign(UI, {
         }
 
         if (chunk.thought) {
-            const thoughtPart = { type: 'thought', content: chunk.thought };
-            const tempDiv = document.createElement('div');
-            this._renderPart(tempDiv, thoughtPart, 'ai');
-            dots.before(tempDiv.firstChild);
+            let thoughtBlock = bubble.querySelector('.thought-block.active');
+            if (!thoughtBlock) {
+                thoughtBlock = document.createElement('div');
+                thoughtBlock.className = 'thought-block active expanded';
+                thoughtBlock.innerHTML = `
+                    <div class="thought-header">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>Thought Process</span>
+                        <span class="material-symbols-outlined chevron">expand_more</span>
+                    </div>
+                    <div class="thought-content"></div>
+                `;
+                thoughtBlock.querySelector('.thought-header').onclick = () => thoughtBlock.classList.toggle('expanded');
+                dots.before(thoughtBlock);
+            }
+            const contentDiv = thoughtBlock.querySelector('.thought-content');
+            if (!thoughtBlock.dataset.raw) thoughtBlock.dataset.raw = '';
+            thoughtBlock.dataset.raw += chunk.thought;
+            contentDiv.innerHTML = marked.parse(thoughtBlock.dataset.raw);
         }
         if (chunk.text) {
+            // Basic heuristic to avoid showing raw tool call JSON while streaming
+            // If the chunk starts with or follows something that looks like the start of a tool call, 
+            // we might want to be careful. For now, we'll just append.
+            // A more robust way is to have the backend filter this out.
+
             let activeText = bubble.querySelector('.message-text.active');
             if (!activeText) {
+                // When switching from thought to text, mark thought as inactive
+                bubble.querySelectorAll('.thought-block.active').forEach(el => el.classList.remove('active'));
+
                 activeText = document.createElement('div');
                 activeText.className = 'message-text active';
                 activeText.dataset.raw = '';
                 dots.before(activeText);
             }
             activeText.dataset.raw += chunk.text;
-            activeText.innerHTML = marked.parse(activeText.dataset.raw);
+
+            // Filter out common tool call starts to reduce flicker
+            let displayRaw = activeText.dataset.raw;
+            if (displayRaw.includes('```json')) {
+                displayRaw = displayRaw.split('```json')[0];
+            }
+
+            activeText.innerHTML = marked.parse(displayRaw);
             activeText.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         }
         if (chunk.tool_call) {
             bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.thought-block.active').forEach(el => el.classList.remove('active'));
+
             const toolPill = this._createToolPill(chunk.tool_call);
             toolPill.classList.add('executing');
             toolPill.id = `tool-${Date.now()}`;
@@ -265,6 +297,7 @@ Object.assign(UI, {
 
         if (chunk.is_final) {
             bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.thought-block.active').forEach(el => el.classList.remove('active'));
             this.setAgentState('idle');
             if (dots) dots.remove();
         }

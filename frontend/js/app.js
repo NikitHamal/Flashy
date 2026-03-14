@@ -104,6 +104,9 @@ function setupEventListeners() {
         });
     }
 
+    // Initialize Activity Panel (Global)
+    if (window.ActivityUI) ActivityUI.init();
+
     // Workspace selector (crumb) - return to workspace home or dashboard
     const wsSelector = document.getElementById('workspace-selector');
     if (wsSelector) {
@@ -394,7 +397,6 @@ function setupEventListeners() {
                 const config = await API.getConfig();
                 document.getElementById('settings-psid').value = config.Secure_1PSID || '';
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
-                document.getElementById('settings-psidcc').value = config.Secure_1PSIDCC || '';
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
 
                 // New Providers
@@ -424,20 +426,53 @@ function setupEventListeners() {
         if (target) target.classList.remove('hidden');
     }
 
-    // Toggle Visibility
-    document.querySelectorAll('.btn-toggle-visibility').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetId = btn.getAttribute('data-target');
-            const input = document.getElementById(targetId);
-            const icon = btn.querySelector('.material-symbols-outlined');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.textContent = 'visibility_off';
-            } else {
-                input.type = 'password';
-                icon.textContent = 'visibility';
-            }
+    // Settings Tabs Logic
+    const initSettingsTabs = () => {
+        const tabs = document.querySelectorAll('.settings-tab');
+        const sections = document.querySelectorAll('.settings-section');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tabId = tab.getAttribute('data-tab');
+                console.log('[Settings] Switching to tab:', tabId);
+
+                // Update tab buttons
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update sections
+                sections.forEach(s => s.classList.remove('active'));
+                const targetSection = document.getElementById(`tab-${tabId}`);
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                } else {
+                    console.error('[Settings] Target section not found:', `tab-${tabId}`);
+                }
+            });
         });
+    };
+
+    // Initialize tabs immediately
+    initSettingsTabs();
+
+    // Toggle Visibility Logic
+    document.addEventListener('click', (e) => {
+        const toggleBtn = e.target.closest('.btn-toggle-visibility');
+        if (toggleBtn) {
+            const targetId = toggleBtn.getAttribute('data-target');
+            const input = document.getElementById(targetId);
+            const icon = toggleBtn.querySelector('.material-symbols-outlined');
+            if (input && icon) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.textContent = 'visibility_off';
+                } else {
+                    input.type = 'password';
+                    icon.textContent = 'visibility';
+                }
+            }
+        }
     });
 
     if (closeSettingsBtn && settingsModal) {
@@ -451,7 +486,6 @@ function setupEventListeners() {
             const config = {
                 Secure_1PSID: document.getElementById('settings-psid').value,
                 Secure_1PSIDTS: document.getElementById('settings-psidts').value,
-                Secure_1PSIDCC: document.getElementById('settings-psidcc').value,
                 GITHUB_PAT: document.getElementById('settings-github-pat').value,
                 active_provider: document.getElementById('settings-active-provider').value,
                 model: document.getElementById('settings-model').value
@@ -475,6 +509,56 @@ function setupEventListeners() {
             }
         });
     }
+
+    // Agent Configuration Handlers
+    const agentTypeSelector = document.getElementById('agent-type-selector');
+    const agentProviderSelector = document.getElementById('agent-provider-selector');
+    const agentModelInput = document.getElementById('agent-model-input');
+    const saveAgentConfigBtn = document.getElementById('btn-save-agent-config');
+
+    // Load agent config when agent type changes
+    if (agentTypeSelector) {
+        agentTypeSelector.addEventListener('change', async () => {
+            try {
+                const config = await API.getAgentConfig(agentTypeSelector.value);
+                if (agentProviderSelector) agentProviderSelector.value = config.provider || 'gemini';
+                if (agentModelInput) agentModelInput.value = config.model || '';
+            } catch (e) {
+                console.error('Failed to load agent config:', e);
+            }
+        });
+        // Load initial agent config
+        agentTypeSelector.dispatchEvent(new Event('change'));
+    }
+
+    // Save agent config
+    if (saveAgentConfigBtn) {
+        saveAgentConfigBtn.addEventListener('click', async () => {
+            const agentType = agentTypeSelector?.value;
+            const provider = agentProviderSelector?.value;
+            const model = agentModelInput?.value;
+
+            if (!agentType) return;
+
+            try {
+                saveAgentConfigBtn.disabled = true;
+                saveAgentConfigBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Saving...';
+
+                await API.updateAgentConfig(agentType, provider, model);
+
+                saveAgentConfigBtn.innerHTML = '<span class="material-symbols-outlined">check</span> Saved!';
+                setTimeout(() => {
+                    saveAgentConfigBtn.innerHTML = '<span class="material-symbols-outlined">save</span> Save Agent Config';
+                    saveAgentConfigBtn.disabled = false;
+                }, 1500);
+            } catch (e) {
+                alert('Failed to save agent config: ' + e.message);
+                saveAgentConfigBtn.innerHTML = '<span class="material-symbols-outlined">save</span> Save Agent Config';
+                saveAgentConfigBtn.disabled = false;
+            }
+        });
+    }
+
 
     // Chat Input Logic
     const input = document.getElementById('message-input');
@@ -856,6 +940,9 @@ async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession 
         // No sessions, start new one
         createNewSession(workspaceId, pushState);
     }
+
+    // Initialize UI modules for the workspace
+    if (window.MemoryUI) MemoryUI.init(workspaceId);
 }
 
 function renderWorkspaceDashboard(sessions) {

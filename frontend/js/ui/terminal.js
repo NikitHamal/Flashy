@@ -77,7 +77,11 @@ Object.assign(UI, {
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) {
             const isHidden = sidebar.classList.toggle('hidden');
-            if (!isHidden) this.hidePlan();
+            if (!isHidden) {
+                this.hidePlan();
+                this.hideGit();
+                this.hideMemory();
+            }
             if (resizer) {
                 if (isHidden) resizer.classList.add('hidden');
                 else resizer.classList.remove('hidden');
@@ -106,6 +110,7 @@ Object.assign(UI, {
             if (!isHidden) {
                 this.hideExplorer();
                 this.hideGit();
+                this.hideMemory();
             }
         }
     },
@@ -122,6 +127,7 @@ Object.assign(UI, {
             if (!isHidden) {
                 this.hideExplorer();
                 this.hidePlan();
+                this.hideMemory();
             }
         }
     },
@@ -129,5 +135,14 @@ Object.assign(UI, {
     hideGit() {
         const sidebar = document.getElementById('git-sidebar');
         if (sidebar) sidebar.classList.add('hidden');
+    },
+
+    hideMemory() {
+        if (window.MemoryUI && MemoryUI.isOpen) {
+            MemoryUI.toggle();
+        } else {
+            document.getElementById('memory-sidebar')?.classList.add('hidden');
+            document.getElementById('btn-toggle-memory')?.classList.remove('active');
+        }
     }
 });

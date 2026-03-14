@@ -1,0 +1,57 @@
+{
+  "orchestrator": {
+    "provider": "gemini",
+    "model": "G_3_0_FLASH",
+    "description": "Coordinates tasks and delegates to specialized agents"
+  },
+  "architect": {
+    "provider": "qwen",
+    "model": "qwen3-235b-a22b",
+    "description": "Designs system architecture and plans"
+  },
+  "developer": {
+    "provider": "gemini",
+    "model": "G_3_0_FLASH",
+    "description": "Implements code and features"
+  },
+  "reviewer": {
+    "provider": "qwen",
+    "model": "qwen3-coder-plus",
+    "description": "Reviews code for quality and security"
+  },
+  "researcher": {
+    "provider": "qwen",
+    "model": "qwen3-235b-a22b",
+    "description": "Searches documentation and web"
+  },
+  "explorer": {
+    "provider": "qwen",
+    "model": "qwen3-235b-a22b",
+    "description": "Explores and understands codebase"
+  },
+  "learner": {
+    "provider": "qwen",
+    "model": "qwen3-235b-a22b",
+    "description": "Learns from project and maintains memory"
+  },
+  "documentation": {
+    "provider": "qwen",
+    "model": "qwen3-coder-plus",
+    "description": "Generates documentation"
+  },
+  "refactor": {
+    "provider": "qwen",
+    "model": "qwen3-coder-plus",
+    "description": "Refactors and improves code"
+  },
+  "testing": {
+    "provider": "gemini",
+    "model": "G_3_0_FLASH",
+    "description": "Creates and runs tests"
+  },
+  "deploy": {
+    "provider": "gemini",
+    "model": "G_3_0_FLASH",
+    "description": "Handles deployment tasks"
+  }
+}

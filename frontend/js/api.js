@@ -237,5 +237,71 @@ const API = {
         const response = await fetch(`${this.baseUrl}/models`);
         if (!response.ok) throw new Error('Failed to load models');
         return await response.json();
+    },
+
+    // Agent Configuration APIs
+    async getAgentConfigs() {
+        const response = await fetch(`${this.baseUrl}/agents/config`);
+        if (!response.ok) throw new Error('Failed to load agent configs');
+        return await response.json();
+    },
+
+    async getAgentConfig(agentType) {
+        const response = await fetch(`${this.baseUrl}/agents/config/${agentType}`);
+        if (!response.ok) throw new Error('Failed to load agent config');
+        return await response.json();
+    },
+
+    async updateAgentConfig(agentType, provider, model) {
+        const response = await fetch(`${this.baseUrl}/agents/config/${agentType}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider, model })
+        });
+        if (!response.ok) throw new Error('Failed to update agent config');
+        return await response.json();
+    },
+
+    async getAgentTypes() {
+        const response = await fetch(`${this.baseUrl}/agents/types`);
+        if (!response.ok) throw new Error('Failed to load agent types');
+        return await response.json();
+    },
+
+    async getAgentStatus() {
+        const response = await fetch(`${this.baseUrl}/agents/status`);
+        if (!response.ok) throw new Error('Failed to load agent status');
+        return await response.json();
+    },
+
+    // Memory APIs
+    async getMemories(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/memory/${workspaceId}`);
+        if (!response.ok) throw new Error('Failed to load memories');
+        return await response.json();
+    },
+
+    async createMemory(workspaceId, category, title, content, importance = 3) {
+        const response = await fetch(`${this.baseUrl}/memory/${workspaceId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, title, content, importance })
+        });
+        if (!response.ok) throw new Error('Failed to create memory');
+        return await response.json();
+    },
+
+    async deleteMemory(workspaceId, memoryId) {
+        const response = await fetch(`${this.baseUrl}/memory/${workspaceId}/${memoryId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete memory');
+        return await response.json();
+    },
+
+    async searchMemories(workspaceId, query, limit = 5) {
+        const response = await fetch(`${this.baseUrl}/memory/${workspaceId}/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+        if (!response.ok) throw new Error('Failed to search memories');
+        return await response.json();
     }
 };
