@@ -137,6 +137,12 @@ const API = {
         return await response.json();
     },
 
+    async getWorkspaceHealth(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/health`);
+        if (!response.ok) throw new Error('Failed to load workspace health');
+        return await response.json();
+    },
+
     async getPlan(workspaceId) {
         const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/plan`);
         if (!response.ok) throw new Error('Failed to load plan');
@@ -146,6 +152,12 @@ const API = {
     async getGitInfo(workspaceId) {
         const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git`);
         if (!response.ok) throw new Error('Failed to load git info');
+        return await response.json();
+    },
+    
+    async getGitHealth(workspaceId) {
+        const response = await fetch(`${this.baseUrl}/workspace/${workspaceId}/git/health`);
+        if (!response.ok) throw new Error('Failed to load git health');
         return await response.json();
     },
 

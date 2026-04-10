@@ -6,6 +6,7 @@ Handles real-time bidirectional communication between frontend and backend.
 import asyncio
 import json
 import time
+import uuid
 from typing import Dict, Set, Optional, Callable, Any
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, field
@@ -251,6 +252,72 @@ class WebSocketManager:
             error_msg = f"Error running command: {str(e)}"
             await self.broadcast_terminal_output(terminal_id, error_msg, is_error=True)
             return -1
+
+    async def run_command_streamed(
+        self,
+        session_id: str,
+        command: str,
+        cwd: str = None,
+        max_output: int = 200000
+    ) -> tuple[str, int]:
+        """
+        Run a command, stream output to subscribed clients, and return captured output + exit code.
+        """
+        terminal_id = f"term_{uuid.uuid4().hex[:8]}"
+
+        # Auto-subscribe all connections in the session to this terminal
+        if session_id in self.session_connections:
+            for connection_id in list(self.session_connections.get(session_id, set())):
+                self.subscribe_to_terminal(connection_id, terminal_id)
+
+        output_chunks: list[str] = []
+
+        try:
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+            )
+
+            self.terminals[terminal_id] = process
+
+            async def read_stream(stream, is_error=False):
+                while True:
+                    chunk = await stream.read(512)
+                    if not chunk:
+                        break
+                    text = chunk.decode('utf-8', errors='replace')
+                    await self.broadcast_terminal_output(terminal_id, text, is_error)
+                    if sum(len(c) for c in output_chunks) < max_output:
+                        output_chunks.append(text)
+
+            await asyncio.gather(
+                read_stream(process.stdout, False),
+                read_stream(process.stderr, True)
+            )
+
+            exit_code = await process.wait()
+
+            for conn_id in list(self.terminal_subscribers.get(terminal_id, set())):
+                await self.send_to_connection(
+                    conn_id,
+                    MessageType.TERMINAL_EXIT,
+                    {"terminal_id": terminal_id, "exit_code": exit_code}
+                )
+
+            if terminal_id in self.terminals:
+                del self.terminals[terminal_id]
+
+            output = "".join(output_chunks)
+            if len(output) > max_output:
+                output = output[:max_output] + "\n... [truncated]"
+            return output, exit_code
+
+        except Exception as e:
+            error_msg = f"Error running command: {str(e)}"
+            await self.broadcast_terminal_output(terminal_id, error_msg, is_error=True)
+            return error_msg, -1
 
     async def send_terminal_input(self, terminal_id: str, input_text: str):
         """Send input to a running terminal."""

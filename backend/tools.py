@@ -1,6 +1,9 @@
 import os
 import subprocess
 import glob
+import tempfile
+import shutil
+import json
 from typing import Optional, List, Dict, Any
 from .git_manager import GitManager
 from .websocket_manager import ws_manager
@@ -33,13 +36,24 @@ class Tools:
         if os.path.isabs(relative_path):
             return relative_path
         return os.path.join(self.workspace_path, relative_path)
+
+    def _is_within_workspace(self, full_path: str) -> bool:
+        """Check if a path is within the workspace root."""
+        try:
+            workspace = os.path.realpath(self.workspace_path)
+            target = os.path.realpath(full_path)
+            return os.path.commonpath([workspace, target]) == workspace
+        except Exception:
+            return False
     
     def read_file(self, path: str) -> str:
         """Read the contents of a file."""
         try:
             full_path = self._resolve_path(path)
-            with open(full_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
+            with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read(200000)
             return f"Content of {path}:\n```\n{content}\n```"
         except FileNotFoundError:
             return f"Error: File not found: {path}"
@@ -52,6 +66,9 @@ class Tools:
         for path in paths:
             try:
                 full_path = self._resolve_path(path)
+                if not self._is_within_workspace(full_path):
+                    outputs.append(f"Error: Path is outside the workspace: {path}")
+                    continue
                 with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
                     content = f.read(max_bytes)
                 outputs.append(f"Content of {path}:\n```\n{content}\n```")
@@ -65,6 +82,8 @@ class Tools:
         """Write content to a file, creating directories if needed."""
         try:
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
             os.makedirs(os.path.dirname(full_path), exist_ok=True) if os.path.dirname(full_path) else None
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.write(content)
@@ -104,19 +123,23 @@ class Tools:
             temp_file.close()
 
             commands = [
+                ["patch", "-p1", "-i", temp_file.name],
                 ["patch", "-p0", "-i", temp_file.name],
                 ["git", "apply", temp_file.name]
             ]
             for cmd in commands:
-                result = subprocess.run(
-                    cmd,
-                    cwd=self.workspace_path,
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode == 0:
-                    return f"Patch applied successfully.\n{result.stdout.strip()}"
-                error = result.stderr.strip() or result.stdout.strip()
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        cwd=self.workspace_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    if result.returncode == 0:
+                        return f"Patch applied successfully.\n{result.stdout.strip()}"
+                    error = result.stderr.strip() or result.stdout.strip()
+                except FileNotFoundError:
+                    continue
 
             return f"Error applying patch: {error or 'Unknown error'}"
         except Exception as e:
@@ -132,6 +155,8 @@ class Tools:
         """Replace a specific block of text in a file with new content."""
         try:
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
             if not os.path.exists(full_path):
                 return f"Error: File '{path}' not found."
             
@@ -180,6 +205,9 @@ class Tools:
                     items = os.listdir(current_path)
                     for i, item in enumerate(sorted(items)):
                         item_path = os.path.join(current_path, item)
+                        if os.path.islink(item_path):
+                            result.append("  " * current_depth + "├── " + item + " [symlink]")
+                            continue
                         is_dir = os.path.isdir(item_path)
                         prefix = "  " * current_depth + "└── "
                         result.append(f"{prefix}{item}{'/' if is_dir else ''}")
@@ -242,6 +270,8 @@ class Tools:
     async def run_command(self, command: str, cwd: Optional[str] = None) -> str:
         """Execute a shell command in the workspace."""
         try:
+            if not command or not command.strip():
+                return "Error: Command is empty."
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
             
             # If we have a session_id, stream the output via WebSocket
@@ -277,6 +307,8 @@ class Tools:
         """Delete a file or directory."""
         try:
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
             if not os.path.exists(full_path):
                 return f"Error: Path '{path}' does not exist."
             
@@ -312,6 +344,8 @@ class Tools:
                         for entry in entries:
                             if entry in ['.git', 'node_modules', '__pycache__']: continue
                             child_full_path = os.path.join(current_full_path, entry)
+                            if os.path.islink(child_full_path):
+                                continue
                             item["children"].append(_scan(child_full_path))
                         
                         # Sort children: directories first
@@ -335,7 +369,7 @@ class Tools:
             if os.path.exists(full_path):
                 try:
                     with open(full_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
+                        content = f.read(200000)
                     results.append(f"--- {file} ---\n{content}")
                 except: pass
         
@@ -348,9 +382,12 @@ class Tools:
         try:
             from requests_html import HTMLSession
             session = HTMLSession()
+            session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            })
             # DuckDuckGo HTML version (simpler to parse)
             url = f"https://html.duckduckgo.com/html/?q={query}"
-            resp = session.get(url)
+            resp = session.get(url, timeout=20)
             results = []
             for item in resp.html.find('.result'):
                 title_node = item.find('.result__a', first=True)
@@ -363,13 +400,19 @@ class Tools:
             return "No web results found."
         except Exception as e:
             return f"Error during web search: {str(e)}"
+        finally:
+            try:
+                if 'session' in locals():
+                    session.close()
+            except Exception:
+                pass
 
     def web_browse(self, url: str) -> str:
         """Browse a website and return its text content."""
         try:
             from requests_html import HTMLSession
             session = HTMLSession()
-            resp = session.get(url)
+            resp = session.get(url, timeout=20)
             # Basic text extraction
             text = resp.html.text
             # Clean up excessive whitespace
@@ -378,6 +421,12 @@ class Tools:
             return f"Content of {url}:\n\n{text[:10000]}..." # Cap at 10k chars
         except Exception as e:
             return f"Error browsing {url}: {str(e)}"
+        finally:
+            try:
+                if 'session' in locals():
+                    session.close()
+            except Exception:
+                pass
 
     def get_symbol_info(self, symbol_name: str) -> str:
         """Find where a specific symbol (class/function/variable) is defined using grep."""
@@ -398,6 +447,63 @@ class Tools:
         if results:
             return "\n\n".join(results)
         return f"Could not find any clear definitions for '{symbol_name}'."
+
+    def self_check(self) -> Dict[str, Any]:
+        """Run a global self-check across tools and environment."""
+        result: Dict[str, Any] = {
+            "workspace": {
+                "path": self.workspace_path,
+                "exists": os.path.isdir(self.workspace_path),
+                "readable": False,
+                "writable": False,
+            },
+            "git": {},
+            "commands": {},
+            "web": {"requests_html": False},
+            "image": {"available": self.image_service is not None},
+            "warnings": [],
+            "errors": [],
+        }
+
+        # Workspace readability/writability
+        if result["workspace"]["exists"]:
+            try:
+                test_file = os.path.join(self.workspace_path, ".flashy_write_test.tmp")
+                with open(test_file, "w", encoding="utf-8") as f:
+                    f.write("ok")
+                result["workspace"]["writable"] = True
+                with open(test_file, "r", encoding="utf-8") as f:
+                    _ = f.read()
+                result["workspace"]["readable"] = True
+                os.remove(test_file)
+            except Exception as e:
+                result["errors"].append(f"Workspace read/write check failed: {e}")
+        else:
+            result["errors"].append("Workspace path does not exist or is not a directory.")
+
+        # Command availability
+        for cmd in ["git", "python"]:
+            result["commands"][cmd] = bool(shutil.which(cmd))
+            if not result["commands"][cmd]:
+                result["warnings"].append(f"Command not found in PATH: {cmd}")
+
+        # Git health
+        try:
+            from .config import load_config
+            pat = load_config().get("GITHUB_PAT")
+            result["git"] = self.git.get_health(pat=pat)
+        except Exception as e:
+            result["warnings"].append(f"Git health check failed: {e}")
+            result["git"] = {"is_repo": False}
+
+        # Web search dependency
+        try:
+            import requests_html  # noqa: F401
+            result["web"]["requests_html"] = True
+        except Exception:
+            result["warnings"].append("requests_html not available; web_search may fail.")
+
+        return result
 
     # --- Image Tools ---
 
@@ -506,7 +612,7 @@ Please generate an image matching this description. Use your image generation ca
         """Stage all changes and commit with a message."""
         if not self.git.is_repo():
             return "Error: Not a git repository."
-        return self.git.commit(message)
+        return self.git.commit(message, stage_all=True)
 
     def git_push(self, remote: str = "origin", branch: str = None) -> str:
         """Push changes to a remote repository."""
@@ -522,7 +628,10 @@ Please generate an image matching this description. Use your image generation ca
         """Pull changes from a remote repository."""
         if not self.git.is_repo():
             return "Error: Not a git repository."
-        return self.git.pull(remote, branch)
+        from .config import load_config
+        config = load_config()
+        pat = config.get("GITHUB_PAT")
+        return self.git.pull(remote, branch, pat=pat)
 
     def git_branches(self) -> str:
         """List all branches in the current repository."""
@@ -576,6 +685,7 @@ Please generate an image matching this description. Use your image generation ca
             {"name": "web_search", "description": "Search the web. Args: query (str)"},
             {"name": "web_browse", "description": "Browse a website. Args: url (str)"},
             {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"},
+            {"name": "self_check", "description": "Run a global health check for tools and environment. No args."},
             {"name": "git_status", "description": "Get git status. No args."},
             {"name": "git_commit", "description": "Commit all changes. Args: message (str)"},
             {"name": "git_push", "description": "Push changes. Args: remote (str, optional), branch (str, optional)"},
@@ -615,6 +725,7 @@ Please generate an image matching this description. Use your image generation ca
             "web_search": self.web_search,
             "web_browse": self.web_browse,
             # Git Tools
+            "self_check": self.self_check,
             "git_status": self.git_status,
             "git_commit": self.git_commit,
             "git_push": self.git_push,
@@ -637,9 +748,15 @@ Please generate an image matching this description. Use your image generation ca
             func = tool_map[tool_name]
             import inspect
             if inspect.iscoroutinefunction(func):
-                return await func(**kwargs)
+                result = await func(**kwargs)
             else:
-                return func(**kwargs)
+                result = func(**kwargs)
+            if not isinstance(result, str):
+                try:
+                    return json.dumps(result, indent=2, ensure_ascii=False)
+                except Exception:
+                    return str(result)
+            return result
         except TypeError as e:
             return f"Error: Invalid arguments for '{tool_name}': {str(e)}"
         except KeyError as e:

@@ -42,10 +42,10 @@ class QwenProvider(BaseProvider):
             model = "qwen3.5-plus"
             
         proxy = kwargs.get("proxy")
-        
+
         # Cookie generation
         cookies_data = generate_cookies()
-        
+
         headers = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9",
@@ -62,7 +62,7 @@ class QwenProvider(BaseProvider):
             "x-requested-with": "XMLHttpRequest",
             "x-source": "web"
         }
-        
+
         async with AsyncSession(impersonate="chrome", headers=headers, proxy=proxy) as session:
             try:
                 # 0. Initial Auth Call
@@ -82,23 +82,23 @@ class QwenProvider(BaseProvider):
                     "chat_type": "t2t",
                     "timestamp": int(time.time() * 1000)
                 }
-                
+
                 resp = await session.post(f'{self.URL}/api/v2/chats/new', json=chat_payload)
                 if resp.status_code != 200:
                     yield {"error": f"Qwen Create Chat Error: {resp.status_code} - {resp.text}"}
                     return
-                    
+
                 data = resp.json()
                 if not data.get('success') or not data['data'].get('id'):
                     yield {"error": f"Qwen Create Chat Failed: {data}"}
                     return
-                    
+
                 chat_id = data['data']['id']
-                
+
                 # 3. Send Message
                 prompt = messages[-1]['content'] if messages else ""
                 msg_id = str(uuid.uuid4())
-                
+
                 msg_payload = {
                     "stream": True,
                     "incremental_output": True,
@@ -183,17 +183,44 @@ class QwenProvider(BaseProvider):
 
     @classmethod
     async def get_models(cls) -> List[Dict[str, Any]]:
+        """Fetch available models dynamically from Qwen API."""
+        try:
+            async with AsyncSession(
+                impersonate="chrome",
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+                    "Accept": "application/json",
+                    "Origin": cls.URL,
+                    "Referer": f"{cls.URL}/"
+                }
+            ) as session:
+                resp = await session.get(f"{cls.URL}/api/models")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models_data = data.get("data", [])
+                    return [
+                        {
+                            "id": m["id"],
+                            "name": m.get("name", m["id"]),
+                            "description": m.get("info", {}).get("meta", {}).get("short_description", ""),
+                            "max_context": m.get("info", {}).get("meta", {}).get("max_context_length", 0)
+                        }
+                        for m in models_data
+                        if m.get("info", {}).get("is_active", False)
+                    ]
+        except Exception as e:
+            print(f"Error fetching Qwen models dynamically: {e}")
+
+        # Fallback to hardcoded list if API fails
         return [
+            {"id": "qwen3.6-plus", "name": "Qwen3.6-Plus"},
             {"id": "qwen3.5-plus", "name": "Qwen3.5-Plus"},
             {"id": "qwen3.5-flash", "name": "Qwen3.5-Flash"},
             {"id": "qwen3.5-397b-a17b", "name": "Qwen3.5-397B-A17B"},
             {"id": "qwen3.5-122b-a10b", "name": "Qwen3.5-122B-A10B"},
             {"id": "qwen3.5-27b", "name": "Qwen3.5-27B"},
             {"id": "qwen3.5-35b-a3b", "name": "Qwen3.5-35B-A3B"},
-            {"id": "qwen3-max-2026-01-23", "name": "Qwen3-Max"},
-            {"id": "qwen-plus-2025-07-28", "name": "Qwen3-235B-A22B-2507"},
-            {"id": "qwen3-coder-plus", "name": "Qwen3-Coder"},
-            {"id": "qwen3-vl-plus", "name": "Qwen3-VL-235B-A22B"},
-            {"id": "qwen3-omni-flash-2025-12-01", "name": "Qwen3-Omni-Flash"},
-            {"id": "qwen-max-latest", "name": "Qwen2.5-Max"}
+            {"id": "qwen3.5-omni-plus", "name": "Qwen3.5-Omni-Plus"},
+            {"id": "qwen-max-latest", "name": "Qwen2.5-Max"},
+            {"id": "qwen3-coder-plus", "name": "Qwen3-Coder"}
         ]

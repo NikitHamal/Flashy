@@ -822,6 +822,12 @@ body {
     padding-top: 16px;
 }
 
+.commit-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .commit-input {
     background: var(--bg-dark);
     border: 1px solid var(--border);
@@ -850,6 +856,18 @@ body {
 
 .btn-commit:hover {
     opacity: 0.9;
+}
+
+.git-health-output {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 11px;
+    white-space: pre-wrap;
+    max-height: 160px;
+    overflow: auto;
 }
 
 .git-section-title {

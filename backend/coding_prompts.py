@@ -308,6 +308,17 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "Check usages before renaming"
         ]
     },
+    "self_check": {
+        "name": "self_check",
+        "description": "Run a global health check for tools and environment (workspace, git, web, commands).",
+        "parameters": {},
+        "returns": "Structured diagnostics for workspace, git, commands, and web dependencies",
+        "example": '{"action": "self_check", "args": {}}',
+        "best_practices": [
+            "Use when tool behavior seems inconsistent or environment issues are suspected",
+            "Run before long or complex tasks to catch missing dependencies"
+        ]
+    },
     "web_search": {
         "name": "web_search",
         "description": "Search the web for information using DuckDuckGo.",
@@ -636,6 +647,7 @@ CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. 
 |------|---------|----------|
 | `get_dependencies` | List project dependencies | (none) |
 | `get_symbol_info` | Find symbol definitions | symbol_name |
+| `self_check` | Run global tool/environment health check | (none) |
 
 ### Web Tools
 | Tool | Purpose | Key Args |

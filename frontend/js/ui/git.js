@@ -77,11 +77,19 @@ Object.assign(UI, {
         commitBox.className = 'commit-box';
         commitBox.innerHTML = `
             <textarea class="commit-input" rows="2" placeholder="Message (Ctrl+Enter to commit)"></textarea>
-            <button class="btn-commit">Commit</button>
+            <div class="commit-actions">
+                <button class="btn-commit">Commit</button>
+                <button class="btn-ghost btn-git-health" title="Run Git self-check">
+                    <span class="material-symbols-outlined">health_and_safety</span>
+                </button>
+            </div>
+            <pre class="git-health-output hidden"></pre>
         `;
         
         const commitInput = commitBox.querySelector('.commit-input');
         const commitBtn = commitBox.querySelector('.btn-commit');
+        const healthBtn = commitBox.querySelector('.btn-git-health');
+        const healthOutput = commitBox.querySelector('.git-health-output');
         
         const doCommit = async () => {
             const msg = commitInput.value.trim();
@@ -104,6 +112,49 @@ Object.assign(UI, {
         commitInput.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'Enter') doCommit();
         });
+
+        const formatHealth = (health) => {
+            const remotes = (health.remotes || []).map(r => {
+                const fetchUrl = r.fetch ? r.fetch : '';
+                const pushUrl = r.push ? r.push : '';
+                const url = fetchUrl || pushUrl || '';
+                return `${r.name}: ${url}`.trim();
+            });
+
+            const lines = [
+                `Repo: ${health.is_repo ? 'yes' : 'no'}`,
+                `Git: ${health.git_version || '-'}`,
+                `Root: ${health.repo_root || '-'}`,
+                `Branch: ${health.branch || '-'}`,
+                `Detached: ${health.detached ? 'yes' : 'no'}`,
+                `Upstream: ${health.upstream || '-'}`,
+                `Remotes: ${remotes.length ? remotes.join(', ') : '-'}`,
+                `Staged: ${(health.status?.staged || []).length} | Unstaged: ${(health.status?.unstaged || []).length}`
+            ];
+
+            if (health.warnings && health.warnings.length) {
+                lines.push('Warnings:');
+                health.warnings.forEach(w => lines.push(`- ${w}`));
+            }
+            if (health.errors && health.errors.length) {
+                lines.push('Errors:');
+                health.errors.forEach(e => lines.push(`- ${e}`));
+            }
+            return lines.join('\n');
+        };
+
+        healthBtn.onclick = async () => {
+            try {
+                healthBtn.disabled = true;
+                const health = await API.getGitHealth(currentWorkspaceId);
+                healthOutput.textContent = formatHealth(health);
+                healthOutput.classList.remove('hidden');
+            } catch (err) {
+                alert("Git self-check failed: " + err.message);
+            } finally {
+                healthBtn.disabled = false;
+            }
+        };
 
         container.appendChild(commitBox);
 

@@ -67,6 +67,19 @@ async def get_plan(workspace_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/workspace/{workspace_id}/health")
+async def get_workspace_health(workspace_id: str):
+    try:
+        ws = get_workspace_data(workspace_id)
+        if not ws:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+
+        from ..tools import Tools
+        tools = Tools(ws['path'])
+        return tools.self_check()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 def _run_isolated_picker():
     """Run the folder picker in a separate process to avoid thread conflicts."""
     import subprocess

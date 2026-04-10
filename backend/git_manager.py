@@ -2,27 +2,38 @@ import os
 import subprocess
 import json
 from typing import List, Dict, Optional
+from urllib.parse import urlparse, urlunparse, quote
 
 class GitManager:
     def __init__(self, workspace_path: str = None):
         self.workspace_path = workspace_path
 
-    def _run_git(self, args: List[str], cwd: str = None) -> Dict:
+    def _run_git(self, args: List[str], cwd: str = None, redact: str = None) -> Dict:
         """Helper to run git commands and return structured output."""
         target_cwd = cwd or self.workspace_path
         try:
+            env = os.environ.copy()
+            # Prevent hanging prompts for credentials in non-interactive runs
+            env.setdefault("GIT_TERMINAL_PROMPT", "0")
+            env.setdefault("GCM_INTERACTIVE", "Never")
             result = subprocess.run(
                 ['git'] + args,
                 cwd=target_cwd,
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
-                errors='replace'
+                errors='replace',
+                env=env
             )
+            stdout = result.stdout.strip()
+            stderr = result.stderr.strip()
+            if redact:
+                stdout = stdout.replace(redact, "***")
+                stderr = stderr.replace(redact, "***")
             return {
                 "success": result.returncode == 0,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
+                "stdout": stdout,
+                "stderr": stderr,
                 "exit_code": result.returncode
             }
         except Exception as e:
@@ -46,11 +57,14 @@ class GitManager:
         """Clone a repository, optionally using a PAT."""
         # If PAT is provided, inject it into the URL
         if pat and "github.com" in url:
-            if url.startswith("https://"):
-                url = url.replace("https://", f"https://{pat}@")
+            parsed = urlparse(url)
+            if parsed.scheme in ("http", "https"):
+                netloc = parsed.netloc.split("@", 1)[-1]
+                netloc = f"{quote(pat, safe='')}@{netloc}"
+                url = urlunparse(parsed._replace(netloc=netloc))
         
         # Clone into the target path
-        res = self._run_git(['clone', url, path], cwd=os.path.dirname(path) or ".")
+        res = self._run_git(['clone', url, path], cwd=os.path.dirname(path) or ".", redact=pat)
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
     def get_status(self) -> str:
@@ -68,14 +82,30 @@ class GitManager:
         unstaged = []
         
         for line in res["stdout"].split('\n'):
-            if not line or len(line) < 3: continue
+            if not line or len(line) < 3:
+                continue
+
+            if line.startswith("?? "):
+                path = line[3:].strip()
+                unstaged.append({"path": path, "status": "untracked"})
+                continue
             
             x = line[0] # Index status
             y = line[1] # Work tree status
             path = line[3:].strip()
+            if " -> " in path:
+                path = path.split(" -> ", 1)[1]
             
             # Map status codes to human readable
-            status_map = {'M': 'modified', 'A': 'added', 'D': 'deleted', 'R': 'renamed', '?': 'untracked'}
+            status_map = {
+                'M': 'modified',
+                'A': 'added',
+                'D': 'deleted',
+                'R': 'renamed',
+                'C': 'copied',
+                'U': 'unmerged',
+                '?': 'untracked'
+            }
             
             if x in status_map:
                 staged.append({"path": path, "status": status_map[x]})
@@ -110,6 +140,8 @@ class GitManager:
             if not line: continue
             is_current = line.startswith('*')
             name = line.replace('*', '').strip()
+            if "->" in name:
+                continue
             branches.append({"name": name, "current": is_current})
         return branches
 
@@ -122,7 +154,7 @@ class GitManager:
     def commit(self, message: str, stage_all: bool = False) -> str:
         """Commit changes."""
         if stage_all:
-            self._run_git(['add', '.'])
+            self._run_git(['add', '-A'])
         res = self._run_git(['commit', '-m', message])
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
@@ -131,21 +163,48 @@ class GitManager:
         if not branch:
             curr = self._run_git(['branch', '--show-current'])
             branch = curr["stdout"]
+        if not branch:
+            return "Push failed: No current branch (detached HEAD?)."
+
+        authed_remote = remote
+        redact_pat = None
+        if pat:
+            remote_url = self._run_git(['remote', 'get-url', remote])
+            if remote_url["success"]:
+                parsed = urlparse(remote_url["stdout"].splitlines()[0].strip())
+                if parsed.scheme in ("http", "https") and "github.com" in parsed.netloc:
+                    netloc = parsed.netloc.split("@", 1)[-1]
+                    authed_netloc = f"{quote(pat, safe='')}@{netloc}"
+                    authed_remote = urlunparse(parsed._replace(netloc=authed_netloc))
+                    redact_pat = pat
         
         # If PAT is provided, we use it for this specific command via an environment variable or URL update
         # For security and simplicity in subprocess, we'll assume the remote is already authenticated 
         # or the user has a credential helper. 
-        res = self._run_git(['push', remote, branch])
+        res = self._run_git(['push', authed_remote, branch], redact=redact_pat)
         if res["success"]:
             return f"Successfully pushed to {remote}/{branch}"
         return f"Push failed: {res['stderr']}"
 
-    def pull(self, remote: str = "origin", branch: str = None) -> str:
+    def pull(self, remote: str = "origin", branch: str = None, pat: str = None) -> str:
         """Pull changes."""
         if not branch:
             curr = self._run_git(['branch', '--show-current'])
             branch = curr["stdout"]
-        res = self._run_git(['pull', remote, branch])
+        if not branch:
+            return "Pull failed: No current branch (detached HEAD?)."
+        authed_remote = remote
+        redact_pat = None
+        if pat:
+            remote_url = self._run_git(['remote', 'get-url', remote])
+            if remote_url["success"]:
+                parsed = urlparse(remote_url["stdout"].splitlines()[0].strip())
+                if parsed.scheme in ("http", "https") and "github.com" in parsed.netloc:
+                    netloc = parsed.netloc.split("@", 1)[-1]
+                    authed_netloc = f"{quote(pat, safe='')}@{netloc}"
+                    authed_remote = urlunparse(parsed._replace(netloc=authed_netloc))
+                    redact_pat = pat
+        res = self._run_git(['pull', authed_remote, branch], redact=redact_pat)
         if res["success"]:
             return f"Successfully pulled from {remote}/{branch}"
         return f"Pull failed: {res['stderr']}"
@@ -154,7 +213,7 @@ class GitManager:
         """Get structured commit history."""
         # Format: hash|date|author|subject
         format_str = "%H|%cr|%an|%s"
-        res = self._run_git(['log', f'-n {limit}', f'--pretty=format:{format_str}'])
+        res = self._run_git(['log', '-n', str(limit), f'--pretty=format:{format_str}'])
         
         if not res["success"]:
             return []
@@ -171,3 +230,86 @@ class GitManager:
                     "message": parts[3]
                 })
         return commits
+
+    def get_version(self) -> Optional[str]:
+        """Get git version string."""
+        res = self._run_git(['--version'])
+        return res["stdout"] if res["success"] else None
+
+    def get_root(self) -> Optional[str]:
+        """Get repo root path."""
+        res = self._run_git(['rev-parse', '--show-toplevel'])
+        return res["stdout"] if res["success"] else None
+
+    def get_current_branch(self) -> Optional[str]:
+        """Get current branch name or HEAD if detached."""
+        res = self._run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
+        return res["stdout"] if res["success"] else None
+
+    def get_upstream(self) -> Optional[str]:
+        """Get upstream tracking branch (e.g., origin/main)."""
+        res = self._run_git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
+        return res["stdout"] if res["success"] else None
+
+    def get_remotes(self) -> List[Dict[str, str]]:
+        """Get remotes with fetch/push URLs."""
+        res = self._run_git(['remote', '-v'])
+        if not res["success"]:
+            return []
+        remotes = {}
+        for line in res["stdout"].splitlines():
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            name, url, kind = parts[0], parts[1], parts[2].strip("()")
+            remotes.setdefault(name, {})[kind] = url
+        return [{"name": k, **v} for k, v in remotes.items()]
+
+    def get_health(self, pat: str = None) -> Dict[str, Any]:
+        """Return a structured self-check of git state for the workspace."""
+        health: Dict[str, Any] = {
+            "is_repo": self.is_repo(),
+            "git_version": self.get_version(),
+            "repo_root": None,
+            "branch": None,
+            "detached": None,
+            "upstream": None,
+            "remotes": [],
+            "status": {"staged": [], "unstaged": []},
+            "warnings": [],
+            "errors": [],
+        }
+
+        if not health["is_repo"]:
+            health["warnings"].append("Not a git repository.")
+            return health
+
+        health["repo_root"] = self.get_root()
+        branch = self.get_current_branch()
+        health["branch"] = branch
+        health["detached"] = branch == "HEAD"
+        health["upstream"] = self.get_upstream()
+        health["remotes"] = self.get_remotes()
+        health["status"] = self.get_status_full()
+
+        if health["detached"]:
+            health["warnings"].append("Detached HEAD state; push/pull may fail.")
+        if not health["remotes"]:
+            health["warnings"].append("No remotes configured.")
+        if not health["upstream"]:
+            health["warnings"].append("No upstream tracking branch set.")
+
+        # Hint about auth readiness for GitHub HTTPS remotes
+        github_https = [
+            r for r in health["remotes"]
+            if any(
+                url and url.startswith("https://") and "github.com" in url
+                for url in (r.get("fetch"), r.get("push"))
+            )
+        ]
+        if github_https and not pat:
+            health["warnings"].append(
+                "GitHub HTTPS remote detected but no PAT configured; push/pull may require credential helper."
+            )
+
+        return health
