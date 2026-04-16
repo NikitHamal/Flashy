@@ -150,7 +150,7 @@ class Agent:
         print(f"Delegating task: {task}")
         # To avoid infinite recursion, we could limit depth
         # For now, let's just run a one-off completion with Gemini
-        # We need access to GeminiService here, but Agent shouldn't depend on it directly
+        # We need access to LLMService here, but Agent shouldn't depend on it directly
         # Let's instead return a message that the system should handle delegation
         return f"SYSTEM: Delegation requested for task: '{task}'. Context: {context}. Please process this sub-task."
     

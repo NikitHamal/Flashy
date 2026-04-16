@@ -4,6 +4,7 @@ import glob
 import tempfile
 import shutil
 import json
+import asyncio
 from typing import Optional, List, Dict, Any
 from .git_manager import GitManager
 from .websocket_manager import ws_manager
@@ -236,70 +237,142 @@ class Tools:
             return f"Error searching files: {str(e)}"
     
     def grep_search(self, query: str, path: str = ".", extensions: Optional[List[str]] = None) -> str:
-        """Search for a string inside files (case-insensitive)."""
+        """Search for a string inside files (case-insensitive).
+
+        Uses ripgrep (rg) when available for O(1) indexed search performance.
+        Falls back to optimized Python scanning for systems without ripgrep.
+        """
         try:
             path = path or "."
             full_path = self._resolve_path(path)
+            exclude_dirs = {'.git', 'node_modules', '__pycache__', 'venv', '.venv', 'dist', 'build'}
+
+            # Try ripgrep first — it's orders of magnitude faster on large codebases
+            rg_path = shutil.which("rg")
+            if rg_path:
+                rg_cmd = [
+                    rg_path,
+                    "--ignore-case",
+                    "--no-heading",
+                    "--line-number",
+                    "--max-count", "50",
+                    "--glob", "!.git/**",
+                    "--glob", "!node_modules/**",
+                    "--glob", "!__pycache__/**",
+                    "--glob", "!venv/**",
+                    "--glob", "!.venv/**",
+                ]
+                # Filter by extensions via glob patterns
+                if extensions:
+                    for ext in extensions:
+                        rg_cmd.extend(["--glob", f"*{ext}"])
+
+                rg_cmd.extend([query, full_path])
+
+                try:
+                    result = subprocess.run(
+                        rg_cmd,
+                        capture_output=True,
+                        text=True,
+                        encoding='utf-8',
+                        errors='replace',
+                        timeout=30
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        lines = result.stdout.strip().split('\n')[:50]
+                        # Convert absolute paths back to relative
+                        rel_lines = []
+                        for line in lines:
+                            # rg output format: path:line_num:content
+                            parts = line.split(':', 2)
+                            if len(parts) >= 3:
+                                rel_path = os.path.relpath(parts[0], self.workspace_path)
+                                rel_lines.append(f"{rel_path}:{parts[1]}: {parts[2]}")
+                            else:
+                                rel_lines.append(line)
+                        return f"Search results for '{query}':\n" + "\n".join(rel_lines)
+                    elif result.returncode == 1:
+                        return f"No matches found for '{query}'"
+                    # If rg fails for some reason, fall through to Python implementation
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    pass
+
+            # Python fallback — optimized with early exit and directory pruning
             results = []
-            
+            query_lower = query.lower()
+            extensions_set = set(extensions) if extensions else None
+
             for root, dirs, files in os.walk(full_path):
-                if any(exclude in root for exclude in ['.git', 'node_modules', '__pycache__', 'venv']):
-                    continue
-                    
+                # Prune excluded directories in-place to prevent recursion
+                dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith('.')]
+
                 for file in files:
-                    if extensions and not any(file.endswith(ext) for ext in extensions):
+                    if extensions_set and not any(file.endswith(ext) for ext in extensions_set):
                         continue
-                        
+
                     file_path = os.path.join(root, file)
                     try:
                         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                             for line_num, line in enumerate(f, 1):
-                                if query.lower() in line.lower():
+                                if query_lower in line.lower():
                                     rel_path = os.path.relpath(file_path, self.workspace_path)
-                                    results.append(f"{rel_path}:{line_num}: {line.strip()}")
+                                    results.append(f"{rel_path}:{line_num}: {line.rstrip()}")
                                     if len(results) >= 50:
                                         return "Search results (capped at 50):\n" + "\n".join(results)
-                    except: pass
-            
+                    except (PermissionError, OSError):
+                        pass
+
             if results:
                 return f"Search results for '{query}':\n" + "\n".join(results)
             return f"No matches found for '{query}'"
         except Exception as e:
             return f"Error during grep: {str(e)}"
 
-    async def run_command(self, command: str, cwd: Optional[str] = None) -> str:
-        """Execute a shell command in the workspace."""
+    async def run_command(self, command: str, cwd: Optional[str] = None, timeout: int = 300) -> str:
+        """Execute a shell command in the workspace with configurable timeout.
+
+        Args:
+            command: Shell command to execute
+            cwd: Working directory (resolved relative to workspace)
+            timeout: Max execution time in seconds (default 300 = 5 min)
+        """
         try:
             if not command or not command.strip():
                 return "Error: Command is empty."
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
-            
+
             # If we have a session_id, stream the output via WebSocket
             if self.session_id:
-                # Use ws_manager to run and stream
                 output, exit_code = await ws_manager.run_command_streamed(
-                    self.session_id, 
-                    command, 
+                    self.session_id,
+                    command,
                     cwd=work_dir
                 )
-                
+
                 status = "✓ Success" if exit_code == 0 else f"✗ Exit code: {exit_code}"
                 return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{output.strip() or '(no output)'}\n```"
-            
-            # Fallback for non-session calls
-            result = subprocess.run(
+
+            # Non-session: use asyncio subprocess for proper async execution
+            process = await asyncio.create_subprocess_shell(
                 command,
-                shell=True,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
                 cwd=work_dir,
-                capture_output=True,
-                text=True,
-                timeout=60
             )
-            output = result.stdout + result.stderr
-            status = "✓ Success" if result.returncode == 0 else f"✗ Exit code: {result.returncode}"
-            return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{output.strip() or '(no output)'}\n```"
-        except subprocess.TimeoutExpired:
-            return f"Error: Command timed out after 60 seconds."
+
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    process.communicate(), timeout=timeout
+                )
+                output = stdout_bytes.decode('utf-8', errors='replace')
+                stderr_output = stderr_bytes.decode('utf-8', errors='replace')
+                combined = output + stderr_output
+                status = "✓ Success" if process.returncode == 0 else f"✗ Exit code: {process.returncode}"
+                return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{combined.strip() or '(no output)'}\n```"
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                return f"Error: Command timed out after {timeout} seconds. Process was killed."
         except Exception as e:
             return f"Error running command: {str(e)}"
 

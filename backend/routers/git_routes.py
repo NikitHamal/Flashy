@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 import os
 from ..storage import get_workspace as get_workspace_data, add_workspace
-from ..gemini_service import GeminiService
+from ..llm_service import LLMService
 from ..config import load_config
 
 router = APIRouter()
@@ -49,10 +49,10 @@ async def api_git_clone(request: CloneRequest):
             raise HTTPException(status_code=500, detail=result)
             
         ws = add_workspace(target_path)
-        # Note: Setting workspace in gemini_service might need dependency injection or singleton access
+        # Note: Setting workspace in llm_service might need dependency injection or singleton access
         # For now, we return the workspace and let the client set it if needed, 
         # or we access the global service if we must. 
-        # Ideally, GeminiService shouldn't hold global state that routes depend on implicitly for *setting*,
+        # Ideally, LLMService shouldn't hold global state that routes depend on implicitly for *setting*,
         # but for *getting* it's okay.
         
         return ws
@@ -165,4 +165,5 @@ async def git_commit(workspace_id: str, req: GitCommitRequest):
     ws = get_workspace_data(workspace_id)
     if not ws: raise HTTPException(status_code=404, detail="Workspace not found")
     from ..git_manager import GitManager
-    return {"message": GitManager(ws['path']).commit(req.message, stage_all=False)}
+    # Stage all changes before commit to match the agent tool behavior
+    return {"message": GitManager(ws['path']).commit(req.message, stage_all=True)}

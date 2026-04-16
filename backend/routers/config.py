@@ -24,9 +24,9 @@ async def update_config(data: ConfigUpdate, request: Request):
     new_data = {k: v for k, v in data.dict().items() if v is not None}
     current_config.update(new_data)
     save_config(current_config)
-    
-    # Reset service client
-    if hasattr(request.app.state, "gemini_service"):
-        await request.app.state.gemini_service.reset()
-        
+
+    # Reset service client to apply new config
+    if hasattr(request.app.state, "llm_service"):
+        await request.app.state.llm_service.reset()
+
     return {"message": "Config updated and client reset"}

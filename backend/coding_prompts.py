@@ -771,12 +771,6 @@ CODING_TOOL_RESULT_TEMPLATE = """
 </output>
 </tool_result>
 
-Analyze the result above:
-1. Did the operation succeed or fail?
-2. If success: What is the next step?
-3. If error: What went wrong and how will you fix it?
-
-Continue with the appropriate action.
 """
 
 

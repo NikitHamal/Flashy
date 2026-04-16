@@ -7,6 +7,8 @@ Provides REST API for project memorybase management.
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
+from ..agents.learner import LearnerAgent
+from ..storage import get_workspace
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
@@ -31,12 +33,9 @@ _learner_agents: Dict[str, Any] = {}
 def get_learner_agent(workspace_id: str):
     """Get or create a learner agent for a workspace."""
     if workspace_id not in _learner_agents:
-        from ..agents import LearnerAgent
-        from ..storage import get_workspace
-        
         workspace = get_workspace(workspace_id)
         workspace_path = workspace.get("path") if workspace else None
-        
+
         _learner_agents[workspace_id] = LearnerAgent(
             workspace_path=workspace_path,
             session_id=workspace_id

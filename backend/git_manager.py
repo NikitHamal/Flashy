@@ -54,17 +54,30 @@ class GitManager:
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
     def clone_repo(self, url: str, path: str, pat: str = None) -> str:
-        """Clone a repository, optionally using a PAT."""
-        # If PAT is provided, inject it into the URL
+        """Clone a repository, optionally using a PAT.
+
+        Handles path resolution: if path is relative, it's resolved against cwd.
+        Ensures parent directory exists before cloning.
+        """
+        # Resolve to absolute path
+        if not os.path.isabs(path):
+            path = os.path.abspath(path)
+
+        # If PAT is provided, inject it into the URL for HTTPS GitHub remotes
+        clone_url = url
         if pat and "github.com" in url:
             parsed = urlparse(url)
             if parsed.scheme in ("http", "https"):
                 netloc = parsed.netloc.split("@", 1)[-1]
                 netloc = f"{quote(pat, safe='')}@{netloc}"
-                url = urlunparse(parsed._replace(netloc=netloc))
-        
-        # Clone into the target path
-        res = self._run_git(['clone', url, path], cwd=os.path.dirname(path) or ".", redact=pat)
+                clone_url = urlunparse(parsed._replace(netloc=netloc))
+
+        # Ensure parent directory exists
+        parent_dir = os.path.dirname(path)
+        if parent_dir and not os.path.exists(parent_dir):
+            os.makedirs(parent_dir, exist_ok=True)
+
+        res = self._run_git(['clone', clone_url, path], cwd=".", redact=pat)
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
     def get_status(self) -> str:
@@ -159,55 +172,131 @@ class GitManager:
         return res["stdout"] if res["success"] else f"Error: {res['stderr']}"
 
     def push(self, remote: str = "origin", branch: str = None, pat: str = None) -> str:
-        """Push changes."""
+        """Push changes to a remote repository.
+
+        If a PAT is provided for a GitHub HTTPS remote, it's injected via
+        a temporary GIT_ASKPASS helper to avoid embedding credentials in the URL.
+        """
         if not branch:
             curr = self._run_git(['branch', '--show-current'])
             branch = curr["stdout"]
         if not branch:
             return "Push failed: No current branch (detached HEAD?)."
 
-        authed_remote = remote
-        redact_pat = None
         if pat:
+            # Check if remote URL is GitHub HTTPS
             remote_url = self._run_git(['remote', 'get-url', remote])
             if remote_url["success"]:
-                parsed = urlparse(remote_url["stdout"].splitlines()[0].strip())
+                url_line = remote_url["stdout"].splitlines()[0].strip()
+                parsed = urlparse(url_line)
                 if parsed.scheme in ("http", "https") and "github.com" in parsed.netloc:
-                    netloc = parsed.netloc.split("@", 1)[-1]
-                    authed_netloc = f"{quote(pat, safe='')}@{netloc}"
-                    authed_remote = urlunparse(parsed._replace(netloc=authed_netloc))
-                    redact_pat = pat
-        
-        # If PAT is provided, we use it for this specific command via an environment variable or URL update
-        # For security and simplicity in subprocess, we'll assume the remote is already authenticated 
-        # or the user has a credential helper. 
-        res = self._run_git(['push', authed_remote, branch], redact=redact_pat)
+                    # Use GIT_ASKPASS for secure credential injection
+                    # This avoids embedding the PAT in the URL or git config
+                    import tempfile
+                    askpass_script = self._create_git_askpass_script(pat)
+                    env = os.environ.copy()
+                    env["GIT_ASKPASS"] = askpass_script
+                    env["GIT_TERMINAL_PROMPT"] = "0"
+                    env["GCM_INTERACTIVE"] = "Never"
+
+                    res = self._run_git_with_env(
+                        ['push', '--set-upstream', remote, branch],
+                        env=env
+                    )
+                    if res["success"]:
+                        return f"Successfully pushed to {remote}/{branch}"
+                    return f"Push failed: {res['stderr']}"
+
+        res = self._run_git(['push', '--set-upstream', remote, branch])
         if res["success"]:
             return f"Successfully pushed to {remote}/{branch}"
         return f"Push failed: {res['stderr']}"
 
     def pull(self, remote: str = "origin", branch: str = None, pat: str = None) -> str:
-        """Pull changes."""
+        """Pull changes from a remote repository.
+
+        Uses GIT_ASKPASS for secure PAT injection on GitHub HTTPS remotes.
+        """
         if not branch:
             curr = self._run_git(['branch', '--show-current'])
             branch = curr["stdout"]
         if not branch:
             return "Pull failed: No current branch (detached HEAD?)."
-        authed_remote = remote
-        redact_pat = None
+
         if pat:
             remote_url = self._run_git(['remote', 'get-url', remote])
             if remote_url["success"]:
-                parsed = urlparse(remote_url["stdout"].splitlines()[0].strip())
+                url_line = remote_url["stdout"].splitlines()[0].strip()
+                parsed = urlparse(url_line)
                 if parsed.scheme in ("http", "https") and "github.com" in parsed.netloc:
-                    netloc = parsed.netloc.split("@", 1)[-1]
-                    authed_netloc = f"{quote(pat, safe='')}@{netloc}"
-                    authed_remote = urlunparse(parsed._replace(netloc=authed_netloc))
-                    redact_pat = pat
-        res = self._run_git(['pull', authed_remote, branch], redact=redact_pat)
+                    askpass_script = self._create_git_askpass_script(pat)
+                    env = os.environ.copy()
+                    env["GIT_ASKPASS"] = askpass_script
+                    env["GIT_TERMINAL_PROMPT"] = "0"
+                    env["GCM_INTERACTIVE"] = "Never"
+
+                    res = self._run_git_with_env(
+                        ['pull', remote, branch],
+                        env=env
+                    )
+                    if res["success"]:
+                        return f"Successfully pulled from {remote}/{branch}"
+                    return f"Pull failed: {res['stderr']}"
+
+        res = self._run_git(['pull', remote, branch])
         if res["success"]:
             return f"Successfully pulled from {remote}/{branch}"
         return f"Pull failed: {res['stderr']}"
+
+    def _create_git_askpass_script(self, password: str) -> str:
+        """Create a temporary GIT_ASKPASS script that returns the password.
+
+        Git calls the askpass script with 'Username:' and 'Password:' prompts.
+        We return the PAT for password prompts and empty for username.
+        """
+        import tempfile
+        if os.name == 'nt':
+            # Windows: create a .bat file
+            script_content = f"@echo off\nif \"%~1\"==\"Username:\" (echo.) else (echo {password})\n"
+            suffix = ".bat"
+        else:
+            # Unix: create a shell script
+            script_content = f"#!/bin/sh\ncase \"$1\" in\n  Username:*) echo ;;\n  Password:*) echo '{password}' ;;\nesac\n"
+            suffix = ".sh"
+
+        fd, path = tempfile.mkstemp(suffix=suffix, prefix="flashy_askpass_")
+        try:
+            with os.fdopen(fd, 'w') as f:
+                f.write(script_content)
+            if os.name != 'nt':
+                os.chmod(path, 0o755)
+        except Exception:
+            os.close(fd)
+            raise
+
+        return path
+
+    def _run_git_with_env(self, args: List[str], env: dict, cwd: str = None) -> Dict:
+        """Run git command with custom environment variables."""
+        target_cwd = cwd or self.workspace_path
+        try:
+            result = subprocess.run(
+                ['git'] + args,
+                cwd=target_cwd,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                env=env
+            )
+            return {
+                "success": result.returncode == 0,
+                "stdout": result.stdout.strip(),
+                "stderr": result.stderr.strip(),
+                "exit_code": result.returncode
+            }
+        except Exception as e:
+            return {"success": False, "stdout": "", "stderr": str(e), "exit_code": -1}
 
     def get_log(self, limit: int = 10) -> List[Dict]:
         """Get structured commit history."""

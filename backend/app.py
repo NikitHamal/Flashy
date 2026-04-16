@@ -11,7 +11,7 @@ import httpx
 import uuid
 from typing import List, Optional
 
-from .gemini_service import GeminiService
+from .llm_service import LLMService
 from .storage import save_chat_message, get_workspace as get_workspace_data, add_workspace
 from .websocket_manager import ws_manager, MessageType
 from .routers import git_routes, workspace, chat, config, agents, memory
@@ -19,8 +19,8 @@ from .routers import git_routes, workspace, chat, config, agents, memory
 app = FastAPI()
 
 # Share service instances
-gemini_service = GeminiService()
-app.state.gemini_service = gemini_service
+llm_service = LLMService()
+app.state.llm_service = llm_service
 
 app.include_router(git_routes.router)
 app.include_router(workspace.router)
@@ -55,17 +55,17 @@ app.add_middleware(
 
 @app.get("/workspace")
 async def get_current_workspace():
-    return {"path": gemini_service.get_workspace()}
+    return {"path": llm_service.get_workspace()}
 
 @app.post("/workspace")
 async def set_workspace_route(data: workspace.WorkspaceUpdate):
     if not os.path.exists(data.path):
         raise HTTPException(status_code=400, detail="Path does not exist")
     ws = add_workspace(data.path)
-    result = gemini_service.set_workspace(ws['path'], workspace_id=ws['id'])
+    result = llm_service.set_workspace(ws['path'], workspace_id=ws['id'])
     if "Error" in result:
         raise HTTPException(status_code=400, detail=result)
-    return {"message": result, "path": gemini_service.get_workspace(), "id": ws['id']}
+    return {"message": result, "path": llm_service.get_workspace(), "id": ws['id']}
 
 @app.post("/workspace/pick")
 def pick_workspace_route():
@@ -73,7 +73,7 @@ def pick_workspace_route():
     path = workspace._run_isolated_picker()
     if path:
         ws = add_workspace(path)
-        gemini_service.set_workspace(path, workspace_id=ws['id'])
+        llm_service.set_workspace(path, workspace_id=ws['id'])
         return ws
     return {"message": "Cancelled"}
 
@@ -99,13 +99,13 @@ async def chat_endpoint(
         if workspace_id:
             ws = get_workspace_data(workspace_id)
             if ws:
-                gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
+                llm_service.set_workspace(ws['path'], workspace_id=workspace_id)
 
         save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
         
         async def response_generator():
             try:
-                async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+                async for chunk in llm_service.generate_response(message, session_id, files=file_paths):
                     if "error" in chunk:
                         yield json.dumps(chunk) + "\n"
                     elif "tool_call" in chunk:
@@ -148,7 +148,7 @@ async def proxy_image(url: str):
                 "Sec-Fetch-Site": "cross-site"
             }
             
-            # Try to get cookies from gemini_service if available
+            # Try to get cookies from llm_service if available
             try:
                 from .config import load_config
                 config = load_config()
@@ -214,7 +214,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 ws_manager.register_session_task(session_id, chat_task)
             
             elif msg_type == "interrupt":
-                gemini_service.interrupt_session(session_id)
+                llm_service.interrupt_session(session_id)
                 ws_manager.cancel_session_task(session_id)
                 await ws_manager.send_to_connection(connection_id, MessageType.TEXT, {"content": "\n\n*Interrupted.*", "is_final": True})
             
@@ -249,21 +249,39 @@ async def handle_ws_chat(connection_id: str, session_id: str, message: str, work
         try:
             if workspace_id:
                 ws = get_workspace_data(workspace_id)
-                if ws: gemini_service.set_workspace(ws['path'], workspace_id=workspace_id)
+                if ws: llm_service.set_workspace(ws['path'], workspace_id=workspace_id)
             
             save_chat_message(session_id, "user", parts=[{"type": "text", "content": message}], workspace_id=workspace_id)
             
             if files:
                 import base64
+                import binascii
                 for f in files:
-                    if 'content' in f:
-                        fname = f.get('name', f'upload_{uuid.uuid4().hex[:8]}')
-                        fpath = os.path.join(UPLOAD_DIR, fname)
+                    if 'content' not in f:
+                        continue
+                    fname = f.get('name', f'upload_{uuid.uuid4().hex[:8]}')
+                    # Sanitize filename to prevent path traversal
+                    fname = os.path.basename(fname)
+                    fpath = os.path.join(UPLOAD_DIR, fname)
+
+                    raw_content = f['content']
+                    try:
+                        # Validate base64 content before writing
+                        if not isinstance(raw_content, str):
+                            print(f"[WS] Skipping non-string file content for {fname}")
+                            continue
+                        decoded = base64.b64decode(raw_content, validate=True)
                         with open(fpath, 'wb') as fo:
-                            fo.write(base64.b64decode(f['content']))
+                            fo.write(decoded)
                         file_paths.append(fpath)
+                    except binascii.Error as e:
+                        print(f"[WS] Invalid base64 for file {fname}: {e}")
+                        continue
+                    except Exception as e:
+                        print(f"[WS] Error processing file {fname}: {e}")
+                        continue
             
-            async for chunk in gemini_service.generate_response(message, session_id, files=file_paths):
+            async for chunk in llm_service.generate_response(message, session_id, files=file_paths):
                 if "error" in chunk:
                     await ws_manager.send_to_session(session_id, MessageType.ERROR, {"message": chunk["error"]})
                 elif "thought" in chunk:

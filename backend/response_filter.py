@@ -25,14 +25,12 @@ YOUTUBE_PATTERNS = [
     r'https?://googleusercontent\.com/youtube_content/\d+',
 ]
 
-# External tutorial/reference links
+# External tutorial/reference links — only filter low-value content
+# Keep StackOverflow, Dev.to, Medium as they often contain valuable coding answers
 EXTERNAL_LINK_PATTERNS = [
-    r'https?://(?:www\.)?medium\.com/[^\s\]\)]+',
-    r'https?://(?:www\.)?dev\.to/[^\s\]\)]+',
-    r'https?://(?:www\.)?stackoverflow\.com/[^\s\]\)]+',
+    # Only filter clearly low-value content farms
     r'https?://(?:www\.)?w3schools\.com/[^\s\]\)]+',
     r'https?://(?:www\.)?tutorials?point\.com/[^\s\]\)]+',
-    r'https?://(?:www\.)?geeksforgeeks\.org/[^\s\]\)]+',
 ]
 
 # ============================================================================

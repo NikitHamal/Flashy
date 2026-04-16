@@ -43,7 +43,7 @@ class QwenProvider(BaseProvider):
             
         proxy = kwargs.get("proxy")
 
-        # Cookie generation
+        # Cookie generation and attachment
         cookies_data = generate_cookies()
 
         headers = {
@@ -63,7 +63,19 @@ class QwenProvider(BaseProvider):
             "x-source": "web"
         }
 
-        async with AsyncSession(impersonate="chrome", headers=headers, proxy=proxy) as session:
+        # Ensure all cookie values are strings — curl_cffi rejects non-string values
+        # generate_cookies() returns 'timestamp' as int, which must be stringified
+        safe_cookies = {}
+        if cookies_data:
+            for k, v in cookies_data.items():
+                safe_cookies[k] = str(v) if not isinstance(v, str) else v
+
+        async with AsyncSession(
+            impersonate="chrome",
+            headers=headers,
+            cookies=safe_cookies if safe_cookies else None,
+            proxy=proxy
+        ) as session:
             try:
                 # 0. Initial Auth Call
                 await session.get(f'{self.URL}/api/v1/auths/')

@@ -7,7 +7,7 @@ import tempfile
 import json
 from fastapi.responses import StreamingResponse
 from ..storage import save_chat_message, get_chat_history, get_all_chats, delete_chat, get_workspace as get_workspace_data
-# We'll need access to GeminiService instance
+# We'll need access to LLMService instance
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ if not os.path.exists(UPLOAD_DIR):
 async def interrupt_chat(session_id: str = Body(..., embed=True), request: Request = None):
     # Access service from app state
     if request:
-        request.app.state.gemini_service.interrupt_session(session_id)
+        request.app.state.llm_service.interrupt_session(session_id)
     return {"message": "Interrupted"}
 
 @router.get("/history")
@@ -41,7 +41,7 @@ async def remove_chat(session_id: str):
     raise HTTPException(status_code=404, detail="Chat not found")
 @router.get("/models")
 async def get_models(request: Request):
-    service = request.app.state.gemini_service
+    service = request.app.state.llm_service
     provider_name = service.get_active_provider()
     
     if provider_name == "gemini":
