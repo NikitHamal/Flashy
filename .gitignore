@@ -13,9 +13,20 @@ history/
 # Node
 node_modules/
 
+# Python venv
+.venv/
+
 # Temp
 temp/
 flashy_uploads/
 data/
 temp_g4f*
 temp_*
+
+# Qwen Code build artifacts
+qwen-code/dist/
+qwen-code/node_modules/
+qwen-code/packages/*/node_modules/
+qwen-code/packages/*/dist/
+qwen-code/.qwen/
+qwen-code/integration-tests/node_modules/
