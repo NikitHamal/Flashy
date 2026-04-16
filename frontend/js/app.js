@@ -384,6 +384,40 @@ function setupEventListeners() {
         });
     }
 
+    // Quick Start Cards - Switch to free provider
+    const qwenCard = document.getElementById('quick-start-qwen');
+    const deepinfraCard = document.getElementById('quick-start-deepinfra');
+
+    if (qwenCard) {
+        qwenCard.addEventListener('click', async () => {
+            try {
+                await API.saveConfig({
+                    active_provider: 'qwen',
+                    model: 'qwen3-coder-plus'
+                });
+                await refreshModels();
+                alert('Switched to Qwen3-Coder (Free). Start a new session to use it.');
+            } catch (e) {
+                alert('Failed to switch provider: ' + e.message);
+            }
+        });
+    }
+
+    if (deepinfraCard) {
+        deepinfraCard.addEventListener('click', async () => {
+            try {
+                await API.saveConfig({
+                    active_provider: 'deepinfra',
+                    model: 'meta-llama/Meta-Llama-3-70B-Instruct'
+                });
+                await refreshModels();
+                alert('Switched to DeepInfra Llama 3 70B (Free). Start a new session to use it.');
+            } catch (e) {
+                alert('Failed to switch provider: ' + e.message);
+            }
+        });
+    }
+
     // Settings Modal
     const settingsBtn = document.getElementById('btn-settings');
     const settingsModal = document.getElementById('modal-settings');
@@ -399,23 +433,58 @@ function setupEventListeners() {
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
 
-                // New Providers
                 document.getElementById('settings-active-provider').value = config.active_provider || 'gemini';
-                document.getElementById('settings-model').value = config.model || '';
 
                 updateProviderSettingsVisibility(config.active_provider || 'gemini');
+                await loadSettingsModelDropdown(config.active_provider || 'gemini', config.model || '');
 
             } catch (e) {
                 console.error("Failed to load settings", e);
             }
         });
 
-        // Provider Selection Change Event
         const providerSelect = document.getElementById('settings-active-provider');
         if (providerSelect) {
-            providerSelect.addEventListener('change', (e) => {
-                updateProviderSettingsVisibility(e.target.value);
+            providerSelect.addEventListener('change', async (e) => {
+                const provider = e.target.value;
+                updateProviderSettingsVisibility(provider);
+                await loadSettingsModelDropdown(provider, '');
             });
+        }
+    }
+
+    async function loadSettingsModelDropdown(provider, currentModelId) {
+        const modelSelect = document.getElementById('settings-model');
+        if (!modelSelect) return;
+
+        modelSelect.innerHTML = '<option value="">Loading models...</option>';
+
+        try {
+            const models = await API.getModels(provider);
+            modelSelect.innerHTML = '';
+
+            if (provider === 'gemini') {
+                modelSelect.innerHTML += '<option value="G_2_5_FLASH">Agent Flashy</option>';
+                modelSelect.innerHTML += '<option value="G_3_0_FLASH">Gemini 3.0 Flash</option>';
+            } else {
+                if (models.length === 0) {
+                    modelSelect.innerHTML = '<option value="">No models available</option>';
+                    return;
+                }
+                models.forEach(m => {
+                    const selected = m.id === currentModelId ? 'selected' : '';
+                    const name = m.name || m.id;
+                    const desc = m.description ? ` — ${m.description}` : '';
+                    modelSelect.innerHTML += `<option value="${m.id}" ${selected}>${name}${desc}</option>`;
+                });
+            }
+
+            if (currentModelId) {
+                modelSelect.value = currentModelId;
+            }
+        } catch (e) {
+            console.error("Failed to load models for provider", provider, e);
+            modelSelect.innerHTML = '<option value="">Failed to load models</option>';
         }
     }
 
@@ -521,14 +590,56 @@ function setupEventListeners() {
         agentTypeSelector.addEventListener('change', async () => {
             try {
                 const config = await API.getAgentConfig(agentTypeSelector.value);
-                if (agentProviderSelector) agentProviderSelector.value = config.provider || 'gemini';
-                if (agentModelInput) agentModelInput.value = config.model || '';
+                if (agentProviderSelector) {
+                    agentProviderSelector.value = config.provider || 'gemini';
+                    await loadAgentModelDropdown(config.provider || 'gemini', config.model || '');
+                }
             } catch (e) {
                 console.error('Failed to load agent config:', e);
             }
         });
-        // Load initial agent config
         agentTypeSelector.dispatchEvent(new Event('change'));
+    }
+
+    if (agentProviderSelector) {
+        agentProviderSelector.addEventListener('change', async () => {
+            const provider = agentProviderSelector.value;
+            await loadAgentModelDropdown(provider, '');
+        });
+    }
+
+    async function loadAgentModelDropdown(provider, currentModelId) {
+        const modelSelect = document.getElementById('agent-model-input');
+        if (!modelSelect) return;
+
+        modelSelect.innerHTML = '<option value="">Loading models...</option>';
+
+        try {
+            const models = await API.getModels(provider);
+            modelSelect.innerHTML = '';
+
+            if (provider === 'gemini') {
+                modelSelect.innerHTML += '<option value="G_2_5_FLASH">Agent Flashy</option>';
+                modelSelect.innerHTML += '<option value="G_3_0_FLASH">Gemini 3.0 Flash</option>';
+            } else {
+                if (models.length === 0) {
+                    modelSelect.innerHTML = '<option value="">No models available</option>';
+                    return;
+                }
+                models.forEach(m => {
+                    const selected = m.id === currentModelId ? 'selected' : '';
+                    const name = m.name || m.id;
+                    modelSelect.innerHTML += `<option value="${m.id}" ${selected}>${name}</option>`;
+                });
+            }
+
+            if (currentModelId) {
+                modelSelect.value = currentModelId;
+            }
+        } catch (e) {
+            console.error("Failed to load agent models for provider", provider, e);
+            modelSelect.innerHTML = '<option value="">Failed to load models</option>';
+        }
     }
 
     // Save agent config
@@ -536,7 +647,7 @@ function setupEventListeners() {
         saveAgentConfigBtn.addEventListener('click', async () => {
             const agentType = agentTypeSelector?.value;
             const provider = agentProviderSelector?.value;
-            const model = agentModelInput?.value;
+            const model = document.getElementById('agent-model-input')?.value;
 
             if (!agentType) return;
 
@@ -1194,24 +1305,27 @@ async function refreshModels() {
         const activeProvider = config.active_provider;
         const cacheKey = `models_${activeProvider}`;
 
-        // Try to load from cache first
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
             cachedModels = JSON.parse(cached);
             renderModelDropdown();
         }
 
-        // Fetch fresh models
         const models = await API.getModels();
         cachedModels = models;
         localStorage.setItem(cacheKey, JSON.stringify(models));
         renderModelDropdown();
 
-        // Update current model name display
         const activeModelId = config.model;
 
         if (activeProvider === 'gemini') {
             document.getElementById('current-model-name').textContent = 'Agent Flashy';
+        } else if (activeProvider === 'qwen') {
+            const model = cachedModels.find(m => m.id === activeModelId);
+            document.getElementById('current-model-name').textContent = model ? model.name : (activeModelId || 'Qwen');
+        } else if (activeProvider === 'deepinfra') {
+            const model = cachedModels.find(m => m.id === activeModelId);
+            document.getElementById('current-model-name').textContent = model ? model.name : (activeModelId || 'DeepInfra');
         } else {
             const model = cachedModels.find(m => m.id === activeModelId);
             document.getElementById('current-model-name').textContent = model ? model.name : (activeModelId || 'Select Model');
@@ -1230,14 +1344,19 @@ function renderModelDropdown() {
         return;
     }
 
-    modelMenu.innerHTML = cachedModels.map(m => `
-        <div class="dropdown-item" data-id="${m.id}" data-name="${m.name}">
+    modelMenu.innerHTML = cachedModels.map(m => {
+        const desc = m.description ? `<span class="item-meta-desc">${m.description}</span>` : '';
+        const ctx = m.max_context ? `<span class="item-meta-ctx">${(m.max_context / 1000).toFixed(0)}K ctx</span>` : '';
+        return `
+        <div class="dropdown-item" data-id="${m.id}" data-name="${m.name || m.id}">
             <div class="item-info">
-                <span class="item-title">${m.name}</span>
+                <span class="item-title">${m.name || m.id}</span>
                 <span class="item-meta">${m.id}</span>
+                ${desc}${ctx}
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     modelMenu.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', async () => {

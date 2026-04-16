@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional
 
 from ..agents import agent_registry, AgentType
+from ..providers import AVAILABLE_PROVIDERS
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -67,11 +68,7 @@ async def get_agent_types():
 @router.get("/providers")
 async def get_available_providers():
     """Get all available providers for agent configuration."""
-    return [
-        {"id": "gemini", "name": "Google Gemini"},
-        {"id": "deepinfra", "name": "DeepInfra"},
-        {"id": "qwen", "name": "Qwen (Alibaba)"},
-    ]
+    return AVAILABLE_PROVIDERS
 
 
 @router.get("/status")

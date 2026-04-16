@@ -53,3 +53,16 @@ async def get_models(request: Request):
         return []
     
     return await provider_inst.get_models()
+
+
+@router.get("/models/{provider_name}")
+async def get_provider_models(provider_name: str):
+    if provider_name == "gemini":
+        return [{"id": "G_2_5_FLASH", "name": "Agent Flashy"}]
+    
+    from ..providers import get_provider_service
+    provider_inst = get_provider_service(provider_name)
+    if not provider_inst:
+        return []
+    
+    return await provider_inst.get_models()

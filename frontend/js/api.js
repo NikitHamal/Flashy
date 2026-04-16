@@ -245,8 +245,9 @@ const API = {
         return await response.json();
     },
 
-    async getModels() {
-        const response = await fetch(`${this.baseUrl}/models`);
+    async getModels(provider = null) {
+        const url = provider ? `${this.baseUrl}/models/${provider}` : `${this.baseUrl}/models`;
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to load models');
         return await response.json();
     },

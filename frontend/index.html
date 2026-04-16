@@ -66,6 +66,32 @@
                     <p>Select a workspace to start coding.</p>
                 </div>
 
+                <div class="quick-start-section">
+                    <h2>Quick Start with Free AI</h2>
+                    <div class="quick-start-cards">
+                        <div class="quick-start-card qwen-card" id="quick-start-qwen">
+                            <div class="qs-icon">
+                                <span class="material-symbols-outlined">code</span>
+                            </div>
+                            <div class="qs-info">
+                                <div class="qs-title">Qwen3-Coder</div>
+                                <div class="qs-desc">Free code generation — no auth required</div>
+                            </div>
+                            <span class="qs-badge free">FREE</span>
+                        </div>
+                        <div class="quick-start-card deepinfra-card" id="quick-start-deepinfra">
+                            <div class="qs-icon">
+                                <span class="material-symbols-outlined">cloud</span>
+                            </div>
+                            <div class="qs-info">
+                                <div class="qs-title">DeepInfra</div>
+                                <div class="qs-desc">Free open-source model inference</div>
+                            </div>
+                            <span class="qs-badge free">FREE</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="recent-projects">
                     <h2>Recent Projects</h2>
                     <div id="recent-projects-grid" class="projects-grid">
@@ -408,11 +434,8 @@
                         <div class="settings-field">
                             <select id="settings-active-provider" class="dropdown-select">
                                 <option value="gemini">Google Gemini (Web)</option>
-                                <option value="deepinfra">DeepInfra</option>
-                                <option value="qwen">Qwen (Alibaba)</option>
-                                <option value="gradient">Gradient Network</option>
-                                <option value="kimi">Kimi K2</option>
-                                <option value="deepseek">DeepSeek</option>
+                                <option value="qwen">Qwen (Alibaba) — Free</option>
+                                <option value="deepinfra">DeepInfra — Free</option>
                             </select>
                         </div>
                     </div>
@@ -442,12 +465,35 @@
                         </div>
                     </div>
 
+                    <div id="settings-provider-qwen" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>Qwen (Free — No Authentication Required)</label>
+                            <p class="settings-hint">Qwen provides free access to powerful models including Qwen3-Coder, Qwen3.5-Plus, and more. No API key or cookies needed — just select and start coding.</p>
+                            <div class="settings-field">
+                                <label>Powered By</label>
+                                <p class="settings-hint">Alibaba Cloud — chat.qwen.ai</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-deepinfra" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>DeepInfra (Free — No Authentication Required)</label>
+                            <p class="settings-hint">DeepInfra offers free serverless inference for open-source models like Llama 3, Mistral, and more. No API key needed for the free tier.</p>
+                            <div class="settings-field">
+                                <label>Powered By</label>
+                                <p class="settings-hint">DeepInfra — deepinfra.com</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-group">
                         <div class="settings-field">
-                            <label>Default Model ID (Optional)</label>
-                            <p class="settings-hint">Override default model (e.g., meta-llama/Meta-Llama-3-8B-Instruct)
-                            </p>
-                            <input type="text" id="settings-model" placeholder="Model ID">
+                            <label>Default Model</label>
+                            <p class="settings-hint">Select the model for the active provider</p>
+                            <select id="settings-model" class="dropdown-select">
+                                <option value="">Loading models...</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -477,17 +523,15 @@
                             <label>Provider</label>
                             <select id="agent-provider-selector" class="dropdown-select">
                                 <option value="gemini">Google Gemini</option>
-                                <option value="deepinfra">DeepInfra</option>
-                                <option value="qwen">Qwen</option>
-                                <option value="gradient">Gradient Network</option>
-                                <option value="kimi">Kimi K2</option>
-                                <option value="deepseek">DeepSeek</option>
+                                <option value="qwen">Qwen (Free)</option>
+                                <option value="deepinfra">DeepInfra (Free)</option>
                             </select>
                         </div>
                         <div class="settings-field">
-                            <label>Model ID</label>
-                            <input type="text" id="agent-model-input"
-                                placeholder="Model ID (e.g., moonshotai/Kimi-K2-Instruct)">
+                            <label>Model</label>
+                            <select id="agent-model-input" class="dropdown-select">
+                                <option value="">Loading models...</option>
+                            </select>
                         </div>
                         <button id="btn-save-agent-config" class="btn-secondary">
                             <span class="material-symbols-outlined">save</span> Save Agent Config
@@ -507,6 +551,18 @@
                                     <span class="material-symbols-outlined">visibility</span>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label>Qwen Code CLI</label>
+                        <p class="settings-hint">The qwen-code submodule is included in this project. It provides a terminal-based AI coding agent powered by Qwen models.</p>
+                        <div class="settings-field">
+                            <label>Run standalone</label>
+                            <p class="settings-hint" style="font-family: 'JetBrains Mono', monospace; background: var(--bg-secondary); padding: 8px 12px; border-radius: 6px; margin-top: 4px;">cd qwen-code && npm install && npm start</p>
+                        </div>
+                        <div class="settings-field">
+                            <label>Repository</label>
+                            <p class="settings-hint"><a href="https://github.com/QwenLM/qwen-code" target="_blank" style="color: var(--accent)">github.com/QwenLM/qwen-code</a></p>
                         </div>
                     </div>
                 </div>
