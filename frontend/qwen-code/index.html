@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen Code | Free AI Coding Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #bc8cff;
+            --accent-orange: #d29922;
+            --border-default: #30363d;
+            --header-height: 48px;
+            --sidebar-width: 260px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-layout {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-default);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.2s;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed { width: 0; border: none; }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-default);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-header .logo {
+            font-size: 20px;
+        }
+
+        .sidebar-header .title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .sidebar-header .badge {
+            font-size: 10px;
+            background: var(--accent-green);
+            color: #000;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .sidebar-section {
+            padding: 12px 8px;
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .provider-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 13px;
+        }
+
+        .provider-option:hover { background: var(--bg-tertiary); }
+        .provider-option.active { background: var(--bg-tertiary); border: 1px solid var(--accent-blue); }
+
+        .provider-option .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            flex-shrink: 0;
+        }
+
+        .model-selector {
+            padding: 4px 12px;
+        }
+
+        .model-selector select {
+            width: 100%;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+        }
+
+        .model-selector select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 12px;
+            border-top: 1px solid var(--border-default);
+        }
+
+        .sidebar-footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .sidebar-footer a:hover { color: var(--accent-blue); }
+
+        /* Main content */
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        /* Top bar */
+        .top-bar {
+            height: var(--header-height);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-default);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+
+        .top-bar .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            transition: all 0.15s;
+        }
+
+        .top-bar .btn-icon:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .top-bar .session-info {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .top-bar .session-info .model-tag {
+            color: var(--accent-purple);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* Terminal area */
+        .terminal-container {
+            flex: 1;
+            padding: 8px;
+            overflow: hidden;
+        }
+
+        .terminal-wrapper {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Status bar */
+        .status-bar {
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border-default);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 16px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-dot.connected { background: var(--accent-green); }
+        .status-dot.disconnected { background: #f85149; }
+        .status-dot.connecting { background: var(--accent-orange); }
+
+        /* Help panel */
+        .help-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .help-overlay.visible { display: flex; }
+
+        .help-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .help-card h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .help-card .cmd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-blue);
+        }
+
+        .help-card .desc {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .help-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-default);
+        }
+
+        .help-row:last-child { border: none; }
+
+        .btn-close-help {
+            margin-top: 16px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-default);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .btn-close-help:hover { background: var(--border-default); }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">🤖</span>
+                <span class="title">Qwen Code</span>
+                <span class="badge">FREE</span>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-label">Provider</div>
+                <div class="provider-option active" data-provider="free-qwen" onclick="selectProvider('free-qwen')">
+                    <span class="dot"></span>
+                    <span>Qwen (Free)</span>
+                </div>
+                <div class="provider-option" data-provider="free-deepinfra" onclick="selectProvider('free-deepinfra')">
+                    <span class="dot" style="background: var(--accent-purple)"></span>
+                    <span>DeepInfra (Free)</span>
+                </div>
+                <div class="provider-option" data-provider="openai" onclick="selectProvider('openai')">
+                    <span class="dot" style="background: var(--accent-orange)"></span>
+                    <span>OpenAI (API Key)</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-label">Model</div>
+                <div class="model-selector">
+                    <select id="model-select" onchange="changeModel(this.value)">
+                        <option value="qwen3.6-plus">Qwen3.6-Plus (Free)</option>
+                        <option value="qwen3.5-plus">Qwen3.5-Plus (Free)</option>
+                        <option value="qwen3.5-flash">Qwen3.5-Flash (Free)</option>
+                        <option value="qwen3.5-27b">Qwen3.5-27B (Free)</option>
+                        <option value="qwen3-coder-plus">Qwen3-Coder (Free)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-label">Info</div>
+                <div style="padding: 8px 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                    <p><strong style="color: var(--accent-green);">No API key needed!</strong></p>
+                    <p>Qwen and DeepInfra providers work for free without authentication.</p>
+                    <p style="margin-top: 8px;">Use <code style="color: var(--accent-blue);">/model</code> to switch models inside the terminal.</p>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <a href="/">← Back to Flashy</a>
+            </div>
+        </aside>
+
+        <!-- Main Panel -->
+        <div class="main-panel">
+            <div class="top-bar">
+                <button class="btn-icon" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
+                <div class="session-info">
+                    <span class="model-tag" id="current-model">qwen3.6-plus</span>
+                    <span> — Free AI Coding Terminal</span>
+                </div>
+                <button class="btn-icon" onclick="restartSession()" title="New Session">⟳</button>
+                <button class="btn-icon" onclick="showHelp()" title="Help">?</button>
+            </div>
+
+            <div class="terminal-container">
+                <div class="terminal-wrapper" id="terminal-wrapper"></div>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-dot connecting" id="status-dot"></span>
+                    <span id="status-text">Connecting...</span>
+                </div>
+                <div class="status-item">
+                    <span>Provider:</span>
+                    <span id="status-provider" style="color: var(--accent-green);">Free Qwen</span>
+                </div>
+                <div class="status-item">
+                    <span>Model:</span>
+                    <span id="status-model" style="color: var(--accent-purple);">qwen3.6-plus</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Overlay -->
+    <div class="help-overlay" id="help-overlay" onclick="if(event.target===this)hideHelp()">
+        <div class="help-card">
+            <h2>Qwen Code — Quick Reference</h2>
+            <div class="help-row">
+                <span class="cmd">/model</span>
+                <span class="desc">Switch AI model</span>
+            </div>
+            <div class="help-row">
+                <span class="cmd">/auth</span>
+                <span class="desc">Change authentication/provider</span>
+            </div>
+            <div class="help-row">
+                <span class="cmd">/help</span>
+                <span class="desc">Show all commands</span>
+            </div>
+            <div class="help-row">
+                <span class="cmd">Ctrl+C</span>
+                <span class="desc">Interrupt current operation</span>
+            </div>
+            <div class="help-row">
+                <span class="cmd">--auth-type free-qwen</span>
+                <span class="desc">Use free Qwen (no API key)</span>
+            </div>
+            <div class="help-row">
+                <span class="cmd">--auth-type free-deepinfra</span>
+                <span class="desc">Use free DeepInfra (no API key)</span>
+            </div>
+            <div class="help-row">
+                <span class="cmd">--model qwen3.6-plus</span>
+                <span class="desc">Specify model directly</span>
+            </div>
+            <button class="btn-close-help" onclick="hideHelp()">Close</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+    <script>
+        const term = new Terminal({
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 14,
+            theme: {
+                background: '#0d1117',
+                foreground: '#e6edf3',
+                cursor: '#58a6ff',
+                selectionBackground: '#264f78',
+                black: '#484f58',
+                red: '#ff7b72',
+                green: '#3fb950',
+                yellow: '#d29922',
+                blue: '#58a6ff',
+                magenta: '#bc8cff',
+                cyan: '#39c5cf',
+                white: '#e6edf3',
+                brightBlack: '#6e7681',
+                brightRed: '#ffa198',
+                brightGreen: '#56d364',
+                brightYellow: '#e3b341',
+                brightBlue: '#79c0ff',
+                brightMagenta: '#d2a8ff',
+                brightCyan: '#56d4dd',
+                brightWhite: '#ffffff',
+            },
+            cursorBlink: true,
+            scrollback: 10000,
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+        term.loadAddon(fitAddon);
+        term.loadAddon(webLinksAddon);
+
+        const wrapper = document.getElementById('terminal-wrapper');
+        term.open(wrapper);
+
+        function resizeTerminal() {
+            try { fitAddon.fit(); } catch(e) {}
+        }
+        window.addEventListener('resize', resizeTerminal);
+        setTimeout(resizeTerminal, 100);
+
+        // Connect to qwen-code terminal via WebSocket
+        let ws = null;
+        let currentProvider = 'free-qwen';
+        let currentModel = 'qwen3.6-plus';
+        let ptyProcess = null;
+
+        function connectTerminal() {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+
+            statusDot.className = 'status-dot connecting';
+            statusText.textContent = 'Connecting...';
+
+            ws = new WebSocket(
+                (location.protocol === 'https:' ? 'wss' : 'ws') + '://' +
+                location.host + '/ws/qwen-code-terminal'
+            );
+
+            ws.onopen = () => {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = 'Connected';
+                ws.send(JSON.stringify({
+                    type: 'start_qwen',
+                    provider: currentProvider,
+                    model: currentModel
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'output') {
+                    term.write(data.data);
+                } else if (data.type === 'exit') {
+                    term.write('\r\n\x1b[33m[Session ended]\x1b[0m\r\n');
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Disconnected';
+                }
+            };
+
+            ws.onclose = () => {
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Disconnected';
+                setTimeout(connectTerminal, 3000);
+            };
+
+            ws.onerror = () => {
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Error';
+            };
+
+            term.onData((data) => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'input', data: data }));
+                }
+            });
+        }
+
+        function selectProvider(provider) {
+            currentProvider = provider;
+            document.querySelectorAll('.provider-option').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-provider="${provider}"]`).classList.add('active');
+
+            const modelSelect = document.getElementById('model-select');
+            const statusProvider = document.getElementById('status-provider');
+
+            if (provider === 'free-qwen') {
+                modelSelect.innerHTML = `
+                    <option value="qwen3.6-plus">Qwen3.6-Plus (Free)</option>
+                    <option value="qwen3.5-plus">Qwen3.5-Plus (Free)</option>
+                    <option value="qwen3.5-flash">Qwen3.5-Flash (Free)</option>
+                    <option value="qwen3.5-27b">Qwen3.5-27B (Free)</option>
+                    <option value="qwen3-coder-plus">Qwen3-Coder (Free)</option>
+                `;
+                currentModel = 'qwen3.6-plus';
+                statusProvider.textContent = 'Free Qwen';
+                statusProvider.style.color = 'var(--accent-green)';
+            } else if (provider === 'free-deepinfra') {
+                modelSelect.innerHTML = `
+                    <option value="meta-llama/Meta-Llama-3-8B-Instruct">Llama 3 8B (Free)</option>
+                    <option value="meta-llama/Meta-Llama-3-70B-Instruct">Llama 3 70B (Free)</option>
+                    <option value="mistralai/Mistral-7B-Instruct-v0.1">Mistral 7B (Free)</option>
+                    <option value="microsoft/Phi-3-mini-4k-instruct">Phi-3 Mini (Free)</option>
+                    <option value="google/gemma-2-9b-it">Gemma 2 9B (Free)</option>
+                `;
+                currentModel = 'meta-llama/Meta-Llama-3-8B-Instruct';
+                statusProvider.textContent = 'Free DeepInfra';
+                statusProvider.style.color = 'var(--accent-purple)';
+            } else if (provider === 'openai') {
+                modelSelect.innerHTML = `
+                    <option value="gpt-4o">GPT-4o (API Key)</option>
+                    <option value="gpt-4o-mini">GPT-4o-mini (API Key)</option>
+                    <option value="qwen3.5-plus">Qwen3.5-Plus (API Key)</option>
+                `;
+                currentModel = 'gpt-4o';
+                statusProvider.textContent = 'OpenAI';
+                statusProvider.style.color = 'var(--accent-orange)';
+            }
+
+            changeModel(currentModel);
+        }
+
+        function changeModel(model) {
+            currentModel = model;
+            document.getElementById('current-model').textContent = model;
+            document.getElementById('status-model').textContent = model;
+        }
+
+        function restartSession() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'start_qwen',
+                    provider: currentProvider,
+                    model: currentModel
+                }));
+            }
+            term.clear();
+            term.write('\x1b[32mStarting Qwen Code session...\x1b[0m\r\n');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            setTimeout(resizeTerminal, 250);
+        }
+
+        function showHelp() {
+            document.getElementById('help-overlay').classList.add('visible');
+        }
+
+        function hideHelp() {
+            document.getElementById('help-overlay').classList.remove('visible');
+        }
+
+        // Initialize
+        term.writeln('\x1b[1;36m  ╔══════════════════════════════════════════╗\x1b[0m');
+        term.writeln('\x1b[1;36m  ║   Qwen Code — Free AI Coding Terminal    ║\x1b[0m');
+        term.writeln('\x1b[1;36m  ║   No API key needed · Works for free      ║\x1b[0m');
+        term.writeln('\x1b[1;36m  ╚════════════════════════════════════════════╝\x1b[0m');
+        term.writeln('');
+        term.writeln('\x1b[33m  Available free providers:\x1b[0m');
+        term.writeln('  \x1b[32m• Qwen\x1b[0m — qwen3.6-plus, qwen3.5-plus, qwen3-coder-plus');
+        term.writeln('  \x1b[35m• DeepInfra\x1b[0m — Llama 3, Mistral, Phi-3, Gemma 2');
+        term.writeln('');
+        term.writeln('  Use the sidebar to switch providers and models.');
+        term.writeln('  Type \x1b[36m/model\x1b[0m inside the terminal to switch models.');
+        term.writeln('');
+
+        connectTerminal();
+    </script>
+</body>
+</html>

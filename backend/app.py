@@ -14,7 +14,7 @@ from typing import List, Optional
 from .llm_service import LLMService
 from .storage import save_chat_message, get_workspace as get_workspace_data, add_workspace
 from .websocket_manager import ws_manager, MessageType
-from .routers import git_routes, workspace, chat, config, agents, memory
+from .routers import git_routes, workspace, chat, config, agents, memory, qwen_code
 
 app = FastAPI()
 
@@ -28,11 +28,12 @@ app.include_router(chat.router)
 app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
+app.include_router(qwen_code.router)
 
 # Exception Handlers
 @app.exception_handler(404)
 async def spa_fallback_handler(request: Request, __):
-    api_prefixes = ("/chat", "/history", "/workspace", "/workspaces", "/proxy_image", "/config", "/git")
+    api_prefixes = ("/chat", "/history", "/workspace", "/workspaces", "/proxy_image", "/config", "/git", "/qwen-code")
     path = request.url.path
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
