@@ -673,6 +673,44 @@ Please generate an image matching this description. Use your image generation ca
         self._pending_image_save = {}
         return pending
 
+    # --- Qwen Code Tool ---
+
+    async def qwen_code(self, prompt: str, working_dir: str = None, model: str = "qwen3.6-plus") -> str:
+        """Invoke qwen-code autonomous agent with FREE AI models.
+        
+        Uses the qwen-code-free-providers bridge for unlimited free access to:
+        - qwen3.6-plus, qwen3.5-plus, qwen3.5-flash, qwen3-coder-plus
+        - Llama 3 8B/70B, Mistral 7B
+        
+        Args:
+            prompt: Task or question for qwen-code
+            working_dir: Working directory (relative to workspace)
+            model: Model to use (default: qwen3.6-plus)
+        """
+        try:
+            from .qwen_code_tool import qwen_code_tool, qwen_code_setup
+            
+            # Setup if needed
+            setup_result = await qwen_code_setup()
+            if "Error" in setup_result:
+                return f"Qwen Code setup: {setup_result}"
+            
+            # Resolve working directory
+            if working_dir:
+                work_dir = self._resolve_path(working_dir)
+            else:
+                work_dir = self.workspace_path
+            
+            # Run qwen-code
+            return await qwen_code_tool(
+                prompt=prompt,
+                working_dir=work_dir,
+                model=model,
+                stream_output=True
+            )
+        except Exception as e:
+            return f"Error using qwen-code tool: {str(e)}"
+
     # --- Git Tools ---
 
     def git_status(self) -> str:
@@ -771,7 +809,9 @@ Please generate an image matching this description. Use your image generation ca
             # Image Tools
             {"name": "generate_image", "description": "Generate an AI image. Args: prompt (str), save_to_project (bool, optional), filename (str, optional)"},
             {"name": "save_image", "description": "Save image from URL to project. Args: url (str), filename (str, optional), subdir (str, optional)"},
-            {"name": "save_generated_images", "description": "Save all recently generated images. Args: subdir (str, optional)"}
+            {"name": "save_generated_images", "description": "Save all recently generated images. Args: subdir (str, optional)"},
+            # Qwen Code Tool
+            {"name": "qwen_code", "description": "Use qwen-code autonomous coding agent with FREE AI models. Args: prompt (str), working_dir (str, optional), model (str, optional)"}
         ]
     
     async def execute(self, tool_name: str, **kwargs) -> str:
@@ -812,6 +852,8 @@ Please generate an image matching this description. Use your image generation ca
             "generate_image": self.generate_image,
             "save_image": self.save_image,
             "save_generated_images": self.save_generated_images,
+            # Qwen Code Tool
+            "qwen_code": self.qwen_code,
         }
         
         if tool_name not in tool_map:

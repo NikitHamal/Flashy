@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""
+qwen-free CLI - A wrapper that starts the bridge server and configures qwen-code to use it.
+This allows using qwen-code with FREE providers without any API keys!
+"""
+
+import argparse
+import subprocess
+import sys
+import os
+import time
+import json
+import signal
+from pathlib import Path
+
+
+def get_bridge_path():
+    """Get the path to the bridge server."""
+    return Path(__file__).parent / "bridge_server.py"
+
+
+def get_settings_path():
+    """Get the path to qwen-code settings."""
+    home = Path.home()
+    return home / ".qwen" / "settings.json"
+
+
+def ensure_qwen_dir():
+    """Ensure the .qwen directory exists."""
+    qwen_dir = Path.home() / ".qwen"
+    qwen_dir.mkdir(exist_ok=True)
+    return qwen_dir
+
+
+def write_free_provider_config(port=8787):
+    """Write settings.json with free providers configuration."""
+    settings_path = get_settings_path()
+    ensure_qwen_dir()
+    
+    config = {
+        "modelProviders": {
+            "openai": [
+                {
+                    "id": "qwen3.6-plus",
+                    "name": "Qwen3.6-Plus (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Qwen3.6-Plus via Free Bridge (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "qwen3.5-plus",
+                    "name": "Qwen3.5-Plus (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Qwen3.5-Plus via Free Bridge (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "qwen3.5-flash",
+                    "name": "Qwen3.5-Flash (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Qwen3.5-Flash via Free Bridge (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "qwen3-coder-plus",
+                    "name": "Qwen3-Coder-Plus (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Qwen3-Coder via Free Bridge (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "meta-llama/Meta-Llama-3-8B-Instruct",
+                    "name": "Llama 3 8B (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Meta Llama 3 via DeepInfra (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "meta-llama/Meta-Llama-3-70B-Instruct",
+                    "name": "Llama 3 70B (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Meta Llama 3 70B via DeepInfra (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "mistralai/Mistral-7B-Instruct-v0.3",
+                    "name": "Mistral 7B (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Mistral 7B via DeepInfra (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "Qwen/Qwen2.5-72B-Instruct",
+                    "name": "Qwen2.5-72B (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Qwen2.5 72B via DeepInfra (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                },
+                {
+                    "id": "Qwen/Qwen2.5-Coder-32B-Instruct",
+                    "name": "Qwen2.5-Coder-32B (FREE)",
+                    "baseUrl": f"http://127.0.0.1:{port}/v1",
+                    "description": "Qwen2.5 Coder via DeepInfra (NO API KEY NEEDED!)",
+                    "envKey": "NO_KEY_NEEDED"
+                }
+            ]
+        },
+        "env": {
+            "NO_KEY_NEEDED": "free-mode"
+        },
+        "security": {
+            "auth": {
+                "selectedType": "openai"
+            }
+        },
+        "model": {
+            "name": "qwen3.6-plus"
+        }
+    }
+    
+    # Read existing config if present and merge
+    if settings_path.exists():
+        try:
+            with open(settings_path, 'r') as f:
+                existing = json.load(f)
+            # Merge modelProviders
+            if "modelProviders" in existing:
+                if "openai" in existing["modelProviders"]:
+                    # Prepend free providers to existing
+                    existing["modelProviders"]["openai"] = config["modelProviders"]["openai"] + existing["modelProviders"]["openai"]
+                else:
+                    existing["modelProviders"]["openai"] = config["modelProviders"]["openai"]
+            else:
+                existing["modelProviders"] = config["modelProviders"]
+            
+            # Add env if not present
+            if "env" not in existing:
+                existing["env"] = config["env"]
+            
+            config = existing
+        except Exception:
+            pass
+    
+    with open(settings_path, 'w') as f:
+        json.dump(config, f, indent=2)
+    
+    print(f"✓ Wrote free providers config to {settings_path}")
+
+
+def start_bridge(port=8787, background=False):
+    """Start the bridge server."""
+    bridge_path = get_bridge_path()
+    
+    if not bridge_path.exists():
+        print(f"Error: Bridge server not found at {bridge_path}")
+        sys.exit(1)
+    
+    env = os.environ.copy()
+    env["QWEN_BRIDGE_PORT"] = str(port)
+    env["QWEN_BRIDGE_HOST"] = "127.0.0.1"
+    
+    if background:
+        # Start in background
+        process = subprocess.Popen(
+            [sys.executable, str(bridge_path)],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True
+        )
+        
+        # Wait a moment for server to start
+        time.sleep(2)
+        
+        # Check if still running
+        if process.poll() is None:
+            print(f"✓ Bridge server started on port {port} (PID: {process.pid})")
+            return process
+        else:
+            stdout, stderr = process.communicate()
+            print(f"Error: Bridge server failed to start")
+            print(f"stdout: {stdout.decode()}")
+            print(f"stderr: {stderr.decode()}")
+            sys.exit(1)
+    else:
+        # Start in foreground
+        print(f"Starting bridge server on port {port}...")
+        process = subprocess.Popen(
+            [sys.executable, str(bridge_path)],
+            env=env
+        )
+        return process
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="qwen-free CLI - Use qwen-code with FREE AI providers (no API keys needed!)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s setup          # Configure qwen-code with free providers
+  %(prog)s server         # Start just the bridge server
+  %(prog)s run            # Start server and run qwen-code
+  %(prog)s stop           # Stop the bridge server
+
+Free Models Available:
+  Qwen Models: qwen3.6-plus, qwen3.5-plus, qwen3.5-flash, qwen3-coder-plus
+  DeepInfra:   Llama 3 8B/70B, Mistral 7B, Qwen2.5 72B, Qwen2.5 Coder
+        """
+    )
+    
+    parser.add_argument("command", choices=["setup", "server", "run", "stop", "status"],
+                        help="Command to execute")
+    parser.add_argument("--port", type=int, default=8787,
+                        help="Port for the bridge server (default: 8787)")
+    parser.add_argument("--model", default="qwen3.6-plus",
+                        help="Default model to use (default: qwen3.6-plus)")
+    
+    args = parser.parse_args()
+    
+    if args.command == "setup":
+        print("Setting up qwen-code with free providers...")
+        write_free_provider_config(args.port)
+        print("""
+╔════════════════════════════════════════════════════════════╗
+║  Setup Complete!                                           ║
+║                                                            ║
+║  qwen-code is now configured to use FREE providers!        ║
+║                                                            ║
+║  Next steps:                                               ║
+║  1. Start the bridge: qwen-free server                    ║
+║  2. In another terminal, run: qwen                         ║
+║                                                            ║
+║  Or use: qwen-free run (starts server and qwen)           ║
+╚════════════════════════════════════════════════════════════╝
+        """)
+        
+    elif args.command == "server":
+        print("Starting bridge server...")
+        write_free_provider_config(args.port)
+        process = start_bridge(args.port, background=False)
+        
+        def signal_handler(sig, frame):
+            print("\nShutting down bridge server...")
+            process.terminate()
+            sys.exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            process.terminate()
+            
+    elif args.command == "run":
+        print("Starting free provider bridge and qwen-code...")
+        write_free_provider_config(args.port)
+        
+        # Start bridge in background
+        bridge_process = start_bridge(args.port, background=True)
+        
+        # Wait for server to be ready
+        print("Waiting for bridge server to be ready...")
+        time.sleep(3)
+        
+        # Run qwen
+        print("Starting qwen-code...")
+        try:
+            subprocess.run(["qwen"])
+        finally:
+            print("Stopping bridge server...")
+            bridge_process.terminate()
+            
+    elif args.command == "stop":
+        # Find and kill bridge server
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", "bridge_server.py"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid:
+                        print(f"Stopping bridge server (PID: {pid})...")
+                        os.kill(int(pid), signal.SIGTERM)
+                print("✓ Bridge server stopped")
+            else:
+                print("Bridge server not running")
+        except Exception as e:
+            print(f"Error stopping server: {e}")
+            
+    elif args.command == "status":
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", "bridge_server.py"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                print(f"Bridge server is running (PID(s): {', '.join(pids)})")
+            else:
+                print("Bridge server is not running")
+        except Exception as e:
+            print(f"Error checking status: {e}")
+
+
+if __name__ == "__main__":
+    main()

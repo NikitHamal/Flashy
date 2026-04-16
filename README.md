@@ -72,3 +72,31 @@ The application will be available at `http://localhost:8000`.
 
 ## 🛡️ Safety & Security
 Flashy operates strictly within the workspace you define. It uses a local configuration file for sensitive keys and never uploads your code to external servers, except for the prompts sent to the Gemini API for processing.
+
+## 🎁 Qwen Code Integration (FREE AI Models!)
+
+This repo now includes **qwen-code-free-providers** - a bridge server that provides **FREE** access to Qwen and DeepInfra AI models with **no API keys required**!
+
+### Quick Start with Free Models:
+```bash
+cd qwen-code-free-providers
+./qwen-free setup    # Configure qwen-code
+./qwen-free server   # Start bridge server
+# In another terminal: qwen
+```
+
+### Available Free Models:
+- **Qwen**: qwen3.6-plus, qwen3.5-plus, qwen3.5-flash, qwen3-coder-plus
+- **DeepInfra**: Llama 3 8B/70B, Mistral 7B, Qwen2.5 72B/Coder
+
+### Using from Flashy:
+Flashy now includes a `qwen_code` tool that can invoke qwen-code as a sub-agent:
+```python
+await qwen_code(
+    prompt="Analyze this codebase",
+    working_dir="./my-project",
+    model="qwen3.6-plus"
+)
+```
+
+See [INTEGRATION.md](INTEGRATION.md) and [qwen-code-free-providers/README.md](qwen-code-free-providers/README.md) for details.
