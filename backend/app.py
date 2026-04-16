@@ -15,6 +15,7 @@ from .llm_service import LLMService
 from .storage import save_chat_message, get_workspace as get_workspace_data, add_workspace
 from .websocket_manager import ws_manager, MessageType
 from .routers import git_routes, workspace, chat, config, agents, memory
+from .routers import qwen_code
 
 app = FastAPI()
 
@@ -28,6 +29,7 @@ app.include_router(chat.router)
 app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
+app.include_router(qwen_code.router)
 
 # Exception Handlers
 @app.exception_handler(404)

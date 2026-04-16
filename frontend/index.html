@@ -51,6 +51,10 @@
                 <button id="btn-add-workspace" class="btn-secondary full-width">
                     <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
+                <button id="btn-open-qwen-code" class="btn-qwen-code">
+                    <span class="material-symbols-outlined">smart_toy</span>
+                    Qwen-Code (Free)
+                </button>
             </div>
         </aside>
         <div id="sidebar-resizer" class="resizer-h"></div>
@@ -517,6 +521,79 @@
         </div>
     </div>
 
+    <!-- Qwen-Code Mode Modal -->
+    <div id="qwen-code-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content qwen-code-modal">
+            <div class="modal-header">
+                <h2>
+                    <span class="material-symbols-outlined">smart_toy</span>
+                    Qwen-Code (Free Mode)
+                </h2>
+                <button class="btn-icon modal-close" data-modal="qwen-code-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="qwen-code-info">
+                    <div class="info-banner">
+                        <span class="material-symbols-outlined">celebration</span>
+                        <span>Use AI models for FREE - no API keys needed!</span>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-group">
+                        <label>Select Provider</label>
+                        <div class="provider-cards">
+                            <div class="provider-card selected" data-provider="qwen">
+                                <div class="provider-icon">
+                                    <span class="material-symbols-outlined">robot</span>
+                                </div>
+                                <div class="provider-info">
+                                    <h3>Qwen</h3>
+                                    <p>Alibaba's latest models</p>
+                                </div>
+                                <div class="provider-badge free">FREE</div>
+                            </div>
+                            <div class="provider-card" data-provider="deepinfra">
+                                <div class="provider-icon">
+                                    <span class="material-symbols-outlined">cloud</span>
+                                </div>
+                                <div class="provider-info">
+                                    <h3>DeepInfra</h3>
+                                    <p>Llama, Mistral, Gemma</p>
+                                </div>
+                                <div class="provider-badge free">FREE</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <label>Select Model</label>
+                        <div id="qwen-code-models" class="model-grid">
+                            <!-- Models will be loaded dynamically -->
+                            <div class="loading-spinner">Loading models...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group">
+                        <label>Session</label>
+                        <div class="settings-field">
+                            <input type="text" id="qwen-code-session" placeholder="Session ID (optional)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-start-qwen-code" class="btn-primary">
+                    <span class="material-symbols-outlined">play_arrow</span>
+                    Start Qwen-Code Session
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -531,6 +608,7 @@
     <script src="/js/ui/git.js"></script>
     <script src="/js/ui/memory.js"></script>
     <script src="/js/ui/activity.js"></script>
+    <script src="/js/ui/qwen_code.js"></script>
 
     <script src="/js/app.js"></script>
 </body>
