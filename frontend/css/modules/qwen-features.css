@@ -1,0 +1,102 @@
+/* ==================== QWEN FEATURES ==================== */
+/* Legacy - kept for JS compatibility */
+.qwen-features-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Inline variant - sits inside the prompt bar action row */
+.qwen-features-inline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.qwen-features-inline.hidden {
+    display: none;
+}
+
+.feature-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.feature-toggle:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+}
+
+.feature-toggle.active {
+    background: rgba(74, 222, 128, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.feature-toggle .material-symbols-outlined {
+    font-size: 14px;
+}
+
+.feature-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    margin: 0 4px;
+}
+
+.thinking-select {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.thinking-select:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.thinking-mode-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.feature-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.feature-select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.feature-select:focus {
+    border-color: var(--accent);
+}

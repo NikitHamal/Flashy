@@ -1,0 +1,501 @@
+/* ==================== CHOICE GRID ==================== */
+.choice-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.choice-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.choice-card:hover {
+    background: rgba(74, 222, 128, 0.05);
+    border-color: var(--accent);
+}
+
+.choice-icon {
+    font-size: 32px;
+    color: var(--accent);
+}
+
+.choice-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.choice-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.choice-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.choice-divider::before,
+.choice-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.choice-divider span {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+}
+
+.manual-path-entry {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.manual-path-entry:focus-within {
+    border-color: rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.02);
+}
+
+.manual-path-entry label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.manual-path-entry .input-with-action input {
+    background: var(--bg-dark);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+.manual-path-entry .btn-icon {
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+.manual-path-entry .btn-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.loading-dots-container {
+    padding: 8px 0;
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* ==================== THOUGHT BLOCK ==================== */
+.thought-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.thought-header {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.thought-header .chevron {
+    margin-left: auto;
+    font-size: 16px;
+    transition: transform 0.2s;
+}
+
+.thought-block.expanded .chevron {
+    transform: rotate(180deg);
+}
+
+.thought-content {
+    padding: 0 12px 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.thought-block.expanded .thought-content {
+    display: block;
+    margin-top: 8px;
+}
+
+.thought-content p, .thought-content ul, .thought-content ol {
+    margin: 8px 0;
+}
+
+.thought-content ul, .thought-content ol {
+    padding-left: 20px;
+}
+
+/* ==================== TOOL PILLS - Minimal & Professional ==================== */
+.tool-pill {
+    background: #141414;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 6px 0;
+    overflow: hidden;
+    transition: border 0.2s ease;
+}
+
+.tool-pill:hover {
+    border-color: #444;
+}
+
+.tool-pill-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: #141414;
+    user-select: none;
+    gap: 8px;
+}
+
+.tool-pill-header:hover {
+    background: #1c1c1c;
+}
+
+.tool-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+.tool-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.tool-name {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.tool-args {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    opacity: 0.7;
+}
+
+.tool-pill-chevron {
+    font-size: 16px !important;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+}
+
+.tool-pill.expanded .tool-pill-chevron {
+    transform: rotate(180deg);
+}
+
+.tool-pill-result {
+    display: none;
+    border-top: 1px solid var(--border);
+    background: #0d0d0d;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    overflow-x: auto;
+    padding: 8px;
+}
+
+.tool-pill.expanded .tool-pill-result {
+    display: block;
+}
+
+/* Diff Styling */
+.diff-view {
+    padding: 8px 0;
+}
+
+.diff-line {
+    padding: 0 12px;
+    white-space: pre;
+    line-height: 1.5;
+}
+
+.diff-line.added {
+    background: rgba(78, 201, 176, 0.15);
+    color: #e2fdf5;
+}
+
+.diff-line.removed {
+    background: rgba(244, 135, 113, 0.15);
+    color: #ffdbd4;
+}
+
+.manual-path-entry .btn-icon {
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+.manual-path-entry .btn-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.loading-dots-container {
+    padding: 8px 0;
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* ==================== THOUGHT BLOCK ==================== */
+.thought-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.thought-header {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.thought-header .chevron {
+    margin-left: auto;
+    font-size: 16px;
+    transition: transform 0.2s;
+}
+
+.thought-block.expanded .chevron {
+    transform: rotate(180deg);
+}
+
+.thought-content {
+    padding: 0 12px 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.thought-block.expanded .thought-content {
+    display: block;
+    margin-top: 8px;
+}
+
+.thought-content p, .thought-content ul, .thought-content ol {
+    margin: 8px 0;
+}
+
+.thought-content ul, .thought-content ol {
+    padding-left: 20px;
+}
+
+/* ==================== TOOL PILLS - Minimal & Professional ==================== */
+.tool-pill {
+    background: #141414;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin: 6px 0;
+    overflow: hidden;
+    transition: border 0.2s ease;
+}
+
+.tool-pill:hover {
+    border-color: #444;
+}
+
+.tool-pill-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: #141414;
+    user-select: none;
+    gap: 8px;
+}
+
+.tool-pill-header:hover {
+    background: #1c1c1c;
+}
+
+.tool-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+.tool-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.tool-name {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.tool-args {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    opacity: 0.7;
+}
+
+.tool-pill-chevron {
+    font-size: 16px !important;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+}
+
+.tool-pill.expanded .tool-pill-chevron {
+    transform: rotate(180deg);
+}
+
+.tool-pill-result {
+    display: none;
+    border-top: 1px solid var(--border);
+    background: #0d0d0d;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    overflow-x: auto;
+    padding: 8px;
+}
+
+.tool-pill.expanded .tool-pill-result {
+    display: block;
+}
+
+/* Diff Styling */
+.diff-view {
+    padding: 8px 0;
+}
+
+.diff-line {
+    padding: 0 12px;
+    white-space: pre;
+    line-height: 1.5;
+}
+
+.diff-line.added {
+    background: rgba(78, 201, 176, 0.15);
+    color: #e2fdf5;
+}
+
+.diff-line.removed {
+    background: rgba(244, 135, 113, 0.15);
+    color: #ffdbd4;
+}
+
+.diff-line.header {
+    color: var(--text-secondary);
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.tool-result-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.tool-result-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+/* Text segments */
+.text-segment {
+    margin-bottom: 8px;
+}
+
+.text-segment:empty {
+    display: none;
+}
+
+.message.streaming .text-segment.active::after {
+    content: 'â–Š';
+    animation: blink 1s infinite;
+    color: var(--accent);
+    margin-left: 2px;
+}
+
+@keyframes blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0;
+    }
+}
+

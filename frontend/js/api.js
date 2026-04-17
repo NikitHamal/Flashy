@@ -8,6 +8,15 @@ const API = {
         if (sessionId) formData.append('session_id', sessionId);
         if (workspaceId) formData.append('workspace_id', workspaceId);
 
+        // Include Qwen params if available
+        if (UI.getQwenParams) {
+            const params = UI.getQwenParams();
+            console.log("[API] Qwen params:", params);
+            Object.keys(params).forEach(key => {
+                formData.append(key, params[key]);
+            });
+        }
+
         if (files && files.length > 0) {
             files.forEach(file => {
                 formData.append('files', file);

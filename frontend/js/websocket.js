@@ -182,6 +182,12 @@ class FlashyWebSocket {
             case 'tool_result':
                 this._emit('tool_result', data.content);
                 break;
+            case 'ask_user_question':
+                this._emit('ask_user_question', {
+                    question_id: data.question_id,
+                    question: data.question
+                });
+                break;
             case 'terminal_output':
                 this._emit('terminal_output', {
                     terminal_id: data.terminal_id,
@@ -267,12 +273,20 @@ class FlashyWebSocket {
      * Send a chat message
      */
     sendChatMessage(message, files = []) {
-        return this.send({
+        const payload = {
             type: 'chat_message',
             message: message,
             workspace_id: this.workspaceId,
             files: files
-        });
+        };
+
+        // Include Qwen params if available
+        if (typeof UI !== 'undefined' && UI.getQwenParams) {
+            const params = UI.getQwenParams();
+            Object.assign(payload, params);
+        }
+
+        return this.send(payload);
     }
 
     /**
