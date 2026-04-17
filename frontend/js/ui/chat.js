@@ -8,20 +8,16 @@ Object.assign(UI, {
         bubbleDiv.className = 'message-bubble';
         messageDiv.appendChild(bubbleDiv);
 
-        let parts = [];
+        const parts = [];
         if (Array.isArray(textOrParts)) {
-            parts = textOrParts;
+            parts.push(...textOrParts);
         } else {
-            if (role === 'user') {
-                parts.push({ type: 'text', content: textOrParts });
-            } else {
-                parts.push({ type: 'text', content: textOrParts });
-                if (legacyToolOutputs && legacyToolOutputs.length > 0) {
-                    legacyToolOutputs.forEach(out => {
-                        parts.push({ type: 'tool_call', content: { name: out.tool, args: out.args } });
-                        parts.push({ type: 'tool_result', content: out.result });
-                    });
-                }
+            parts.push({ type: 'text', content: textOrParts });
+            if (role !== 'user' && legacyToolOutputs && legacyToolOutputs.length > 0) {
+                legacyToolOutputs.forEach((output) => {
+                    parts.push({ type: 'tool_call', content: { name: output.tool, args: output.args } });
+                    parts.push({ type: 'tool_result', content: output.result });
+                });
             }
         }
 
@@ -29,7 +25,7 @@ Object.assign(UI, {
             this._renderAttachedFiles(bubbleDiv, attachedFiles);
         }
 
-        parts.forEach(part => {
+        parts.forEach((part) => {
             this._renderPart(bubbleDiv, part, role);
         });
 
@@ -50,7 +46,6 @@ Object.assign(UI, {
                 const escaped = this.escapeHtml(part.content);
                 textDiv.innerHTML = `<span class="user-text-content">${escaped}</span>`;
                 container.appendChild(textDiv);
-
                 setTimeout(() => {
                     if (textDiv.scrollHeight > 120) {
                         textDiv.classList.add('collapsible');
@@ -69,7 +64,7 @@ Object.assign(UI, {
             } else {
                 const cleanedContent = part.content.replace(/https?:\/\/googleusercontent\.com\/youtube_content\/\d+/g, '');
                 textDiv.innerHTML = marked.parse(cleanedContent);
-                textDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                textDiv.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
                 this._embedMedia(textDiv);
                 container.appendChild(textDiv);
             }
@@ -85,8 +80,8 @@ Object.assign(UI, {
                 <div class="thought-content">${marked.parse(part.content)}</div>
             `;
             thoughtDiv.querySelector('.thought-header').onclick = () => thoughtDiv.classList.toggle('expanded');
-            container.appendChild(thoughtDiv);
             thoughtDiv.dataset.startTime = Date.now();
+            container.appendChild(thoughtDiv);
         } else if (part.type === 'tool_call') {
             const toolPill = this._createToolPill(part.content);
             toolPill.classList.add('executing');
@@ -104,40 +99,39 @@ Object.assign(UI, {
         toolPill.className = 'tool-pill';
 
         const toolMap = {
-            'read_file': { icon: 'visibility', label: 'Read File' },
-            'read_files': { icon: 'library_books', label: 'Read Files' },
-            'write_file': { icon: 'edit_document', label: 'Write File' },
-            'write_files': { icon: 'file_copy', label: 'Write Files' },
-            'patch_file': { icon: 'build', label: 'Patch File' },
-            'apply_patch': { icon: 'difference', label: 'Apply Patch' },
-            'list_dir': { icon: 'folder', label: 'List Dir' },
-            'get_file_tree': { icon: 'account_tree', label: 'File Tree' },
-            'get_explorer_data': { icon: 'schema', label: 'Explorer Data' },
-            'search_files': { icon: 'find_in_page', label: 'Find Files' },
-            'grep_search': { icon: 'search', label: 'Grep Search' },
-            'run_command': { icon: 'terminal', label: 'Run Command' },
-            'delete_path': { icon: 'delete', label: 'Delete Path' },
-            'get_dependencies': { icon: 'inventory', label: 'Dependencies' },
-            'get_symbol_info': { icon: 'code', label: 'Symbol Info' },
-            'web_search': { icon: 'public', label: 'Web Search' },
-            'web_browse': { icon: 'travel_explore', label: 'Web Browse' },
-            'git_status': { icon: 'fact_check', label: 'Git Status' },
-            'git_commit': { icon: 'commit', label: 'Git Commit' },
-            'git_push': { icon: 'cloud_upload', label: 'Git Push' },
-            'git_pull': { icon: 'cloud_download', label: 'Git Pull' },
-            'git_branches': { icon: 'fork_right', label: 'Git Branches' },
-            'git_checkout': { icon: 'call_split', label: 'Git Checkout' },
-            'git_log': { icon: 'history', label: 'Git Log' },
-            'git_clone': { icon: 'download', label: 'Git Clone' },
-            'git_init': { icon: 'auto_fix_high', label: 'Git Init' },
-            'delegate_task': { icon: 'groups', label: 'Delegate' },
-            'generate_image': { icon: 'image', label: 'Generate Image' },
-            'save_image': { icon: 'save', label: 'Save Image' },
-            'save_generated_images': { icon: 'photo_library', label: 'Save Images' }
+            read_file: { icon: 'visibility', label: 'Read File' },
+            read_files: { icon: 'library_books', label: 'Read Files' },
+            write_file: { icon: 'edit_document', label: 'Write File' },
+            write_files: { icon: 'file_copy', label: 'Write Files' },
+            patch_file: { icon: 'build', label: 'Patch File' },
+            apply_patch: { icon: 'difference', label: 'Apply Patch' },
+            list_dir: { icon: 'folder', label: 'List Dir' },
+            get_file_tree: { icon: 'account_tree', label: 'File Tree' },
+            get_explorer_data: { icon: 'schema', label: 'Explorer Data' },
+            search_files: { icon: 'find_in_page', label: 'Find Files' },
+            grep_search: { icon: 'search', label: 'Grep Search' },
+            run_command: { icon: 'terminal', label: 'Run Command' },
+            delete_path: { icon: 'delete', label: 'Delete Path' },
+            get_dependencies: { icon: 'inventory', label: 'Dependencies' },
+            get_symbol_info: { icon: 'code', label: 'Symbol Info' },
+            web_search: { icon: 'public', label: 'Web Search' },
+            web_browse: { icon: 'travel_explore', label: 'Web Browse' },
+            git_status: { icon: 'fact_check', label: 'Git Status' },
+            git_commit: { icon: 'commit', label: 'Git Commit' },
+            git_push: { icon: 'cloud_upload', label: 'Git Push' },
+            git_pull: { icon: 'cloud_download', label: 'Git Pull' },
+            git_branches: { icon: 'fork_right', label: 'Git Branches' },
+            git_checkout: { icon: 'call_split', label: 'Git Checkout' },
+            git_log: { icon: 'history', label: 'Git Log' },
+            git_clone: { icon: 'download', label: 'Git Clone' },
+            git_init: { icon: 'auto_fix_high', label: 'Git Init' },
+            delegate_task: { icon: 'groups', label: 'Delegate' },
+            generate_image: { icon: 'image', label: 'Generate Image' },
+            save_image: { icon: 'save', label: 'Save Image' },
+            save_generated_images: { icon: 'photo_library', label: 'Save Images' }
         };
 
         const info = toolMap[toolCall.name] || { icon: 'code', label: toolCall.name };
-
         let argsDisplay = '';
         if (toolCall.args) {
             argsDisplay = toolCall.args.path || toolCall.args.command || toolCall.args.query || toolCall.args.symbol_name || toolCall.args.url || '...';
@@ -170,7 +164,6 @@ Object.assign(UI, {
     _updateToolResult(toolPill, content) {
         const resultDiv = toolPill.querySelector('.tool-pill-result');
         const statsDiv = toolPill.querySelector('.tool-stats');
-        
         const isShellCommand = toolPill.querySelector('.run_shell_command') !== null;
 
         let htmlContent = '';
@@ -179,20 +172,19 @@ Object.assign(UI, {
 
         if (isShellCommand) {
             htmlContent = `<div class="terminal-output-block"><pre><code>${this.escapeHtml(content)}</code></pre></div>`;
-            resultDiv.style.backgroundColor = "#000";
-            resultDiv.style.color = "#00ff00";
-            resultDiv.style.padding = "10px";
-            resultDiv.style.borderRadius = "0 0 4px 4px";
+            resultDiv.style.backgroundColor = '#000';
+            resultDiv.style.color = '#00ff00';
+            resultDiv.style.padding = '10px';
+            resultDiv.style.borderRadius = '0 0 4px 4px';
             resultDiv.style.fontFamily = "'Consolas', 'Courier New', monospace";
         } else if (content.includes('<<<<') || content.includes('>>>>') || content.includes('--- ') || content.includes('+++ ')) {
             htmlContent = '<div class="diff-view">';
-            const lines = content.split('\n');
-            lines.forEach(line => {
+            content.split('\n').forEach((line) => {
                 if (line.startsWith('+') && !line.startsWith('+++')) {
-                    added++;
+                    added += 1;
                     htmlContent += `<div class="diff-line added">${this.escapeHtml(line)}</div>`;
                 } else if (line.startsWith('-') && !line.startsWith('---')) {
-                    removed++;
+                    removed += 1;
                     htmlContent += `<div class="diff-line removed">${this.escapeHtml(line)}</div>`;
                 } else if (line.startsWith('@@')) {
                     htmlContent += `<div class="diff-line header">${this.escapeHtml(line)}</div>`;
@@ -201,7 +193,6 @@ Object.assign(UI, {
                 }
             });
             htmlContent += '</div>';
-
             if (added > 0 || removed > 0) {
                 statsDiv.innerHTML = `
                     ${added > 0 ? `<span class="stat-added">+${added}</span>` : ''}
@@ -252,47 +243,36 @@ Object.assign(UI, {
                 dots.before(thoughtBlock);
             }
             const contentDiv = thoughtBlock.querySelector('.thought-content');
-            if (!thoughtBlock.dataset.raw) thoughtBlock.dataset.raw = '';
-            thoughtBlock.dataset.raw += chunk.thought;
+            thoughtBlock.dataset.raw = `${thoughtBlock.dataset.raw || ''}${chunk.thought}`;
             contentDiv.innerHTML = marked.parse(thoughtBlock.dataset.raw);
         }
-        if (chunk.text) {
-            // Basic heuristic to avoid showing raw tool call JSON while streaming
-            // If the chunk starts with or follows something that looks like the start of a tool call, 
-            // we might want to be careful. For now, we'll just append.
-            // A more robust way is to have the backend filter this out.
 
+        if (chunk.text) {
             let activeText = bubble.querySelector('.message-text.active');
             if (!activeText) {
-                // When switching from thought to text, mark thought as inactive
-                bubble.querySelectorAll('.thought-block.active').forEach(el => el.classList.remove('active'));
-
+                bubble.querySelectorAll('.thought-block.active').forEach((element) => element.classList.remove('active'));
                 activeText = document.createElement('div');
                 activeText.className = 'message-text active';
                 activeText.dataset.raw = '';
                 dots.before(activeText);
             }
             activeText.dataset.raw += chunk.text;
-
-            // Filter out common tool call starts to reduce flicker
-            let displayRaw = activeText.dataset.raw;
-            if (displayRaw.includes('```json')) {
-                displayRaw = displayRaw.split('```json')[0];
-            }
-
+            const displayRaw = activeText.dataset.raw.includes('```json')
+                ? activeText.dataset.raw.split('```json')[0]
+                : activeText.dataset.raw;
             activeText.innerHTML = marked.parse(displayRaw);
-            activeText.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+            activeText.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
         }
-        if (chunk.tool_call) {
-            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
-            bubble.querySelectorAll('.thought-block.active').forEach(el => el.classList.remove('active'));
 
+        if (chunk.tool_call) {
+            bubble.querySelectorAll('.message-text.active, .thought-block.active').forEach((element) => element.classList.remove('active'));
             const toolPill = this._createToolPill(chunk.tool_call);
             toolPill.classList.add('executing');
             toolPill.id = `tool-${Date.now()}`;
             dots.before(toolPill);
             lastMsg.dataset.currentToolId = toolPill.id;
         }
+
         if (chunk.tool_result) {
             const toolPill = document.getElementById(lastMsg.dataset.currentToolId);
             if (toolPill) {
@@ -301,59 +281,59 @@ Object.assign(UI, {
             if (typeof refreshPlan === 'function') refreshPlan();
             if (typeof refreshGit === 'function') refreshGit();
         }
+
         if (chunk.images) {
             this._renderImages(bubble, chunk.images);
         }
 
         if (chunk.is_final) {
-            bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
-            bubble.querySelectorAll('.thought-block.active').forEach(el => {
-                el.classList.remove('active');
-                const startTime = el.dataset.startTime;
+            bubble.querySelectorAll('.message-text.active').forEach((element) => element.classList.remove('active'));
+            bubble.querySelectorAll('.thought-block.active').forEach((element) => {
+                element.classList.remove('active');
+                const startTime = element.dataset.startTime;
                 if (startTime) {
-                    const elapsed = Math.round((Date.now() - parseInt(startTime)) / 1000);
-                    const status = el.querySelector('.thought-status');
+                    const elapsed = Math.round((Date.now() - parseInt(startTime, 10)) / 1000);
+                    const status = element.querySelector('.thought-status');
                     if (status) status.textContent = `Thought for ${elapsed}s`;
                 }
             });
             this.setAgentState('idle');
             if (dots) dots.remove();
         }
+
         this.scrollToBottom();
     },
 
     _renderImages(container, images) {
-        let imgContainer = container.querySelector('.generated-images');
-        if (!imgContainer) {
-            imgContainer = document.createElement('div');
-            imgContainer.className = 'generated-images';
-            container.appendChild(imgContainer);
+        let imageContainer = container.querySelector('.generated-images');
+        if (!imageContainer) {
+            imageContainer = document.createElement('div');
+            imageContainer.className = 'generated-images';
+            container.appendChild(imageContainer);
         }
-        images.forEach(url => {
+        images.forEach((url) => {
             const img = document.createElement('img');
             img.src = url;
             img.className = 'generated-image';
             img.onclick = () => window.open(url, '_blank');
-            imgContainer.appendChild(img);
+            imageContainer.appendChild(img);
         });
     },
 
     _embedMedia(container) {
         const links = container.querySelectorAll('a');
-        links.forEach(link => {
+        links.forEach((link) => {
             const href = link.href;
             let videoId = null;
 
             try {
                 if (href.includes('youtube.com/watch')) {
-                    const urlObj = new URL(href);
-                    videoId = urlObj.searchParams.get('v');
+                    videoId = new URL(href).searchParams.get('v');
                 } else if (href.includes('youtu.be/')) {
-                    const urlObj = new URL(href);
-                    videoId = urlObj.pathname.slice(1);
+                    videoId = new URL(href).pathname.slice(1);
                 }
-            } catch (e) {
-                console.warn('Error parsing video URL:', href);
+            } catch (error) {
+                console.warn('Error parsing video URL:', href, error);
             }
 
             if (videoId) {
@@ -364,20 +344,19 @@ Object.assign(UI, {
                 embedDiv.style.borderRadius = '8px';
                 embedDiv.style.overflow = 'hidden';
                 embedDiv.innerHTML = `
-                    <iframe 
-                        width="100%" 
-                        height="300" 
-                        src="https://www.youtube.com/embed/${videoId}" 
-                        title="YouTube video player" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    <iframe
+                        width="100%"
+                        height="300"
+                        src="https://www.youtube.com/embed/${videoId}"
+                        title="YouTube video player"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowfullscreen>
                     </iframe>
                 `;
-
-                const parentP = link.closest('p');
-                if (parentP) {
-                    parentP.after(embedDiv);
+                const parentParagraph = link.closest('p');
+                if (parentParagraph) {
+                    parentParagraph.after(embedDiv);
                 } else {
                     link.parentElement.appendChild(embedDiv);
                 }
@@ -388,231 +367,12 @@ Object.assign(UI, {
     _renderAttachedFiles(container, files) {
         const fileContainer = document.createElement('div');
         fileContainer.className = 'file-previews-container';
-        files.forEach(file => {
-            const isFileObj = file instanceof File;
-            const fileName = isFileObj ? file.name : (file.name || 'document');
+        files.forEach((file) => {
             const chip = document.createElement('div');
             chip.className = 'file-chip';
-            chip.innerHTML = `<span class="material-symbols-outlined">description</span><span>${fileName}</span>`;
+            chip.innerHTML = `<span class="material-symbols-outlined">description</span><span>${file instanceof File ? file.name : (file.name || 'document')}</span>`;
             fileContainer.appendChild(chip);
         });
         container.appendChild(fileContainer);
-    },
-
-    addUploadedFiles(files) {
-        Array.from(files).forEach(file => {
-            this.uploadedFiles.push(file);
-        });
-        this.renderUploadedFiles();
-    },
-
-    removeUploadedFile(index) {
-        this.uploadedFiles.splice(index, 1);
-        this.renderUploadedFiles();
-    },
-
-    clearUploadedFiles() {
-        this.uploadedFiles = [];
-        this.renderUploadedFiles();
-    },
-
-    renderUploadedFiles() {
-        if (!this.elements.uploadPreviewsContainer) return;
-        if (this.uploadedFiles.length === 0) {
-            this.elements.uploadPreviewsContainer.classList.add('hidden');
-            return;
-        }
-        this.elements.uploadPreviewsContainer.classList.remove('hidden');
-        this.elements.uploadPreviewsContainer.innerHTML = '';
-        this.uploadedFiles.forEach((file, index) => {
-            const previewItem = document.createElement('div');
-            previewItem.className = 'preview-item';
-
-            const isImage = file.type.startsWith('image/');
-            if (isImage) {
-                const img = document.createElement('img');
-                img.src = URL.createObjectURL(file);
-                previewItem.appendChild(img);
-            } else {
-                const icon = document.createElement('span');
-                icon.className = 'material-symbols-outlined file-icon';
-                icon.textContent = 'description';
-                previewItem.appendChild(icon);
-            }
-
-            const removeBtn = document.createElement('div');
-            removeBtn.className = 'remove-btn';
-            removeBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 14px;">close</span>';
-            removeBtn.onclick = () => this.removeUploadedFile(index);
-
-            const nameLabel = document.createElement('div');
-            nameLabel.className = 'file-name';
-            nameLabel.textContent = file.name;
-
-            previewItem.appendChild(removeBtn);
-            previewItem.appendChild(nameLabel);
-
-            this.elements.uploadPreviewsContainer.appendChild(previewItem);
-        });
-    },
-
-    addTaggedFile(file) {
-        if (this.taggedFiles.find(f => f.path === file.path)) return;
-        this.taggedFiles.push(file);
-        this.renderTaggedFiles();
-    },
-
-    removeTaggedFile(path) {
-        this.taggedFiles = this.taggedFiles.filter(f => f.path !== path);
-        this.renderTaggedFiles();
-    },
-
-    clearTaggedFiles() {
-        this.taggedFiles = [];
-        this.renderTaggedFiles();
-    },
-
-    renderTaggedFiles() {
-        if (!this.elements.taggedFilesContainer) return;
-        if (this.taggedFiles.length === 0) {
-            this.elements.taggedFilesContainer.classList.add('hidden');
-            return;
-        }
-        this.elements.taggedFilesContainer.classList.remove('hidden');
-        this.elements.taggedFilesContainer.innerHTML = '';
-        this.taggedFiles.forEach(file => {
-            const chip = document.createElement('div');
-            chip.className = 'file-chip';
-            const icon = document.createElement('span');
-            icon.className = 'material-symbols-outlined';
-            icon.textContent = 'description';
-            const name = document.createElement('span');
-            name.textContent = file.name;
-            const closeBtn = document.createElement('span');
-            closeBtn.className = 'material-symbols-outlined remove-btn';
-            closeBtn.textContent = 'close';
-            closeBtn.onclick = () => UI.removeTaggedFile(file.path);
-            chip.appendChild(icon);
-            chip.appendChild(name);
-            chip.appendChild(closeBtn);
-            this.elements.taggedFilesContainer.appendChild(chip);
-        });
-    },
-
-    showMentionPopup(files, onSelect) {
-        if (!this.elements.mentionPopup) return;
-        this.elements.mentionPopup.classList.remove('hidden');
-        this.elements.mentionPopup.innerHTML = '';
-        if (files.length === 0) {
-            this.elements.mentionPopup.innerHTML = '<div class="mention-item">No files found</div>';
-            return;
-        }
-        files.forEach((file, index) => {
-            const item = document.createElement('div');
-            item.className = 'mention-item';
-            if (index === 0) item.classList.add('active');
-            item.innerHTML = `
-                <span class="material-symbols-outlined icon">description</span>
-                <span class="name">${file.name}</span>
-                <span class="path">${file.path}</span>
-            `;
-            item.onclick = (e) => {
-                e.stopPropagation();
-                onSelect(file);
-                this.hideMentionPopup();
-            };
-            this.elements.mentionPopup.appendChild(item);
-        });
-    },
-
-    hideMentionPopup() {
-        if (this.elements.mentionPopup) this.elements.mentionPopup.classList.add('hidden');
-    },
-
-    navigateMention(direction) {
-        if (!this.elements.mentionPopup || this.elements.mentionPopup.classList.contains('hidden')) return;
-        const items = Array.from(this.elements.mentionPopup.querySelectorAll('.mention-item'));
-        if (items.length === 0) return;
-        let activeIndex = items.findIndex(item => item.classList.contains('active'));
-        items[activeIndex].classList.remove('active');
-        if (direction === 'up') activeIndex = (activeIndex - 1 + items.length) % items.length;
-        else activeIndex = (activeIndex + 1) % items.length;
-        const nextActive = items[activeIndex];
-        nextActive.classList.add('active');
-        nextActive.scrollIntoView({ block: 'nearest' });
-    },
-
-    initInputAutoResize() {
-        if (!this.elements.chatInput) return;
-        this.elements.chatInput.addEventListener('input', () => {
-            this.elements.chatInput.style.height = 'auto';
-            this.elements.chatInput.style.height = (this.elements.chatInput.scrollHeight) + 'px';
-            if (this.isWorking) return;
-            if (this.elements.chatInput.value.trim().length > 0) this.elements.sendBtn.classList.add('active');
-            else this.elements.sendBtn.classList.remove('active');
-        });
-    },
-
-    initQwenFeatures() {
-        const { qwenSearchBtn, qwenResearchBtn, qwenThinkingSelect, qwenFeaturesInline } = this.elements;
-        if (!qwenFeaturesInline) return;
-
-        this.qwenState = {
-            search: false,
-            research: false,
-            thinkingMode: 'Auto'
-        };
-
-        if (qwenSearchBtn) {
-            qwenSearchBtn.onclick = () => {
-                this.qwenState.search = !this.qwenState.search;
-                qwenSearchBtn.classList.toggle('active', this.qwenState.search);
-                if (this.qwenState.search && this.qwenState.research) {
-                    this.qwenState.research = false;
-                    qwenResearchBtn.classList.remove('active');
-                }
-            };
-        }
-
-        if (qwenResearchBtn) {
-            qwenResearchBtn.onclick = () => {
-                this.qwenState.research = !this.qwenState.research;
-                qwenResearchBtn.classList.toggle('active', this.qwenState.research);
-                if (this.qwenState.research && this.qwenState.search) {
-                    this.qwenState.search = false;
-                    qwenSearchBtn.classList.remove('active');
-                }
-            };
-        }
-
-        if (qwenThinkingSelect) {
-            qwenThinkingSelect.onchange = (e) => {
-                this.qwenState.thinkingMode = e.target.value;
-            };
-        }
-    },
-
-    updateFeatureVisibility(provider) {
-        if (this.elements.qwenFeaturesInline) {
-            if (provider === 'qwen') {
-                this.elements.qwenFeaturesInline.classList.remove('hidden');
-            } else {
-                this.elements.qwenFeaturesInline.classList.add('hidden');
-            }
-        }
-    },
-
-    getQwenParams() {
-        if (!this.qwenState) return {};
-        
-        let chat_type = 't2t';
-        if (this.qwenState.search) chat_type = 'search';
-        if (this.qwenState.research) chat_type = 'deep_research';
-
-        return {
-            chat_type: chat_type,
-            thinking_enabled: this.qwenState.thinkingMode !== 'Disabled',
-            thinking_mode: this.qwenState.thinkingMode === 'Disabled' ? 'Auto' : this.qwenState.thinkingMode
-        };
     }
 });

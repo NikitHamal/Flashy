@@ -1,8 +1,6 @@
-from .prompting import (
-    TOOL_SCHEMAS,
-    CODING_SYSTEM_PROMPT,
-    CODING_TOOL_RESULT_TEMPLATE,
-    ERROR_RECOVERY_GUIDANCE,
+from .schemas import TOOL_SCHEMAS
+from .templates import CODING_SYSTEM_PROMPT, CODING_TOOL_RESULT_TEMPLATE, ERROR_RECOVERY_GUIDANCE
+from .helpers import (
     get_system_prompt,
     get_tool_result_template,
     get_tool_schema,

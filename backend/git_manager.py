@@ -1,7 +1,7 @@
 import os
 import subprocess
 import json
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, urlunparse, quote
 
 class GitManager:

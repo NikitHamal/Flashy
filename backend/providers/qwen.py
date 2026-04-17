@@ -161,9 +161,10 @@ class QwenProvider(BaseProvider):
 
         is_openai_pass_through = kwargs.get("is_openai_pass_through", False)
 
-        # Inject tool descriptions into system prompt for prompt-based tool calling
-        # ONLY if not in pass-through mode
-        if tools and not is_openai_pass_through:
+        # Qwen uses prompt-based tool calling — always inject tool descriptions
+        # into the system prompt so the model knows what tools are available,
+        # regardless of whether we're in OpenAI pass-through mode or not.
+        if tools:
             effective_messages = inject_tools_into_messages(messages, tools)
         else:
             effective_messages = messages
@@ -235,19 +236,42 @@ class QwenProvider(BaseProvider):
                     data = resp.json()
                     chat_id = data['data']['id']
 
-                    # 3. Build Prompt
+                    # 3. Build Prompt — handle all OpenAI message types
                     prompt_parts = []
                     for msg in effective_messages:
                         role = msg.get("role", "user")
-                        content = msg.get("content") or ""
+                        raw_content = msg.get("content")
+
+                        # Flatten list-format content (e.g. [{type:text, text:...}])
+                        if isinstance(raw_content, list):
+                            content = "\n".join(
+                                item.get("text", "")
+                                for item in raw_content
+                                if isinstance(item, dict) and item.get("type") == "text"
+                            )
+                        else:
+                            content = raw_content or ""
+
                         if role == "system":
                             prompt_parts.append(f"[System Instructions]\n{content}\n")
                         elif role == "user":
                             prompt_parts.append(content)
                         elif role == "assistant":
-                            prompt_parts.append(f"[Assistant]\n{content}")
+                            # May have tool_calls instead of (or in addition to) content
+                            tool_calls = msg.get("tool_calls")
+                            if tool_calls:
+                                for tc in tool_calls:
+                                    fn = tc.get("function", {})
+                                    tc_name = fn.get("name", "unknown")
+                                    tc_args = fn.get("arguments", "{}")
+                                    prompt_parts.append(
+                                        f'<tool_call>{{"name": "{tc_name}", "arguments": {tc_args}}}</tool_call>'
+                                    )
+                            if content:
+                                prompt_parts.append(f"[Assistant]\n{content}")
                         elif role == "tool":
-                            tool_name = msg.get("name", "tool")
+                            # tool_call_id links this to the assistant's tool_call above
+                            tool_name = msg.get("name", "") or msg.get("tool_call_id", "tool")
                             prompt_parts.append(f'<tool_result name="{tool_name}">\n{content}\n</tool_result>')
 
                     full_prompt = "\n\n".join(p for p in prompt_parts if p)
@@ -340,7 +364,7 @@ class QwenProvider(BaseProvider):
                                     elif phase == "answer":
                                         if content:
                                             full_answer_text += content
-                                            if not tools or is_openai_pass_through:
+                                            if not tools:
                                                 yield {"text": content}
                                             else:
                                                 if "<tool_call" not in full_answer_text:
@@ -348,7 +372,7 @@ class QwenProvider(BaseProvider):
                                                     has_yielded_content = True
 
                                         if finish_reason:
-                                            if tools and full_answer_text and not is_openai_pass_through:
+                                            if tools and full_answer_text:
                                                 clean_text, parsed_tool_calls = parse_tool_calls_from_text(full_answer_text)
                                                 if parsed_tool_calls:
                                                     for tc in parsed_tool_calls:
@@ -358,6 +382,8 @@ class QwenProvider(BaseProvider):
                                                             arguments=tc["arguments"]
                                                         )
                                                         yield tool_call_to_dict(tc_obj)
+                                                    yield finish_reason_to_dict(FinishReason("tool_calls"))
+                                                    return
                                                 elif not has_yielded_content:
                                                     if clean_text:
                                                         yield {"text": clean_text}

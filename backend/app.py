@@ -47,7 +47,7 @@ from .storage import (
     add_workspace,
 )
 from .websocket_manager import ws_manager, MessageType
-from .routers import git_routes, workspace, chat, config, agents, memory, openai
+from .routers import git_routes, workspace, chat, config, agents, memory
 
 app = FastAPI()
 
@@ -62,7 +62,6 @@ app.include_router(chat.router)
 app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
-app.include_router(openai.router)
 
 from . import qwencode_bridge
 

@@ -1,29 +1,22 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Body, Request
+from fastapi import APIRouter, HTTPException, Body, Request
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-import os
-import shutil
-import time
-import tempfile
 import json
 import logging
 from fastapi.responses import StreamingResponse
+
 from ..storage import (
-    save_chat_message,
     get_chat_history,
     get_all_chats,
     delete_chat,
-    get_workspace as get_workspace_data,
 )
-from ..llm_service import LLMService
+from ..server import ProviderCatalog, ProviderGateway, ProviderRequest, resolve_provider_alias
 
 logger = logging.getLogger("flashy.chat")
 router = APIRouter()
 
-# Use system temp directory
-UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "flashy_uploads")
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
+_catalog = ProviderCatalog()
+_gateway = ProviderGateway()
 
 
 @router.post("/chat/interrupt")
@@ -63,132 +56,106 @@ async def get_models(request: Request):
     if provider_name == "gemini":
         return [{"id": "G_2_5_FLASH", "name": "Agent Flashy"}]
 
-    from ..providers import get_provider_service
-
-    provider_inst = get_provider_service(provider_name)
-    if not provider_inst:
-        return []
-
-    return await provider_inst.get_models()
+    catalog = await _catalog.list_models([provider_name])
+    return [
+        {"id": item["id"].split("/", 1)[1], "name": item["name"]}
+        for item in catalog["data"]
+    ]
 
 
 class GenerateRequest(BaseModel):
     messages: List[Dict[str, Any]]
     model: Optional[str] = None
-    # OpenAI-format tool definitions forwarded from qwen-code
     tools: Optional[List[Dict[str, Any]]] = None
-    # Advanced features
-    chat_type: Optional[str] = "t2t"
-    thinking_enabled: Optional[bool] = True
-    thinking_mode: Optional[str] = "Auto"
+    chat_type: str = "t2t"
+    thinking_enabled: bool = True
+    thinking_mode: str = "Auto"
 
 
 @router.post("/chat/generate")
 async def generate_chat(req: GenerateRequest, request: Request):
-    """Simple pass-through to Qwen/DeepInfra APIs - NO Flashy agent behavior"""
-    provider = request.headers.get("X-Provider", "")
-    model = request.headers.get("X-Model", "")
+    """Simple provider pass-through with no Flashy agent prompt injection."""
+    provider = resolve_provider_alias(request.headers.get("X-Provider", "airforce"))
+    model = request.headers.get("X-Model", "") or req.model or ""
 
-    logger.info(f"[CHAT] /chat/generate | provider={provider} model={model} msgs={len(req.messages)} tools={len(req.tools or [])}")
+    logger.info(
+        "[CHAT] /chat/generate | provider=%s model=%s msgs=%s tools=%s",
+        provider,
+        model,
+        len(req.messages),
+        len(req.tools or []),
+    )
 
-    if provider in ["qwen-free", "deepinfra-free"]:
-        from ..providers import get_provider_service
+    provider_request = ProviderRequest(
+        provider=provider,
+        model=model,
+        messages=req.messages,
+        tools=req.tools,
+        chat_type=req.chat_type,
+        thinking_enabled=req.thinking_enabled,
+        thinking_mode=req.thinking_mode,
+        pass_through=True,
+    )
 
-        actual_provider = "qwen" if provider == "qwen-free" else "deepinfra"
-        provider_svc = get_provider_service(actual_provider)
-        if not provider_svc:
-            return {"error": f"Provider '{actual_provider}' not found"}
+    try:
+        completion = await _gateway.complete(provider_request)
+    except RuntimeError as exc:
+        logger.error("[CHAT] Provider error: %s", exc)
+        return {"error": str(exc)}
 
-        full_response = ""
-        collected_tool_calls = []
-
-        async for chunk in provider_svc.generate_stream(
-            req.messages, 
-            model or "", 
-            tools=req.tools or None,
-            chat_type=req.chat_type,
-            thinking_enabled=req.thinking_enabled,
-            thinking_mode=req.thinking_mode
-        ):
-            logger.debug(f"[CHAT] chunk from provider: {list(chunk.keys())}")
-            if "error" in chunk:
-                logger.error(f"[CHAT] Provider error: {chunk['error']}")
-                return {"error": chunk["error"]}
-            if "text" in chunk:
-                full_response += chunk["text"]
-            if "tool_call" in chunk:
-                collected_tool_calls.append(chunk["tool_call"])
-
-        logger.info(f"[CHAT] /chat/generate done | text_len={len(full_response)} tool_calls={len(collected_tool_calls)}")
-
-        result: Dict[str, Any] = {"text": full_response}
-        if collected_tool_calls:
-            result["tool_calls"] = collected_tool_calls
-        return result
-
-    return {"error": "Invalid provider. Use X-Provider: qwen-free or deepinfra-free"}
+    result: Dict[str, Any] = {"text": completion.text}
+    if completion.tool_calls:
+        result["tool_calls"] = completion.tool_calls
+    if completion.thoughts:
+        result["thought"] = completion.thoughts
+    return result
 
 
 @router.post("/chat/generate/stream")
 async def generate_chat_stream(req: GenerateRequest, request: Request):
-    """Simple streaming pass-through to Qwen/DeepInfra APIs - NO Flashy agent behavior"""
-    provider = request.headers.get("X-Provider", "")
-    model = request.headers.get("X-Model", "")
+    """Stream provider responses without Flashy agent behavior."""
+    provider = resolve_provider_alias(request.headers.get("X-Provider", "airforce"))
+    model = request.headers.get("X-Model", "") or req.model or ""
 
-    logger.info(f"[CHAT] /chat/generate/stream | provider={provider} model={model} msgs={len(req.messages)} tools={len(req.tools or [])}")
+    logger.info(
+        "[CHAT] /chat/generate/stream | provider=%s model=%s msgs=%s tools=%s",
+        provider,
+        model,
+        len(req.messages),
+        len(req.tools or []),
+    )
 
-    if provider in ["qwen-free", "deepinfra-free"]:
-        from ..providers import get_provider_service
+    provider_request = ProviderRequest(
+        provider=provider,
+        model=model,
+        messages=req.messages,
+        tools=req.tools,
+        chat_type=req.chat_type,
+        thinking_enabled=req.thinking_enabled,
+        thinking_mode=req.thinking_mode,
+        pass_through=True,
+    )
 
-        actual_provider = "qwen" if provider == "qwen-free" else "deepinfra"
-        provider_svc = get_provider_service(actual_provider)
-        if not provider_svc:
-            return {"error": f"Provider '{actual_provider}' not found"}
+    async def event_generator():
+        try:
+            async for event in _gateway.stream(provider_request):
+                if event["type"] == "error":
+                    logger.error("[CHAT] Provider stream error: %s", event["error"])
+                    yield f"data: {json.dumps({'error': event['error']})}\n\n"
+                    break
+                if event["type"] == "text":
+                    yield f"data: {json.dumps({'text': event['text']})}\n\n"
+                elif event["type"] == "thought":
+                    yield f"data: {json.dumps({'thought': event['thought']})}\n\n"
+                elif event["type"] == "tool_call":
+                    yield f"data: {json.dumps({'tool_call': event['tool_call']})}\n\n"
+                elif event["type"] == "final":
+                    yield f"data: {json.dumps({'is_final': True, 'finish_reason': event.get('finish_reason', 'stop')})}\n\n"
+                    break
+        except Exception as exc:
+            logger.exception("[CHAT] Exception in provider event stream: %s", exc)
+            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
 
-        async def event_generator():
-            chunk_count = 0
-            text_chunks = 0
-            tool_call_chunks = 0
-            try:
-                async for chunk in provider_svc.generate_stream(
-                    req.messages, 
-                    model or "", 
-                    tools=req.tools or None,
-                    chat_type=req.chat_type,
-                    thinking_enabled=req.thinking_enabled,
-                    thinking_mode=req.thinking_mode
-                ):
-                    chunk_count += 1
-                    logger.debug(f"[CHAT] stream chunk#{chunk_count}: keys={list(chunk.keys())}")
-
-                    if "error" in chunk:
-                        logger.error(f"[CHAT] Provider stream error: {chunk['error']}")
-                        yield f"data: {json.dumps({'error': chunk['error']})}\n\n"
-                        break
-
-                    if "text" in chunk:
-                        text_chunks += 1
-                        yield f"data: {json.dumps({'text': chunk['text']})}\n\n"
-
-                    if "thought" in chunk:
-                        yield f"data: {json.dumps({'thought': chunk['thought']})}\n\n"
-
-                    if "tool_call" in chunk:
-                        tool_call_chunks += 1
-                        logger.info(f"[CHAT] Streaming tool_call: {chunk['tool_call']['name']}")
-                        yield f"data: {json.dumps({'tool_call': chunk['tool_call']})}\n\n"
-
-                    if chunk.get("is_final"):
-                        logger.info(f"[CHAT] Stream finished | total_chunks={chunk_count} text_chunks={text_chunks} tool_call_chunks={tool_call_chunks}")
-                        yield f"data: {json.dumps({'is_final': True, 'finish_reason': 'stop'})}\n\n"
-                        break
-
-            except Exception as e:
-                logger.exception(f"[CHAT] Exception in event_generator: {e}")
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            finally:
-                yield "data: [DONE]\n\n"
-
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-    return {"error": "Invalid provider"}
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
