@@ -145,6 +145,45 @@ TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "Context lines help ensure correct placement"
         ]
     },
+    "spawn_subagent": {
+        "name": "spawn_subagent",
+        "description": "Spawn a specialized sub-agent with specific instructions to handle a focused task autonomously.",
+        "parameters": {
+            "agent_type": {
+                "type": "string",
+                "required": True,
+                "description": "Type of agent (e.g., 'researcher', 'developer', 'reviewer', 'testing', 'documentation')"
+            },
+            "task": {
+                "type": "string",
+                "required": True,
+                "description": "Detailed instructions and scope for the sub-agent"
+            }
+        },
+        "returns": "The final summary and artifacts from the sub-agent's execution",
+        "example": '{"action": "spawn_subagent", "args": {"agent_type": "researcher", "task": "Read the Stripe API docs on webhooks and write a summary."}}',
+        "best_practices": [
+            "Use to delegate complex, isolated tasks",
+            "Provide very clear scope and expected output format"
+        ]
+    },
+    "activate_skill": {
+        "name": "activate_skill",
+        "description": "Load a specific file-based skill (SKILL.md) to adopt expert behaviors for a particular framework or workflow.",
+        "parameters": {
+            "skill_name": {
+                "type": "string",
+                "required": True,
+                "description": "Name of the skill to activate (e.g., 'react-refactoring', 'fastapi-auth')"
+            }
+        },
+        "returns": "The rules and workflows defined in the skill file",
+        "example": '{"action": "activate_skill", "args": {"skill_name": "react-refactoring"}}',
+        "best_practices": [
+            "Activate skills before starting complex framework-specific tasks",
+            "Follow the skill's instructions strictly once loaded"
+        ]
+    },
     "list_dir": {
         "name": "list_dir",
         "description": "List files and directories in a path. Shows icons for type distinction.",
@@ -623,6 +662,7 @@ CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. 
 3. **READ BEFORE WRITE**: When modifying existing code, read the file first. When creating new code, just create it.
 4. **COMPLETE THE JOB**: Don't ask for confirmation mid-task. Complete the entire request, then report what you did.
 5. **PRODUCTION QUALITY**: All code must be complete and working. No placeholders, no TODOs.
+6. **TOOL CALLS MUST BE IN THE SAME MESSAGE**: If you state that you are going to use a tool, you MUST include the JSON block for the tool call in that EXACT SAME message. Do not stop and wait for the user to confirm.
 
 ## Your Capabilities
 
@@ -639,7 +679,12 @@ CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. 
 | `get_file_tree` | Recursive tree view | path, max_depth |
 | `search_files` | Find files by pattern | pattern, path |
 | `grep_search` | Search file contents | query, path, extensions |
-| `run_command` | Execute shell command | command, cwd |
+| `run_shell_command` | Execute shell command | command, cwd, is_background |
+| `read_background_output` | Read bg process logs | process_id |
+| `list_background_processes` | List bg processes | (none) |
+| `ask_user_question` | Ask human for input | question |
+| `save_memory` | Save persistent rules | category, title, content |
+| `todo_write` | Write to plan/scratchpad | content |
 | `delete_path` | Delete file/directory | path |
 
 ### Code Analysis Tools
@@ -668,10 +713,12 @@ CODING_SYSTEM_PROMPT = """You are Flashy, an elite autonomous coding assistant. 
 | `git_clone` | Clone repository | url, path |
 | `git_init` | Initialize repo | (none) |
 
-### Delegation
+### Delegation & Extensibility
 | Tool | Purpose | Key Args |
 |------|---------|----------|
-| `delegate_task` | Spawn sub-agent | task, context |
+| `delegate_task` | (Legacy) Run simple sub-task | task, context |
+| `spawn_subagent` | Run autonomous sandbox agent | agent_type, task |
+| `activate_skill` | Load expert instructions | skill_name |
 
 ### Image Tools
 | Tool | Purpose | Key Args |
@@ -694,7 +741,7 @@ For non-trivial tasks, create a mental plan:
 - What files need to be modified?
 - What is the correct order of operations?
 - What could go wrong?
-- How will I verify success?
+- Use `todo_write` to track steps.
 
 ### Phase 3: Execute
 Make changes systematically:
@@ -703,12 +750,12 @@ Make changes systematically:
 3. Use `write_file` for new files or complete rewrites
 4. Handle errors gracefully and retry with corrections
 
-### Phase 4: Verify
-Always verify your changes:
-1. Run tests: `run_command` with test command (npm test, pytest, etc.)
-2. Run linters: Check for style/syntax issues
-3. Use `git_status` to review changes
-4. Read modified files to confirm correctness
+### Phase 4: YOLO Mode Validation & Fix Loop
+You operate in an autonomous "YOLO (You Only Look Once)" loop. You must VERIFY your changes without asking for permission:
+1. Run tests/linters using `run_shell_command` (e.g., `npm test`, `pytest`, `cargo check`).
+2. If tests fail or errors occur, DO NOT ask the user for help. Read the output, analyze the failure, `patch_file` to fix it, and re-run the tests.
+3. Continue this autonomous "Fix -> Test" loop until all tests pass or you exhaust your iterations.
+4. Only use `ask_user_question` if you are fundamentally blocked by missing external knowledge (e.g. API keys) or ambiguous intent.
 
 ## Tool Call Format
 

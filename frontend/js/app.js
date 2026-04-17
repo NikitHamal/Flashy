@@ -3,6 +3,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initial Load - Always show dashboard first unless specifically reopening
     await refreshState();
 
+    // Initialize Qwen Web Terminal
+    if (window.QwenTerminal) {
+        window.qwenTermInstance = new QwenTerminal();
+    }
+
+    // Initialize Qwen Features
+    if (UI.initQwenFeatures) UI.initQwenFeatures();
+
     // Event Listeners
     setupEventListeners();
     setupWebSocketHandlers();
@@ -57,6 +65,45 @@ function setupWebSocketHandlers() {
 
     flashyWS.on('tool_result', (content) => {
         UI.handleStreamChunk({ tool_result: content });
+    });
+
+    flashyWS.on('ask_user_question', (data) => {
+        const modal = document.getElementById('modal-ask-user');
+        const textEl = document.getElementById('ask-user-question-text');
+        const inputEl = document.getElementById('input-ask-user-response');
+        const submitBtn = document.getElementById('btn-submit-user-response');
+        const closeBtn = document.getElementById('btn-close-ask-user');
+
+        if (modal && textEl) {
+            textEl.textContent = data.question;
+            inputEl.value = '';
+            modal.classList.remove('hidden');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                submitBtn.onclick = null;
+                closeBtn.onclick = null;
+            };
+
+            submitBtn.onclick = () => {
+                const response = inputEl.value.trim();
+                flashyWS.send({
+                    type: 'user_response',
+                    question_id: data.question_id,
+                    response: response
+                });
+                cleanup();
+            };
+
+            closeBtn.onclick = () => {
+                flashyWS.send({
+                    type: 'user_response',
+                    question_id: data.question_id,
+                    response: "User dismissed the question without answering."
+                });
+                cleanup();
+            };
+        }
     });
 
     flashyWS.on('stream_end', () => {
@@ -1209,6 +1256,8 @@ async function refreshModels() {
 
         // Update current model name display
         const activeModelId = config.model;
+        
+        if (UI.updateFeatureVisibility) UI.updateFeatureVisibility(activeProvider);
 
         if (activeProvider === 'gemini') {
             document.getElementById('current-model-name').textContent = 'Agent Flashy';

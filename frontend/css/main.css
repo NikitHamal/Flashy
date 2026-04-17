@@ -1323,7 +1323,7 @@ code {
     pointer-events: none;
 }
 
-.input-area {
+.input-area { /* Modernized */
     width: 100%;
     max-width: 760px;
     background: #1a1a1a;
@@ -1531,7 +1531,10 @@ code {
 .action-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .action-right {
@@ -1775,7 +1778,7 @@ code {
 
 .thought-content {
     padding: 0 12px 12px;
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-secondary);
     line-height: 1.5;
     display: none;
@@ -1787,76 +1790,63 @@ code {
     margin-top: 8px;
 }
 
-.thought-content p {
+.thought-content p, .thought-content ul, .thought-content ol {
     margin: 8px 0;
 }
 
-/* ==================== TOOL PILLS - Professional ==================== */
+.thought-content ul, .thought-content ol {
+    padding-left: 20px;
+}
+
+/* ==================== TOOL PILLS - Minimal & Professional ==================== */
 .tool-pill {
-    background: #252526;
+    background: #141414;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    margin: 8px 0;
+    border-radius: 4px;
+    margin: 6px 0;
     overflow: hidden;
-    transition: all 0.2s ease;
+    transition: border 0.2s ease;
+}
+
+.tool-pill:hover {
+    border-color: #444;
 }
 
 .tool-pill-header {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: 6px 10px;
     cursor: pointer;
-    background: #252526;
+    background: #141414;
     user-select: none;
     gap: 8px;
 }
 
 .tool-pill-header:hover {
-    background: #333333;
+    background: #1c1c1c;
 }
 
 .tool-icon-box {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.tool-icon-box.write_file,
-.tool-icon-box.write_file_content {
-    color: #4ec9b0;
-    background: rgba(78, 201, 176, 0.1);
-}
-
-.tool-icon-box.patch_file {
-    color: #dcdcaa;
-    background: rgba(220, 220, 170, 0.1);
-}
-
-.tool-icon-box.run_shell_command,
-.tool-icon-box.run_command {
-    color: #ce9178;
-    background: rgba(206, 145, 120, 0.1);
-}
-
-.tool-icon-box.search_file_content,
-.tool-icon-box.search_files {
-    color: #569cd6;
-    background: rgba(86, 156, 214, 0.1);
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    background: transparent;
 }
 
 .tool-info {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     overflow: hidden;
 }
 
 .tool-name {
-    font-weight: 600;
+    font-weight: 500;
     font-size: 12px;
     color: var(--text-primary);
 }
@@ -1868,30 +1858,27 @@ code {
     overflow: hidden;
     text-overflow: ellipsis;
     font-family: var(--font-mono);
+    opacity: 0.7;
 }
 
-.tool-stats {
-    display: flex;
-    gap: 8px;
-    font-size: 11px;
-    font-family: var(--font-mono);
+.tool-pill-chevron {
+    font-size: 16px !important;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
 }
 
-.stat-added {
-    color: #4ec9b0;
-}
-
-.stat-removed {
-    color: #f48771;
+.tool-pill.expanded .tool-pill-chevron {
+    transform: rotate(180deg);
 }
 
 .tool-pill-result {
     display: none;
     border-top: 1px solid var(--border);
-    background: #1e1e1e;
+    background: #0d0d0d;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11px;
     overflow-x: auto;
+    padding: 8px;
 }
 
 .tool-pill.expanded .tool-pill-result {
@@ -1970,7 +1957,7 @@ code {
 
 .thought-content {
     padding: 0 12px 12px;
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-secondary);
     line-height: 1.5;
     display: none;
@@ -1982,76 +1969,63 @@ code {
     margin-top: 8px;
 }
 
-.thought-content p {
+.thought-content p, .thought-content ul, .thought-content ol {
     margin: 8px 0;
 }
 
-/* ==================== TOOL PILLS - Professional ==================== */
+.thought-content ul, .thought-content ol {
+    padding-left: 20px;
+}
+
+/* ==================== TOOL PILLS - Minimal & Professional ==================== */
 .tool-pill {
-    background: #252526;
+    background: #141414;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    margin: 8px 0;
+    border-radius: 4px;
+    margin: 6px 0;
     overflow: hidden;
-    transition: all 0.2s ease;
+    transition: border 0.2s ease;
+}
+
+.tool-pill:hover {
+    border-color: #444;
 }
 
 .tool-pill-header {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: 6px 10px;
     cursor: pointer;
-    background: #252526;
+    background: #141414;
     user-select: none;
     gap: 8px;
 }
 
 .tool-pill-header:hover {
-    background: #333333;
+    background: #1c1c1c;
 }
 
 .tool-icon-box {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.tool-icon-box.write_file,
-.tool-icon-box.write_file_content {
-    color: #4ec9b0;
-    background: rgba(78, 201, 176, 0.1);
-}
-
-.tool-icon-box.patch_file {
-    color: #dcdcaa;
-    background: rgba(220, 220, 170, 0.1);
-}
-
-.tool-icon-box.run_shell_command,
-.tool-icon-box.run_command {
-    color: #ce9178;
-    background: rgba(206, 145, 120, 0.1);
-}
-
-.tool-icon-box.search_file_content,
-.tool-icon-box.search_files {
-    color: #569cd6;
-    background: rgba(86, 156, 214, 0.1);
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    background: transparent;
 }
 
 .tool-info {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     overflow: hidden;
 }
 
 .tool-name {
-    font-weight: 600;
+    font-weight: 500;
     font-size: 12px;
     color: var(--text-primary);
 }
@@ -2063,30 +2037,27 @@ code {
     overflow: hidden;
     text-overflow: ellipsis;
     font-family: var(--font-mono);
+    opacity: 0.7;
 }
 
-.tool-stats {
-    display: flex;
-    gap: 8px;
-    font-size: 11px;
-    font-family: var(--font-mono);
+.tool-pill-chevron {
+    font-size: 16px !important;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
 }
 
-.stat-added {
-    color: #4ec9b0;
-}
-
-.stat-removed {
-    color: #f48771;
+.tool-pill.expanded .tool-pill-chevron {
+    transform: rotate(180deg);
 }
 
 .tool-pill-result {
     display: none;
     border-top: 1px solid var(--border);
-    background: #1e1e1e;
+    background: #0d0d0d;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11px;
     overflow-x: auto;
+    padding: 8px;
 }
 
 .tool-pill.expanded .tool-pill-result {
@@ -2144,7 +2115,7 @@ code {
 }
 
 .message.streaming .text-segment.active::after {
-    content: '▊';
+    content: 'â–Š';
     animation: blink 1s infinite;
     color: var(--accent);
     margin-left: 2px;
@@ -2925,4 +2896,107 @@ code {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* ==================== QWEN FEATURES ==================== */
+/* Legacy - kept for JS compatibility */
+.qwen-features-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Inline variant - sits inside the prompt bar action row */
+.qwen-features-inline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.qwen-features-inline.hidden {
+    display: none;
+}
+
+.feature-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.feature-toggle:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+}
+
+.feature-toggle.active {
+    background: rgba(74, 222, 128, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.feature-toggle .material-symbols-outlined {
+    font-size: 14px;
+}
+
+.feature-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    margin: 0 4px;
+}
+
+.thinking-select {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.thinking-select:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.thinking-mode-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.feature-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.feature-select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.feature-select:focus {
+    border-color: var(--accent);
 }

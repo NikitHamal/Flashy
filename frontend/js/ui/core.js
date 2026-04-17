@@ -24,6 +24,12 @@ const UI = {
         terminalStatus: document.getElementById('terminal-status'),
         terminalClose: document.getElementById('btn-close-terminal'),
         terminalClear: document.getElementById('btn-clear-terminal'),
+
+        // Qwen specific
+        qwenFeaturesInline: document.getElementById('qwen-features-inline'),
+        qwenSearchBtn: document.getElementById('btn-qwen-search'),
+        qwenResearchBtn: document.getElementById('btn-qwen-research'),
+        qwenThinkingSelect: document.getElementById('select-qwen-thinking'),
     },
 
     isWorking: false,

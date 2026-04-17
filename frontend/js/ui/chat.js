@@ -79,19 +79,20 @@ Object.assign(UI, {
             thoughtDiv.innerHTML = `
                 <div class="thought-header">
                     <span class="material-symbols-outlined">psychology</span>
-                    <span>Thought Process</span>
+                    <span class="thought-status">Thinking...</span>
                     <span class="material-symbols-outlined chevron">expand_more</span>
                 </div>
                 <div class="thought-content">${marked.parse(part.content)}</div>
             `;
             thoughtDiv.querySelector('.thought-header').onclick = () => thoughtDiv.classList.toggle('expanded');
             container.appendChild(thoughtDiv);
+            thoughtDiv.dataset.startTime = Date.now();
         } else if (part.type === 'tool_call') {
             const toolPill = this._createToolPill(part.content);
-            toolPill.classList.add('completed');
+            toolPill.classList.add('executing');
             container.appendChild(toolPill);
         } else if (part.type === 'tool_result') {
-            const lastPill = container.querySelector('.tool-pill:last-of-type');
+            const lastPill = container.querySelector('.tool-pill.executing:last-of-type');
             if (lastPill) {
                 this._updateToolResult(lastPill, part.content);
             }
@@ -169,12 +170,21 @@ Object.assign(UI, {
     _updateToolResult(toolPill, content) {
         const resultDiv = toolPill.querySelector('.tool-pill-result');
         const statsDiv = toolPill.querySelector('.tool-stats');
+        
+        const isShellCommand = toolPill.querySelector('.run_shell_command') !== null;
 
         let htmlContent = '';
         let added = 0;
         let removed = 0;
 
-        if (content.includes('<<<<') || content.includes('>>>>') || content.includes('--- ') || content.includes('+++ ')) {
+        if (isShellCommand) {
+            htmlContent = `<div class="terminal-output-block"><pre><code>${this.escapeHtml(content)}</code></pre></div>`;
+            resultDiv.style.backgroundColor = "#000";
+            resultDiv.style.color = "#00ff00";
+            resultDiv.style.padding = "10px";
+            resultDiv.style.borderRadius = "0 0 4px 4px";
+            resultDiv.style.fontFamily = "'Consolas', 'Courier New', monospace";
+        } else if (content.includes('<<<<') || content.includes('>>>>') || content.includes('--- ') || content.includes('+++ ')) {
             htmlContent = '<div class="diff-view">';
             const lines = content.split('\n');
             lines.forEach(line => {
@@ -297,7 +307,15 @@ Object.assign(UI, {
 
         if (chunk.is_final) {
             bubble.querySelectorAll('.message-text.active').forEach(el => el.classList.remove('active'));
-            bubble.querySelectorAll('.thought-block.active').forEach(el => el.classList.remove('active'));
+            bubble.querySelectorAll('.thought-block.active').forEach(el => {
+                el.classList.remove('active');
+                const startTime = el.dataset.startTime;
+                if (startTime) {
+                    const elapsed = Math.round((Date.now() - parseInt(startTime)) / 1000);
+                    const status = el.querySelector('.thought-status');
+                    if (status) status.textContent = `Thought for ${elapsed}s`;
+                }
+            });
             this.setAgentState('idle');
             if (dots) dots.remove();
         }
@@ -533,5 +551,68 @@ Object.assign(UI, {
             if (this.elements.chatInput.value.trim().length > 0) this.elements.sendBtn.classList.add('active');
             else this.elements.sendBtn.classList.remove('active');
         });
+    },
+
+    initQwenFeatures() {
+        const { qwenSearchBtn, qwenResearchBtn, qwenThinkingSelect, qwenFeaturesInline } = this.elements;
+        if (!qwenFeaturesInline) return;
+
+        this.qwenState = {
+            search: false,
+            research: false,
+            thinkingMode: 'Auto'
+        };
+
+        if (qwenSearchBtn) {
+            qwenSearchBtn.onclick = () => {
+                this.qwenState.search = !this.qwenState.search;
+                qwenSearchBtn.classList.toggle('active', this.qwenState.search);
+                if (this.qwenState.search && this.qwenState.research) {
+                    this.qwenState.research = false;
+                    qwenResearchBtn.classList.remove('active');
+                }
+            };
+        }
+
+        if (qwenResearchBtn) {
+            qwenResearchBtn.onclick = () => {
+                this.qwenState.research = !this.qwenState.research;
+                qwenResearchBtn.classList.toggle('active', this.qwenState.research);
+                if (this.qwenState.research && this.qwenState.search) {
+                    this.qwenState.search = false;
+                    qwenSearchBtn.classList.remove('active');
+                }
+            };
+        }
+
+        if (qwenThinkingSelect) {
+            qwenThinkingSelect.onchange = (e) => {
+                this.qwenState.thinkingMode = e.target.value;
+            };
+        }
+    },
+
+    updateFeatureVisibility(provider) {
+        if (this.elements.qwenFeaturesInline) {
+            if (provider === 'qwen') {
+                this.elements.qwenFeaturesInline.classList.remove('hidden');
+            } else {
+                this.elements.qwenFeaturesInline.classList.add('hidden');
+            }
+        }
+    },
+
+    getQwenParams() {
+        if (!this.qwenState) return {};
+        
+        let chat_type = 't2t';
+        if (this.qwenState.search) chat_type = 'search';
+        if (this.qwenState.research) chat_type = 'deep_research';
+
+        return {
+            chat_type: chat_type,
+            thinking_enabled: this.qwenState.thinkingMode !== 'Disabled',
+            thinking_mode: this.qwenState.thinkingMode === 'Disabled' ? 'Auto' : this.qwenState.thinkingMode
+        };
     }
 });

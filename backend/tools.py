@@ -328,18 +328,57 @@ class Tools:
         except Exception as e:
             return f"Error during grep: {str(e)}"
 
-    async def run_command(self, command: str, cwd: Optional[str] = None, timeout: int = 300) -> str:
-        """Execute a shell command in the workspace with configurable timeout.
+    async def run_shell_command(self, command: str, cwd: Optional[str] = None, timeout: int = 300, is_background: bool = False) -> str:
+        """Execute a shell command in the workspace.
 
         Args:
             command: Shell command to execute
             cwd: Working directory (resolved relative to workspace)
-            timeout: Max execution time in seconds (default 300 = 5 min)
+            timeout: Max execution time in seconds (default 300 = 5 min). Ignored if is_background=True.
+            is_background: Run the command in the background without waiting.
         """
         try:
             if not command or not command.strip():
                 return "Error: Command is empty."
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
+
+            if is_background:
+                terminal_id = f"bg_{os.urandom(4).hex()}"
+                
+                # Start process
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=work_dir,
+                )
+                
+                if not hasattr(ws_manager, 'bg_processes'):
+                    ws_manager.bg_processes = {}
+                    ws_manager.bg_buffers = {}
+                
+                ws_manager.bg_processes[terminal_id] = process
+                ws_manager.bg_buffers[terminal_id] = []
+                
+                async def read_bg_stream(stream, term_id):
+                    while True:
+                        try:
+                            chunk = await stream.read(4096)
+                            if not chunk:
+                                break
+                            text = chunk.decode("utf-8", errors="replace")
+                            if term_id in ws_manager.bg_buffers:
+                                ws_manager.bg_buffers[term_id].append(text)
+                                # keep buffer reasonably sized
+                                if sum(len(c) for c in ws_manager.bg_buffers[term_id]) > 500000:
+                                    ws_manager.bg_buffers[term_id] = ws_manager.bg_buffers[term_id][-50:]
+                        except Exception:
+                            break
+                            
+                asyncio.create_task(read_bg_stream(process.stdout, terminal_id))
+                asyncio.create_task(read_bg_stream(process.stderr, terminal_id))
+                
+                return f"Background process started with ID: {terminal_id}\nCommand: `{command}`\nUse `read_background_output` to check its logs."
 
             # If we have a session_id, stream the output via WebSocket
             if self.session_id:
@@ -375,6 +414,173 @@ class Tools:
                 return f"Error: Command timed out after {timeout} seconds. Process was killed."
         except Exception as e:
             return f"Error running command: {str(e)}"
+
+    def read_background_output(self, process_id: str) -> str:
+        """Read the recent output of a background process."""
+        if not hasattr(ws_manager, 'bg_processes') or process_id not in ws_manager.bg_processes:
+            return f"Error: Background process '{process_id}' not found or already terminated."
+            
+        process = ws_manager.bg_processes[process_id]
+        buffer = "".join(ws_manager.bg_buffers.get(process_id, []))
+        
+        status = "Running" if process.returncode is None else f"Terminated with code {process.returncode}"
+        
+        return f"Process: {process_id} ({status})\nOutput:\n```\n{buffer[-10000:].strip() or '(no output)'}\n```"
+
+    def list_background_processes(self) -> str:
+        """List all active and recently completed background processes."""
+        if not hasattr(ws_manager, 'bg_processes') or not ws_manager.bg_processes:
+            return "No background processes found."
+            
+        results = []
+        for pid, proc in ws_manager.bg_processes.items():
+            status = "Running" if proc.returncode is None else f"Terminated with code {proc.returncode}"
+            results.append(f"- {pid}: {status}")
+        return "Background Processes:\n" + "\n".join(results)
+
+    def save_memory(self, category: str, title: str, content: str) -> str:
+        """Save a persistent memory (project rules, user preferences, API keys, etc.) across sessions.
+        
+        Args:
+            category: e.g., 'preference', 'architecture', 'gotcha'
+            title: Brief summary of the memory
+            content: The detailed information to remember
+        """
+        memory_dir = os.path.join(self.workspace_path, ".flashy")
+        memory_file = os.path.join(memory_dir, "memory.json")
+        
+        try:
+            os.makedirs(memory_dir, exist_ok=True)
+            memories = []
+            if os.path.exists(memory_file):
+                with open(memory_file, 'r', encoding='utf-8') as f:
+                    memories = json.load(f)
+                    
+            memories.append({
+                "id": f"mem_{os.urandom(4).hex()}",
+                "category": category,
+                "title": title,
+                "content": content,
+                "timestamp": __import__('time').time()
+            })
+            
+            with open(memory_file, 'w', encoding='utf-8') as f:
+                json.dump(memories, f, indent=2)
+                
+            return f"Memory '{title}' saved successfully. It will be available in future sessions."
+        except Exception as e:
+            return f"Error saving memory: {str(e)}"
+
+    def todo_write(self, content: str) -> str:
+        """Write to the agent's scratchpad/plan (rendered in the UI's 'Current Plan' sidebar)."""
+        plan_dir = os.path.join(self.workspace_path, ".flashy")
+        plan_file = os.path.join(plan_dir, "plan.md")
+        
+        try:
+            os.makedirs(plan_dir, exist_ok=True)
+            with open(plan_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return "Plan updated successfully. The UI sidebar will reflect these changes."
+        except Exception as e:
+            return f"Error updating plan: {str(e)}"
+
+    async def spawn_subagent(self, agent_type: str, task: str) -> str:
+        """Spawn a specialized sub-agent with specific instructions."""
+        try:
+            from .agents.base import AgentType
+            from .agents import get_agent
+            
+            # Map string to enum
+            try:
+                a_type = AgentType(agent_type.lower())
+            except ValueError:
+                return f"Error: Invalid agent_type '{agent_type}'. Must be one of: {[e.value for e in AgentType]}"
+            
+            # Use a temporary session ID for the subagent so it doesn't pollute the main chat
+            sub_session_id = f"sub_{os.urandom(4).hex()}"
+            subagent = get_agent(a_type, workspace_path=self.workspace_path, session_id=sub_session_id)
+            
+            if not subagent:
+                return f"Error: Failed to initialize subagent of type '{agent_type}'"
+            
+            # Notify UI that a subagent started
+            if self.session_id:
+                try:
+                    from .websocket_manager import MessageType
+                    await ws_manager.send_to_session(
+                        self.session_id,
+                        MessageType.TEXT,
+                        f"*[System] Spawning {agent_type} sub-agent for: {task[:50]}...*\n"
+                    )
+                except Exception:
+                    pass
+            
+            # Execute task
+            result = await subagent.execute(task)
+            
+            # Format result
+            status = "Success" if result.success else "Failed"
+            output = f"Sub-agent '{agent_type}' completed with status: {status}\n\n"
+            output += f"Summary:\n{result.summary}\n\n"
+            if result.artifacts:
+                output += f"Modified/Created Files:\n" + "\n".join(f"- {f}" for f in result.artifacts)
+                
+            return output
+            
+        except Exception as e:
+            return f"Error spawning subagent: {str(e)}"
+
+    def activate_skill(self, skill_name: str) -> str:
+        """Load a specific file-based skill (SKILL.md)."""
+        # Look for skills in .flashy/skills/ or global ~/.flashy/skills/
+        workspace_skills = os.path.join(self.workspace_path, ".flashy", "skills", skill_name, "SKILL.md")
+        global_skills = os.path.expanduser(f"~/.flashy/skills/{skill_name}/SKILL.md")
+        
+        target_file = None
+        if os.path.exists(workspace_skills):
+            target_file = workspace_skills
+        elif os.path.exists(global_skills):
+            target_file = global_skills
+            
+        if not target_file:
+            return f"Error: Skill '{skill_name}' not found. Ensure the skill is installed in .flashy/skills/{skill_name}/SKILL.md"
+            
+        try:
+            with open(target_file, "r", encoding="utf-8") as f:
+                skill_content = f.read()
+                
+            return f"""<activated_skill name="{skill_name}">
+{skill_content}
+</activated_skill>
+
+You MUST strictly follow the instructions in the <activated_skill> block above for the remainder of this task."""
+        except Exception as e:
+            return f"Error loading skill '{skill_name}': {str(e)}"
+
+    async def ask_user_question(self, question: str) -> str:
+        """Pause execution to ask the user a question and wait for their response."""
+        if not self.session_id:
+            return "Error: Cannot ask user a question outside of an active session."
+        
+        question_id = f"q_{os.urandom(4).hex()}"
+        future = asyncio.get_event_loop().create_future()
+        ws_manager.pending_questions[question_id] = future
+        
+        try:
+            from .websocket_manager import MessageType
+            await ws_manager.send_to_session(
+                self.session_id,
+                MessageType.ASK_USER_QUESTION,
+                {"question_id": question_id, "question": question}
+            )
+            # Wait for response (no timeout, wait indefinitely)
+            response = await future
+            return f"User replied: {response}"
+        except Exception as e:
+            return f"Error asking user question: {str(e)}"
+        finally:
+            if question_id in ws_manager.pending_questions:
+                del ws_manager.pending_questions[question_id]
 
     def delete_path(self, path: str) -> str:
         """Delete a file or directory."""
@@ -502,24 +708,80 @@ class Tools:
                 pass
 
     def get_symbol_info(self, symbol_name: str) -> str:
-        """Find where a specific symbol (class/function/variable) is defined using grep."""
-        # Search for definitions like "def symbol", "class symbol", "symbol =", "export const symbol"
-        patterns = [
-            f"def {symbol_name}",
-            f"class {symbol_name}",
-            f"{symbol_name} =",
-            f"const {symbol_name}",
-            f"function {symbol_name}"
-        ]
+        """Find where a specific symbol (class/function/variable) is defined using advanced grep patterns."""
+        if not symbol_name or not symbol_name.strip():
+            return "Error: Symbol name is empty."
+            
         results = []
-        for pattern in patterns:
-            res = self.grep_search(pattern)
-            if "Search results" in res:
-                results.append(res)
         
+        # Try ripgrep first for exact symbol definitions across common languages
+        rg_path = shutil.which("rg")
+        if rg_path:
+            # Patterns for Python, JS/TS, Go, Rust, Java, C/C++
+            patterns = [
+                f"^(?:async\\s+)?def\\s+{symbol_name}\\b",               # Python functions
+                f"^class\\s+{symbol_name}\\b",                           # Python/JS/TS/Java/C++ classes
+                f"^(?:export\\s+)?(?:const|let|var)\\s+{symbol_name}\\s*=", # JS/TS variables/arrows
+                f"^(?:export\\s+)?(?:async\\s+)?function\\s+{symbol_name}\\b", # JS/TS functions
+                f"^(?:export\\s+)?(?:interface|type)\\s+{symbol_name}\\b",     # TS types
+                f"^func\\s+{symbol_name}\\b",                            # Go functions
+                f"^type\\s+{symbol_name}\\s+struct\\b",                  # Go structs
+                f"^fn\\s+{symbol_name}\\b",                              # Rust functions
+                f"^(?:pub\\s+)?(?:struct|enum|trait)\\s+{symbol_name}\\b",     # Rust types
+                f"\\b{symbol_name}\\s*:=.*",                             # Go assignment / general assignment
+            ]
+            
+            for pattern in patterns:
+                rg_cmd = [
+                    rg_path,
+                    "--line-number",
+                    "--no-heading",
+                    "--max-count", "10",
+                    "--glob", "!.git/**",
+                    "--glob", "!node_modules/**",
+                    "--glob", "!venv/**",
+                    "--glob", "!.venv/**",
+                    "--glob", "!__pycache__/**",
+                    pattern,
+                    self.workspace_path
+                ]
+                try:
+                    result = subprocess.run(rg_cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout.strip():
+                        lines = result.stdout.strip().split('\n')
+                        for line in lines:
+                            parts = line.split(':', 2)
+                            if len(parts) >= 3:
+                                rel_path = os.path.relpath(parts[0], self.workspace_path)
+                                results.append(f"{rel_path}:{parts[1]}: {parts[2].strip()}")
+                except Exception:
+                    pass
+
+        # Python fallback (if ripgrep fails or isn't installed)
+        if not results:
+            basic_patterns = [
+                f"def {symbol_name}",
+                f"class {symbol_name}",
+                f"{symbol_name} =",
+                f"const {symbol_name}",
+                f"function {symbol_name}"
+            ]
+            for pattern in basic_patterns:
+                res = self.grep_search(pattern)
+                if "Search results" in res:
+                    results.append(res.replace(f"Search results for '{pattern}':\n", ""))
+
         if results:
-            return "\n\n".join(results)
-        return f"Could not find any clear definitions for '{symbol_name}'."
+            # Deduplicate while preserving order
+            seen = set()
+            unique_results = []
+            for r in results:
+                if r not in seen:
+                    seen.add(r)
+                    unique_results.append(r)
+            return f"Found potential definitions for '{symbol_name}':\n" + "\n".join(unique_results[:30])
+            
+        return f"Could not find any clear definitions for '{symbol_name}'. Try using grep_search for broader results."
 
     def self_check(self) -> Dict[str, Any]:
         """Run a global self-check across tools and environment."""
@@ -752,8 +1014,15 @@ Please generate an image matching this description. Use your image generation ca
             {"name": "get_explorer_data", "description": "Get recursive directory structure as JSON for UI. Args: path (str, optional)"},
             {"name": "search_files", "description": "Search for files by name pattern. Args: pattern (str), path (str, optional)"},
             {"name": "grep_search", "description": "Search for text inside files. Args: query (str), path (str, optional), extensions (list, optional)"},
-            {"name": "run_command", "description": "Execute shell command. Args: command (str), cwd (str, optional)"},
+            {"name": "run_shell_command", "description": "Execute shell command. Args: command (str), cwd (str, optional), timeout (int, optional), is_background (bool, optional)"},
+            {"name": "read_background_output", "description": "Read logs of a background process. Args: process_id (str)"},
+            {"name": "list_background_processes", "description": "List all background processes. No args."},
+            {"name": "ask_user_question", "description": "Pause execution to ask the user a question and wait for their response. Args: question (str)"},
+            {"name": "save_memory", "description": "Save persistent project rules/preferences. Args: category (str), title (str), content (str)"},
+            {"name": "todo_write", "description": "Write to the agent's plan/scratchpad. Args: content (str)"},
             {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"},
+            {"name": "spawn_subagent", "description": "Spawn a specialized sub-agent for a focused task. Args: agent_type (str), task (str)"},
+            {"name": "activate_skill", "description": "Load a specific file-based skill to adopt expert behaviors. Args: skill_name (str)"},
             {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
             {"name": "web_search", "description": "Search the web. Args: query (str)"},
             {"name": "web_browse", "description": "Browse a website. Args: url (str)"},
@@ -789,8 +1058,15 @@ Please generate an image matching this description. Use your image generation ca
             "get_explorer_data": self.get_explorer_data,
             "search_files": self.search_files,
             "grep_search": self.grep_search,
-            "run_command": self.run_command,
+            "run_shell_command": self.run_shell_command,
+            "read_background_output": self.read_background_output,
+            "list_background_processes": self.list_background_processes,
+            "ask_user_question": self.ask_user_question,
+            "save_memory": self.save_memory,
+            "todo_write": self.todo_write,
             "delete_path": self.delete_path,
+            "spawn_subagent": self.spawn_subagent,
+            "activate_skill": self.activate_skill,
             # Analysis Tools
             "get_dependencies": self.get_dependencies,
             "get_symbol_info": self.get_symbol_info,
