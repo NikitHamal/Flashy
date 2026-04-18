@@ -8,18 +8,27 @@ DEFAULT_CONFIG = {
     "Secure_1PSIDTS": "",
     "model": "G_3_0_FLASH",
     "GITHUB_PAT": "",
-    "active_provider": "gemini"
+    "active_provider": "gemini",
+    "computer_use_provider": "airforce",
+    "computer_use_model": "",
 }
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "w") as f:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_CONFIG, f, indent=4)
-        return DEFAULT_CONFIG
-    
-    with open(CONFIG_FILE, "r") as f:
-        return json.load(f)
+        return dict(DEFAULT_CONFIG)
+
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    merged = dict(DEFAULT_CONFIG)
+    merged.update(data)
+    if merged != data:
+        save_config(merged)
+    return merged
+
 
 def save_config(config):
-    with open(CONFIG_FILE, "w") as f:
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)

@@ -2,10 +2,18 @@ fastapi==0.104.1
 uvicorn==0.24.0
 pydantic==2.5.0
 httpx==0.25.1
-gemini_webapi==0.2.3
+gemini_webapi>=1.0.0
 aiohttp==3.9.1
 curl_cffi==0.5.9
 chardet==5.2.0
 requests_html==0.10.0
 python-dotenv==1.0.0
 pycryptodome==3.20.0
+Pillow==10.4.0
+mss==10.0.0
+PyAutoGUI==0.9.54
+pyperclip==1.9.0
+psutil==7.0.0
+anthropic>=0.39.0
+opencv-python>=4.8.0
+pywin32; sys_platform == 'win32'

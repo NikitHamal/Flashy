@@ -47,7 +47,7 @@ from .storage import (
     add_workspace,
 )
 from .websocket_manager import ws_manager, MessageType
-from .routers import git_routes, workspace, chat, config, agents, memory
+from .routers import git_routes, workspace, chat, config, agents, memory, computer_use
 
 app = FastAPI()
 
@@ -62,6 +62,7 @@ app.include_router(chat.router)
 app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
+app.include_router(computer_use.router)
 
 from . import qwencode_bridge
 
@@ -80,10 +81,13 @@ async def spa_fallback_handler(request: Request, __):
         "/proxy_image",
         "/config",
         "/git",
+        "/api/computer-use",
     )
     path = request.url.path
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    if path == "/computer-use" or path.startswith("/computer-use/"):
+        return FileResponse("frontend/computer-use.html")
     return FileResponse("frontend/index.html")
 
 
@@ -100,6 +104,16 @@ async def favicon():
 @app.get("/qwencode", include_in_schema=False)
 async def serve_qwen_code_ui():
     return FileResponse("frontend/qwencode.html")
+
+
+@app.get("/computer-use", include_in_schema=False)
+async def serve_computer_use_ui():
+    return FileResponse("frontend/computer-use.html")
+
+
+@app.get("/computer-use/{session_id}", include_in_schema=False)
+async def serve_computer_use_session_ui(session_id: str):
+    return FileResponse("frontend/computer-use.html")
 
 
 app.add_middleware(

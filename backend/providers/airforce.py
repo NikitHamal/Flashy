@@ -66,6 +66,20 @@ class AirforceProvider(BaseProvider):
             "top_p": kwargs.get("top_p", 1.0),
         }
 
+        tools = kwargs.get("tools")
+        if tools:
+            payload["tools"] = tools
+            tool_choice = kwargs.get("tool_choice")
+            if tool_choice and tool_choice not in ("required",):
+                payload["tool_choice"] = tool_choice
+            else:
+                payload["tool_choice"] = "auto"
+
+            is_openai_pass = kwargs.get("is_openai_pass_through", False)
+            if not is_openai_pass:
+                payload.pop("tools", None)
+                payload.pop("tool_choice", None)
+
         proxy_arg = kwargs.get("proxy")
         proxies = []
         if isinstance(proxy_arg, str) and proxy_arg:
@@ -111,39 +125,96 @@ class AirforceProvider(BaseProvider):
                         return
 
                     stream_success = True
-                    async for chunk_bytes in resp.aiter_content():
-                        line = chunk_bytes.decode("utf-8", errors="ignore").strip()
-                        if not line:
-                            continue
-                        
-                        if "Ratelimit Exceeded!" in line:
-                            if attempt < max_retries - 1:
-                                logger.warning(f"[AIRFORCE] 'Ratelimit Exceeded!' in stream. Retrying attempt {attempt+2}/{max_retries}...")
-                                stream_success = False
-                                break
-                            else:
-                                yield {"error": "Airforce Error: Ratelimit Exceeded!"}
-                                return
+                    buffer = ""
+                    tool_calls_acc: Dict[int, Dict] = {}
+                    raw_chunk_count = 0
 
-                        if line.startswith("data: "):
-                            chunk_str = line[6:]
-                            if chunk_str == "[DONE]":
-                                break
-                            
-                            try:
-                                data = json.loads(chunk_str)
-                                if "choices" in data and len(data["choices"]) > 0:
-                                    content = data["choices"][0].get("delta", {}).get("content", "")
-                                    if content:
-                                        yield {"text": content}
-                            except json.JSONDecodeError:
+                    async for chunk_bytes in resp.aiter_content():
+                        buffer += chunk_bytes.decode("utf-8", errors="ignore")
+
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
+                            line = line.strip()
+
+                            if not line:
                                 continue
+
+                            if "Ratelimit Exceeded!" in line:
+                                if attempt < max_retries - 1:
+                                    logger.warning(f"[AIRFORCE] 'Ratelimit Exceeded!' in stream. Retrying attempt {attempt+2}/{max_retries}...")
+                                    stream_success = False
+                                    break
+                                else:
+                                    yield {"error": "Airforce Error: Ratelimit Exceeded!"}
+                                    return
+
+                            if line == "data: [DONE]":
+                                for idx in sorted(tool_calls_acc.keys()):
+                                    tc = tool_calls_acc[idx]
+                                    yield {
+                                        "tool_call": {
+                                            "id": tc.get("id", f"call_{idx}"),
+                                            "name": tc.get("function", {}).get("name", ""),
+                                            "arguments": tc.get("function", {}).get("arguments", "{}"),
+                                        }
+                                    }
+                                tool_calls_acc = {}
+                                continue
+
+                            if line.startswith("data: "):
+                                chunk_str = line[6:]
+
+                                try:
+                                    data = json.loads(chunk_str)
+                                    raw_chunk_count += 1
+                                    choices = data.get("choices", [])
+                                    if choices:
+                                        choice = choices[0]
+                                        delta = choice.get("delta", {})
+                                        content = delta.get("content")
+                                        finish_reason = choice.get("finish_reason")
+                                        delta_tool_calls = delta.get("tool_calls")
+
+                                        if delta_tool_calls:
+                                            for tc_delta in delta_tool_calls:
+                                                idx = tc_delta.get("index", 0)
+                                                if idx not in tool_calls_acc:
+                                                    tool_calls_acc[idx] = {
+                                                        "id": "",
+                                                        "function": {"name": "", "arguments": ""},
+                                                    }
+                                                acc = tool_calls_acc[idx]
+                                                if tc_delta.get("id"):
+                                                    acc["id"] = tc_delta["id"]
+                                                fn = tc_delta.get("function", {})
+                                                if fn.get("name"):
+                                                    acc["function"]["name"] += fn["name"]
+                                                if fn.get("arguments"):
+                                                    acc["function"]["arguments"] += fn["arguments"]
+
+                                        if content:
+                                            yield {"text": content}
+
+                                        if finish_reason:
+                                            for tidx in sorted(tool_calls_acc.keys()):
+                                                tc = tool_calls_acc[tidx]
+                                                yield {
+                                                    "tool_call": {
+                                                        "id": tc.get("id", f"call_{tidx}"),
+                                                        "name": tc.get("function", {}).get("name", ""),
+                                                        "arguments": tc.get("function", {}).get("arguments", "{}"),
+                                                    }
+                                                }
+                                            tool_calls_acc = {}
+                                            yield {"is_final": True, "finish_reason": finish_reason}
+
+                                except json.JSONDecodeError:
+                                    continue
                     
                     if stream_success:
                         yield {"is_final": True}
                         return
                     else:
-                        # Continue to next retry attempt if stream was broken by rate limit
                         delay = random.uniform(1.0, 3.0)
                         await asyncio.sleep(delay)
                         continue

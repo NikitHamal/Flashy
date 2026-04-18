@@ -96,11 +96,18 @@ class DeepInfraProvider(BaseProvider):
             "max_tokens": kwargs.get("max_tokens"),
             "top_p": kwargs.get("top_p", 1.0),
         }
-        # Only include valid OpenAI fields that DeepInfra supports
         if tools:
             payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-            logger.info(f"[DEEPINFRA] Passing {len(tools)} tools to API")
+            tool_choice = kwargs.get("tool_choice")
+            if tool_choice and tool_choice not in ("required",):
+                payload["tool_choice"] = tool_choice
+            else:
+                payload["tool_choice"] = "auto"
+
+            is_openai_pass = kwargs.get("is_openai_pass_through", False)
+            if not is_openai_pass:
+                payload.pop("tools", None)
+                payload.pop("tool_choice", None)
 
         proxy_arg = kwargs.get("proxy")
         proxies = []
@@ -140,6 +147,10 @@ class DeepInfraProvider(BaseProvider):
                         else:
                             yield {"error": f"DeepInfra Error: 429 Rate Limit Exceeded after {max_retries} retries. Please try again later or configure a proxy."}
                             return
+
+                    if stream_resp.status_code == 405:
+                        yield {"error": f"DeepInfra Error: 405 Method Not Allowed. This model or endpoint does not support the requested operation (e.g., tool calling with images). Try a different model or provider."}
+                        return
 
                     if stream_resp.status_code != 200:
                         error_text = stream_resp.text

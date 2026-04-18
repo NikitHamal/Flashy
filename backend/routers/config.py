@@ -13,6 +13,8 @@ class ConfigUpdate(BaseModel):
     active_provider: Optional[str] = None
     deepinfra_api_key: Optional[str] = None
     qwen_api_key: Optional[str] = None
+    computer_use_provider: Optional[str] = None
+    computer_use_model: Optional[str] = None
 
 @router.get("/config")
 async def get_config():
