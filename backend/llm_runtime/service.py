@@ -18,6 +18,7 @@ class LLMService:
         self.config = load_config()
         self.sessions: Dict[str, Any] = {}
         self.provider_sessions: Dict[str, List[Dict[str, str]]] = {}
+        self.qwen_conversations: Dict[str, Any] = {}
         self.agents: Dict[str, CodingAgent] = {}
         self.interrupted_sessions: set = set()
         self.active_tasks: Dict[str, asyncio.Task] = {}
@@ -191,7 +192,12 @@ class LLMService:
                             chat_type=chat_type,
                             thinking_enabled=thinking_enabled,
                             thinking_mode=thinking_mode,
+                            files=files,
+                            conversation=self.qwen_conversations.get(session_id) if provider_name == "qwen" else None,
                         ):
+                            if "conversation" in chunk:
+                                self.qwen_conversations[session_id] = chunk["conversation"]
+                                continue
                             if "error" in chunk:
                                 yield {"error": chunk["error"]}
                                 message_parts.append({"type": "error", "content": chunk["error"]})
@@ -375,6 +381,7 @@ class LLMService:
         self.gemini_client = None
         self.sessions = {}
         self.provider_sessions = {}
+        self.qwen_conversations = {}
         self.agents = {}
         self.interrupted_sessions.clear()
         self.active_tasks.clear()

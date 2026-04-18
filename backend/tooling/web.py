@@ -1,67 +1,10 @@
 import os
-import subprocess
-import glob
-import tempfile
-import shutil
 import json
-import asyncio
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
-from ..git_manager import GitManager
-from ..websocket_manager import ws_manager
-from ..image_service import get_image_service, ImageService
+from ..image_service import get_image_service
 
 class WebMixin:
-    def web_search(self, query: str) -> str:
-        """Search the web using DuckDuckGo."""
-        try:
-            from requests_html import HTMLSession
-            session = HTMLSession()
-            session.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            })
-            # DuckDuckGo HTML version (simpler to parse)
-            url = f"https://html.duckduckgo.com/html/?q={query}"
-            resp = session.get(url, timeout=20)
-            results = []
-            for item in resp.html.find('.result'):
-                title_node = item.find('.result__a', first=True)
-                snippet_node = item.find('.result__snippet', first=True)
-                if title_node and snippet_node:
-                    results.append(f"Title: {title_node.text}\nLink: {title_node.attrs['href']}\nSnippet: {snippet_node.text}\n")
-            
-            if results:
-                return "\n".join(results[:8])
-            return "No web results found."
-        except Exception as e:
-            return f"Error during web search: {str(e)}"
-        finally:
-            try:
-                if 'session' in locals():
-                    session.close()
-            except Exception:
-                pass
-
-    def web_browse(self, url: str) -> str:
-        """Browse a website and return its text content."""
-        try:
-            from requests_html import HTMLSession
-            session = HTMLSession()
-            resp = session.get(url, timeout=20)
-            # Basic text extraction
-            text = resp.html.text
-            # Clean up excessive whitespace
-            import re
-            text = re.sub(r'\n\s*\n', '\n\n', text)
-            return f"Content of {url}:\n\n{text[:10000]}..." # Cap at 10k chars
-        except Exception as e:
-            return f"Error browsing {url}: {str(e)}"
-        finally:
-            try:
-                if 'session' in locals():
-                    session.close()
-            except Exception:
-                pass
 
     def generate_image(self, prompt: str, save_to_project: bool = False, filename: str = None) -> str:
         """

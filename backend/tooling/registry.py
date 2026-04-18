@@ -36,8 +36,6 @@ class ToolRegistryMixin:
             {"name": "spawn_subagent", "description": "Spawn a specialized sub-agent for a focused task. Args: agent_type (str), task (str)"},
             {"name": "activate_skill", "description": "Load a specific file-based skill to adopt expert behaviors. Args: skill_name (str)"},
             {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
-            {"name": "web_search", "description": "Search the web. Args: query (str)"},
-            {"name": "web_browse", "description": "Browse a website. Args: url (str)"},
             {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"},
             {"name": "self_check", "description": "Run a global health check for tools and environment. No args."},
             {"name": "git_status", "description": "Get git status. No args."},
@@ -82,9 +80,6 @@ class ToolRegistryMixin:
             # Analysis Tools
             "get_dependencies": self.get_dependencies,
             "get_symbol_info": self.get_symbol_info,
-            # Web Tools
-            "web_search": self.web_search,
-            "web_browse": self.web_browse,
             # Git Tools
             "self_check": self.self_check,
             "git_status": self.git_status,

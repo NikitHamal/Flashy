@@ -325,3 +325,98 @@ def generate_cookies(
         "rawData": ssxmod_itna_data,
         "rawData2": ssxmod_itna2_data,
     }
+
+
+import asyncio
+import logging
+
+logger = logging.getLogger("flashy.qwen.cookies")
+
+_current_cookies: Dict[str, Any] = {
+    "ssxmod_itna": "",
+    "ssxmod_itna2": "",
+    "timestamp": 0,
+}
+
+REFRESH_INTERVAL_SECONDS = 15 * 60
+
+_lock = asyncio.Lock()
+_refresh_task: Optional[asyncio.Task] = None
+_stop_event = asyncio.Event()
+
+
+async def refresh_cookies() -> Dict[str, Any]:
+    global _current_cookies
+    try:
+        result = await asyncio.to_thread(generate_cookies)
+
+        async with _lock:
+            _current_cookies = {
+                "ssxmod_itna": result["ssxmod_itna"],
+                "ssxmod_itna2": result["ssxmod_itna2"],
+                "timestamp": result["timestamp"],
+            }
+
+        logger.debug("[QWEN] SSXMOD cookies refreshed")
+    except Exception as e:
+        logger.warning(f"[QWEN] SSXMOD cookie refresh failed: {e}")
+    return _current_cookies
+
+
+async def _refresh_loop() -> None:
+    try:
+        await refresh_cookies()
+
+        while not _stop_event.is_set():
+            try:
+                await asyncio.wait_for(_stop_event.wait(), timeout=REFRESH_INTERVAL_SECONDS)
+            except asyncio.TimeoutError:
+                await refresh_cookies()
+    finally:
+        _stop_event.clear()
+
+
+def init_ssxmod_manager() -> None:
+    global _refresh_task
+
+    if _refresh_task is not None and not _refresh_task.done():
+        return
+
+    _stop_event.clear()
+    try:
+        _refresh_task = asyncio.get_event_loop().create_task(_refresh_loop())
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _refresh_task = loop.create_task(_refresh_loop())
+
+    logger.info(f"[QWEN] SSXMOD manager started, refresh interval: {REFRESH_INTERVAL_SECONDS // 60} min")
+
+
+async def stop_ssxmod_manager() -> None:
+    global _refresh_task
+
+    if _refresh_task is None:
+        return
+
+    _stop_event.set()
+    try:
+        await _refresh_task
+    finally:
+        _refresh_task = None
+        logger.debug("[QWEN] SSXMOD refresh stopped")
+
+
+async def get_ssxmod_itna() -> str:
+    async with _lock:
+        return str(_current_cookies.get("ssxmod_itna", ""))
+
+
+async def get_ssxmod_itna2() -> str:
+    async with _lock:
+        return str(_current_cookies.get("ssxmod_itna2", ""))
+
+
+async def get_cookies() -> Dict[str, Any]:
+    async with _lock:
+        return dict(_current_cookies)

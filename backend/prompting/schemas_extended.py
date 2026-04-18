@@ -175,25 +175,5 @@ TOOL_SCHEMAS_EXTENDED: Dict[str, Dict[str, Any]] = {'delegate_task': {'best_prac
                 'example': '{"action": "self_check", "args": {}}',
                 'name': 'self_check',
                 'parameters': {},
-                'returns': 'Structured diagnostics for workspace, git, commands, and web '
-                           'dependencies'},
- 'web_browse': {'best_practices': ['Use to read documentation pages',
-                                   'Follow up on web_search results'],
-                'description': 'Browse a specific URL and extract text content.',
-                'example': '{"action": "web_browse", "args": {"url": '
-                           '"https://docs.python.org/3/library/asyncio.html"}}',
-                'name': 'web_browse',
-                'parameters': {'url': {'description': 'Full URL to browse',
-                                       'required': True,
-                                       'type': 'string'}},
-                'returns': 'Page text content (capped at 10k chars)'},
- 'web_search': {'best_practices': ['Use for documentation, error solutions, best practices',
-                                   'Be specific in queries for better results'],
-                'description': 'Search the web for information using DuckDuckGo.',
-                'example': '{"action": "web_search", "args": {"query": "python asyncio best '
-                           'practices 2025"}}',
-                'name': 'web_search',
-                'parameters': {'query': {'description': 'Search query',
-                                         'required': True,
-                                         'type': 'string'}},
-                'returns': 'Top search results with titles, links, and snippets'}}
+'returns': 'Structured diagnostics for workspace, git, commands, and web '
+                            'dependencies'}}
