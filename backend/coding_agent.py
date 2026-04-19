@@ -158,6 +158,19 @@ class CodingAgent:
         # Get valid tool names
         valid_tools = {t['name'] for t in self.tools.get_available_tools()}
         valid_tools.add("delegate_task")
+        valid_tools.update({
+            "run_command",
+            "shell_command",
+            "execute_command",
+            "read",
+            "cat",
+            "bash",
+            "glob",
+            "question",
+            "ask",
+            "ls",
+            "tree",
+        })
 
         # Strategy 1: JSON code blocks (most reliable)
         json_blocks = self._json_block_pattern.findall(text)

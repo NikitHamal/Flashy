@@ -6,7 +6,7 @@ from ..providers import get_provider_service
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("airforce", "deepinfra", "qwen", "gradient")
+DEFAULT_PROVIDERS = ("gemini", "airforce", "deepinfra", "qwen", "gradient")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
@@ -56,6 +56,20 @@ class ProviderCatalog:
             for model in models:
                 model_id = model.get("id", "")
                 display_name = model.get("name") or model_id
+                model_capabilities = model.get("capabilities", {})
+                model_max_context = model.get("max_context") or model.get("context_window", 128000 if provider_name == "qwen" else 32000)
+
+                if model_capabilities:
+                    caps = {
+                        "chat": True,
+                        "stream": True,
+                        "vision": model_capabilities.get("vision", False),
+                        "reasoning": model_capabilities.get("thinking", False),
+                        "tools": True,
+                    }
+                else:
+                    caps = infer_capabilities(model_id)
+
                 all_models.append(
                     {
                         "id": f"{provider_name}/{model_id}",
@@ -64,8 +78,8 @@ class ProviderCatalog:
                         "owned_by": provider_name,
                         "name": display_name,
                         "provider": provider_name,
-                        "context_window": model.get("context_window", 128000 if provider_name == "qwen" else 32000),
-                        "capabilities": infer_capabilities(model_id),
+                        "context_window": model_max_context,
+                        "capabilities": caps,
                     }
                 )
 

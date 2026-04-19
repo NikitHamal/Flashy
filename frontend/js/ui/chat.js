@@ -114,7 +114,6 @@ Object.assign(UI, {
             delete_path: { icon: 'delete', label: 'Delete Path' },
             get_dependencies: { icon: 'inventory', label: 'Dependencies' },
             get_symbol_info: { icon: 'code', label: 'Symbol Info' },
-            web_search: { icon: 'public', label: 'Web Search' },
             web_browse: { icon: 'travel_explore', label: 'Web Browse' },
             git_status: { icon: 'fact_check', label: 'Git Status' },
             git_commit: { icon: 'commit', label: 'Git Commit' },
@@ -257,9 +256,11 @@ Object.assign(UI, {
                 dots.before(activeText);
             }
             activeText.dataset.raw += chunk.text;
-            const displayRaw = activeText.dataset.raw.includes('```json')
-                ? activeText.dataset.raw.split('```json')[0]
-                : activeText.dataset.raw;
+            let displayRaw = activeText.dataset.raw;
+            if (displayRaw.includes('```json')) {
+                const beforeJson = displayRaw.split('```json')[0];
+                displayRaw = beforeJson.trim() ? beforeJson : displayRaw;
+            }
             activeText.innerHTML = marked.parse(displayRaw);
             activeText.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
         }
@@ -299,6 +300,10 @@ Object.assign(UI, {
             });
             this.setAgentState('idle');
             if (dots) dots.remove();
+
+            if (!bubble.textContent.trim() && (!chunk.images || !chunk.images.length) && !lastMsg.querySelector('.tool-pill') && !lastMsg.querySelector('.thought-block') && !lastMsg.querySelector('.generated-images')) {
+                lastMsg.remove();
+            }
         }
 
         this.scrollToBottom();

@@ -44,6 +44,19 @@ class Agent:
         # Get list of valid tool names for validation
         valid_tools = {t['name'] for t in self.tools.get_available_tools()}
         valid_tools.add("delegate_task")  # Special tool not in the standard list
+        valid_tools.update({
+            "run_command",
+            "shell_command",
+            "execute_command",
+            "read",
+            "cat",
+            "bash",
+            "glob",
+            "question",
+            "ask",
+            "ls",
+            "tree",
+        })
 
         # 1. Primary: Standard Markdown Code Blocks (most reliable)
         if '```json' in text:

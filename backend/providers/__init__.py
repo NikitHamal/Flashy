@@ -13,6 +13,9 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "gradient":
         from .gradient import GradientProvider
         return GradientProvider()
+    elif provider_name == "gemini":
+        from .gemini import GeminiProvider
+        return GeminiProvider()
     else:
         return None
 

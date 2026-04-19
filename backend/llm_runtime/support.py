@@ -19,6 +19,9 @@ async def generate_simple_response(
     message_parts: list,
     images: list,
     history,
+    chat_type: str = "t2t",
+    thinking_enabled: bool = True,
+    thinking_mode: str = "Auto",
 ):
     if provider_name == "gemini":
         gemini_resp = await send_with_retry(service, chat_session, full_prompt, files=files, session_id=session_id)
@@ -49,6 +52,11 @@ async def generate_simple_response(
         yield {"error": f"Provider '{provider_name}' not found.", "is_final": True}
         return
 
+    # Get Qwen conversation if available
+    conversation = None
+    if provider_name == "qwen" and hasattr(service, 'qwen_conversations') and session_id:
+        conversation = service.qwen_conversations.get(session_id)
+
     messages = [{"role": "user", "content": full_prompt}]
     accumulated_text = ""
     accumulated_thought = ""
@@ -57,9 +65,18 @@ async def generate_simple_response(
         messages,
         service.config.get("model", ""),
         proxy=service.config.get("proxy"),
+        chat_type=chat_type,
+        thinking_enabled=thinking_enabled,
+        thinking_mode=thinking_mode,
+        files=files,
+        conversation=conversation,
     ):
         if "error" in chunk:
             yield {"error": chunk["error"], "is_final": True}
+        if "conversation" in chunk:
+            if hasattr(service, 'qwen_conversations') and session_id:
+                service.qwen_conversations[session_id] = chunk["conversation"]
+            continue
         if "thought" in chunk:
             accumulated_thought += chunk["thought"]
             yield {"thought": chunk["thought"]}
