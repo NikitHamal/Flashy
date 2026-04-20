@@ -15,6 +15,10 @@ class ConfigUpdate(BaseModel):
     qwen_api_key: Optional[str] = None
     computer_use_provider: Optional[str] = None
     computer_use_model: Optional[str] = None
+    grok_proxy: Optional[str] = None
+    kimi_token: Optional[str] = None
+    zai_token: Optional[str] = None
+    glm_refresh_token: Optional[str] = None
 
 @router.get("/config")
 async def get_config():

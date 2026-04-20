@@ -11,6 +11,10 @@ DEFAULT_CONFIG = {
     "active_provider": "gemini",
     "computer_use_provider": "airforce",
     "computer_use_model": "",
+    "grok_proxy": "",
+    "kimi_token": "",
+    "zai_token": "",
+    "glm_refresh_token": "",
 }
 
 

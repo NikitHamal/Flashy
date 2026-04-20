@@ -70,6 +70,8 @@ class OpenAIAdapter:
                 }
             ],
         }
+        if completion.thoughts:
+            response["choices"][0]["message"]["reasoning_content"] = completion.thoughts
         if completion.tool_calls:
             response["choices"][0]["message"]["tool_calls"] = [
                 {
@@ -82,6 +84,8 @@ class OpenAIAdapter:
                 }
                 for tool_call in completion.tool_calls
             ]
+        if completion.model:
+            response["model"] = completion.model
         return response
 
     async def stream_openai_events(self, request: ChatCompletionRequest, provider_request: ProviderRequest):
@@ -118,6 +122,9 @@ class OpenAIAdapter:
 
                 if event_type == "text":
                     yield _make_chunk({"content": event["text"]}, None)
+
+                elif event_type == "thought":
+                    yield _make_chunk({"reasoning_content": event["thought"]}, None)
 
                 elif event_type == "tool_call":
                     tool_call = event["tool_call"]

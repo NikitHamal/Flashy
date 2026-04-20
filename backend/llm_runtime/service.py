@@ -190,15 +190,29 @@ class LLMService:
                         accumulated_thought = ""
                         in_think_block = False
 
+                        provider_kwargs = {
+                            "proxy": self.config.get("proxy"),
+                            "chat_type": chat_type,
+                            "thinking_enabled": thinking_enabled,
+                            "thinking_mode": thinking_mode,
+                            "files": files,
+                            "conversation": self.qwen_conversations.get(session_id) if provider_name == "qwen" else None,
+                        }
+                        if provider_name == "grok":
+                            provider_kwargs["proxy"] = self.config.get("grok_proxy") or provider_kwargs["proxy"]
+                        elif provider_name == "deepseek":
+                            provider_kwargs["token"] = self.config.get("deepseek_token", "")
+                        elif provider_name == "kimi":
+                            provider_kwargs["token"] = self.config.get("kimi_token", "")
+                        elif provider_name == "zai":
+                            provider_kwargs["token"] = self.config.get("zai_token", "")
+                        elif provider_name == "glm":
+                            provider_kwargs["token"] = self.config.get("glm_refresh_token", "")
+
                         async for chunk in provider_svc.generate_stream(
                             self.provider_sessions[session_id],
                             self.config.get("model", ""),
-                            proxy=self.config.get("proxy"),
-                            chat_type=chat_type,
-                            thinking_enabled=thinking_enabled,
-                            thinking_mode=thinking_mode,
-                            files=files,
-                            conversation=self.qwen_conversations.get(session_id) if provider_name == "qwen" else None,
+                            **provider_kwargs
                         ):
                             if "conversation" in chunk:
                                 self.qwen_conversations[session_id] = chunk["conversation"]
@@ -264,7 +278,7 @@ class LLMService:
                             elif images:
                                 yield {"text": "", "images": images, "is_final": True}
                             else:
-                                yield {"text": "[Agent completed]", "is_final": True}
+                                yield {"text": "", "is_final": True}
                         else:
                             # For Qwen and other streaming providers, text was already
                             # yielded incrementally. Only send is_final marker.
@@ -274,7 +288,7 @@ class LLMService:
                             elif images:
                                 yield {"text": "", "images": images, "is_final": True}
                             else:
-                                yield {"text": "[Agent completed]", "is_final": True}
+                                yield {"text": "", "is_final": True}
                         break
 
                     display_text = clean_response_text(self, clean_response, tool_call.get("raw_match"))

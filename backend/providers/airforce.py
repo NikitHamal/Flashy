@@ -36,6 +36,56 @@ BROWSER_HEADERS = [
     },
 ]
 
+# Verified free models on Airforce (no pay-as-you-go required)
+# Format: (model_id, display_name, capabilities)
+FREE_MODELS = [
+    # Explicitly free tier
+    ("roleplay:free", "Roleplay (Free)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": False}),
+    ("step-3.5-flash:free", "Step 3.5 Flash (Free)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gemma3-270m:free", "Gemma 3 270M (Free)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": False}),
+    ("grok-4.1-mini:free", "Grok 4.1 Mini (Free)", {"chat": True, "stream": True, "vision": False, "reasoning": True, "tools": True}),
+    # Free tier models (verified working without pay-as-you-go)
+    ("nemotron-3-super", "Nemotron 3 Super", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("unmoderated-gpt", "Unmoderated GPT", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("venice", "Venice", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("plutotext-r3-emotional", "PlutoText R3 Emotional", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": False}),
+    ("bard", "Bard", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": False}),
+    ("grok-3", "Grok 3", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("glm-4.7-flash", "GLM 4.7 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("glm-4.5-air", "GLM 4.5 Air", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("glm-5.1", "GLM 5.1", {"chat": True, "stream": True, "vision": False, "reasoning": True, "tools": True}),
+    ("gemini-3-flash", "Gemini 3 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gemini-2.0-flash", "Gemini 2.0 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gemini-2.5-flash", "Gemini 2.5 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("deepseek-v3-0324", "DeepSeek V3 0324", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("deepseek-v3.2", "DeepSeek V3.2", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("kimi-k2", "Kimi K2", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("kimi-k2.5", "Kimi K2.5", {"chat": True, "stream": True, "vision": False, "reasoning": True, "tools": True}),
+    ("qwen3.5", "Qwen 3.5", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("llama-4-scout", "Llama 4 Scout", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gpt-4o-mini", "GPT-4o Mini", {"chat": True, "stream": True, "vision": True, "reasoning": False, "tools": True}),
+    ("claude-sonnet-4.6", "Claude Sonnet 4.6", {"chat": True, "stream": True, "vision": True, "reasoning": False, "tools": True}),
+    ("claude-sonnet-4.5-uncensored", "Claude Sonnet 4.5 Uncensored", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gpt-oss-20b", "GPT-OSS 20B", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("gpt-5.1-chat", "GPT 5.1 Chat", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("minimax-m2.5", "MiniMax M2.5", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("minimax-m2.7", "MiniMax M2.7", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+]
+
+# Models confirmed as pay-as-you-go only (excluded from free list)
+PAID_MODELS = {
+    "gpt-5.4-mini-p2g", "gemini-3.1-flash-lite-p2g", "claude-opus-4.5-uncensored",
+    "claude-opus-4.6-uncensored", "claude-sonnet-4.6-uncensored", "nano-banana-2-search",
+    "sonar-deepresearch", "gemini-2.5-pro", "claude-opus-4.5-p2g", "claude-haiku-4.5-p2g",
+    "claude-sonnet-4.5-p2g", "claude-sonnet-4.6-p2g", "gpt-5.4-p2g", "gpt-5.4-nano-p2g",
+    "gpt-5.3-codex-p2g", "gpt-5.1-codex-mini-p2g", "gemini-3-flash-p2g",
+}
+
+# Whitelist-only models (restricted access)
+WHITELIST_ONLY = {"gemini-3.1-pro", "gemini-3-pro", "gpt-5.2-chat"}
+
+
 class AirforceProvider(BaseProvider):
     URL = "https://api.airforce/v1/chat/completions"
     _request_count = 0
@@ -45,7 +95,7 @@ class AirforceProvider(BaseProvider):
         self, messages: List[Dict[str, str]], model: str, **kwargs
     ) -> AsyncGenerator[Dict[str, Any], None]:
         if not model:
-            model = "gpt-4o"
+            model = "nemotron-3-super"
 
         AirforceProvider._request_count += 1
         now = time.time()
@@ -121,7 +171,14 @@ class AirforceProvider(BaseProvider):
                             return
 
                     if resp.status_code != 200:
-                        yield {"error": f"Airforce Error: {resp.status_code} - {resp.text}"}
+                        error_text = resp.text[:500]
+                        if "pay-as-you-go" in error_text.lower() or "pay as you go" in error_text.lower():
+                            yield {"error": f"Airforce Error: Model '{model}' requires pay-as-you-go. Use a free model instead."}
+                            return
+                        if "whitelist" in error_text.lower():
+                            yield {"error": f"Airforce Error: Model '{model}' is whitelist-only and not available."}
+                            return
+                        yield {"error": f"Airforce Error: {resp.status_code} - {error_text}"}
                         return
 
                     stream_success = True
@@ -147,6 +204,18 @@ class AirforceProvider(BaseProvider):
                                 else:
                                     yield {"error": "Airforce Error: Ratelimit Exceeded!"}
                                     return
+
+                            if "Not enough requests remaining" in line:
+                                yield {"error": f"Airforce Error: Model '{model}' costs too many requests for free tier. Try a lighter model."}
+                                return
+
+                            if "pay-as-you-go" in line.lower() or "pay as you go" in line.lower():
+                                yield {"error": f"Airforce Error: Model '{model}' requires pay-as-you-go."}
+                                return
+
+                            if "whitelist" in line.lower():
+                                yield {"error": f"Airforce Error: Model '{model}' is whitelist-only."}
+                                return
 
                             if line == "data: [DONE]":
                                 for idx in sorted(tool_calls_acc.keys()):
@@ -235,20 +304,14 @@ class AirforceProvider(BaseProvider):
                 resp = await session.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Expecting data to be a list or dict containing a list
                     models = data if isinstance(data, list) else data.get("data", [])
-                    return [
-                        {"id": m["id"], "name": m.get("name", m["id"])}
-                        for m in models
-                    ]
+                    all_ids = {m["id"] for m in models if isinstance(m, dict) and "id" in m}
+                    result = []
+                    for mid, name, caps in FREE_MODELS:
+                        if mid in all_ids or mid.endswith(":free"):
+                            result.append({"id": mid, "name": name, "capabilities": caps})
+                    return result
         except Exception as e:
             logger.warning(f"[AIRFORCE] Error fetching models dynamically: {e}")
-            
-        # Fallback
-        return [
-            {"id": "gpt-4o", "name": "GPT-4o (Airforce)"},
-            {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet (Airforce)"},
-            {"id": "llama-3-70b-instruct", "name": "Llama 3 70B (Airforce)"},
-            {"id": "mixtral-8x7b-instruct", "name": "Mixtral 8x7B (Airforce)"},
-            {"id": "gemini-pro", "name": "Gemini Pro (Airforce)"}
-        ]
+
+        return [{"id": mid, "name": name, "capabilities": caps} for mid, name, caps in FREE_MODELS]

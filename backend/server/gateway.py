@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from ..config import load_config
 from ..providers import get_provider_service
 from .catalog import resolve_provider_alias
 
@@ -95,7 +96,7 @@ class ProviderGateway:
         return self.default_provider, model_name
 
     def _provider_kwargs(self, request: ProviderRequest) -> Dict[str, Any]:
-        return {
+        kwargs = {
             "tools": request.tools,
             "tool_choice": request.tool_choice,
             "temperature": request.temperature,
@@ -107,6 +108,19 @@ class ProviderGateway:
             "is_openai_pass_through": request.pass_through,
             **request.metadata,
         }
+        provider_name = resolve_provider_alias(request.provider, self.default_provider)
+        config = load_config()
+        if provider_name == "kimi":
+            kwargs["token"] = config.get("kimi_token", "")
+        elif provider_name == "zai":
+            kwargs["token"] = config.get("zai_token", "")
+        elif provider_name == "zai-free":
+            pass  # no token needed
+        elif provider_name == "glm":
+            kwargs["token"] = config.get("glm_refresh_token", "")
+        elif provider_name == "grok":
+            kwargs["proxy"] = config.get("grok_proxy") or kwargs.get("proxy")
+        return kwargs
 
     async def stream(self, request: ProviderRequest) -> AsyncGenerator[Dict[str, Any], None]:
         provider_name = resolve_provider_alias(request.provider, self.default_provider)
@@ -116,6 +130,7 @@ class ProviderGateway:
             return
 
         normalized_messages = self.normalize_messages(request.messages, pass_through=request.pass_through)
+
         async for chunk in provider_service.generate_stream(
             normalized_messages,
             request.model,

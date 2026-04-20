@@ -9,6 +9,15 @@ from .base import BaseProvider
 
 logger = logging.getLogger("flashy.deepinfra")
 
+DEEPINFRA_FALLBACK_MODELS = [
+    ("Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen 2.5 Coder 32B", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("Qwen/Qwen2.5-72B-Instruct", "Qwen 2.5 72B", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("meta-llama/Meta-Llama-3.1-8B-Instruct", "Llama 3.1 (8B)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("meta-llama/Meta-Llama-3.3-70B-Instruct", "Llama 3.3 (70B)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("deepseek-ai/DeepSeek-V3.2", "DeepSeek V3.2", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("zai-org/GLM-4.7-Flash", "GLM 4.7 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+]
+
 BROWSER_HEADERS = [
     {
         "accept": "*/*",
@@ -297,17 +306,33 @@ class DeepInfraProvider(BaseProvider):
                 resp = await session.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    return [
-                        {"id": m["model_name"], "name": m["model_name"].split("/")[-1]}
-                        for m in data
-                        if m.get("type") == "text-generation"
-                    ]
+                    result = []
+                    for m in data:
+                        if m.get("type") != "text-generation":
+                            continue
+                        model_id = m.get("model_name", "")
+                        pricing = m.get("pricing", {}) or {}
+                        ci = float(pricing.get("cents_per_input_token") or 0)
+                        co = float(pricing.get("cents_per_output_token") or 0)
+                        max_ctx = m.get("max_tokens") or m.get("context_window", 32768)
+                        lower = model_id.lower()
+                        caps = {
+                            "chat": True,
+                            "stream": True,
+                            "vision": any(t in lower for t in ("vl", "vision", "omni")),
+                            "reasoning": any(t in lower for t in ("reason", "think", "r1", "o1", "o3", "qwq")),
+                            "tools": True,
+                        }
+                        display = model_id.split("/")[-1] if "/" in model_id else model_id
+                        result.append({
+                            "id": model_id,
+                            "name": display,
+                            "capabilities": caps,
+                            "context_window": max_ctx,
+                            "cents_per_input_token": ci,
+                            "cents_per_output_token": co,
+                        })
+                    return result
         except Exception:
             pass
-        return [
-            {"id": "Qwen/Qwen2.5-Coder-32B-Instruct", "name": "Qwen 2.5 Coder 32B"},
-            {"id": "Qwen/Qwen2.5-72B-Instruct", "name": "Qwen 2.5 72B"},
-            {"id": "meta-llama/Meta-Llama-3.3-70B-Instruct", "name": "Llama 3.3 (70B)"},
-            {"id": "meta-llama/Meta-Llama-3.1-8B-Instruct", "name": "Llama 3.1 (8B)"},
-            {"id": "mistralai/Mistral-7B-Instruct-v0.3", "name": "Mistral 7B v0.3"},
-        ]
+        return [{"id": mid, "name": name, "capabilities": caps} for mid, name, caps in DEEPINFRA_FALLBACK_MODELS]

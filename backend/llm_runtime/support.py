@@ -52,6 +52,16 @@ async def generate_simple_response(
         yield {"error": f"Provider '{provider_name}' not found.", "is_final": True}
         return
 
+    proxy = service.config.get("proxy")
+    if provider_name == "grok":
+        proxy = service.config.get("grok_proxy") or proxy
+    elif provider_name == "kimi":
+        provider_kwargs["token"] = service.config.get("kimi_token", "")
+    elif provider_name == "zai":
+        provider_kwargs["token"] = service.config.get("zai_token", "")
+    elif provider_name == "glm":
+        provider_kwargs["token"] = service.config.get("glm_refresh_token", "")
+
     # Get Qwen conversation if available
     conversation = None
     if provider_name == "qwen" and hasattr(service, 'qwen_conversations') and session_id:
@@ -64,12 +74,7 @@ async def generate_simple_response(
     async for chunk in provider_svc.generate_stream(
         messages,
         service.config.get("model", ""),
-        proxy=service.config.get("proxy"),
-        chat_type=chat_type,
-        thinking_enabled=thinking_enabled,
-        thinking_mode=thinking_mode,
-        files=files,
-        conversation=conversation,
+        **provider_kwargs
     ):
         if "error" in chunk:
             yield {"error": chunk["error"], "is_final": True}

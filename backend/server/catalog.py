@@ -6,7 +6,7 @@ from ..providers import get_provider_service
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("gemini", "airforce", "deepinfra", "qwen", "gradient")
+DEFAULT_PROVIDERS = ("gemini", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "deepinfra", "qwen", "gradient")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
