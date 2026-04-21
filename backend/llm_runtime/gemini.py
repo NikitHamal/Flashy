@@ -17,7 +17,11 @@ async def get_gemini_client(service) -> GeminiClient:
             psid = service.config.get("Secure_1PSID", "").strip()
             psidts = service.config.get("Secure_1PSIDTS", "").strip()
 
-            service.gemini_client = GeminiClient(psid, psidts, proxy=None)
+            service.gemini_client = GeminiClient(
+                secure_1psid=psid,
+                secure_1psidts=psidts,
+                proxy=None
+            )
             try:
                 await service.gemini_client.init(
                     timeout=30,

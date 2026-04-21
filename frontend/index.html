@@ -56,6 +56,9 @@
                 <button id="btn-add-workspace" class="btn-secondary full-width">
                     <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
+                <a href="/computer-use" class="btn-secondary full-width" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <span class="material-symbols-outlined">desktop_windows</span> Computer Use
+                </a>
             </div>
         </aside>
         <div id="sidebar-resizer" class="resizer-h"></div>
@@ -443,6 +446,11 @@
                         <div class="settings-field">
                             <select id="settings-active-provider" class="dropdown-select">
                                 <option value="gemini">Google Gemini (Web)</option>
+                                <option value="grok">Grok (xAI)</option>
+                                <option value="zai-free">Z.ai Free (No Auth)</option>
+                                <option value="kimi">Kimi (Moonshot)</option>
+                                <option value="zai">Z.ai (Token)</option>
+                                <option value="glm">GLM (Zhipu)</option>
                                 <option value="deepinfra">DeepInfra</option>
                                 <option value="qwen">Qwen (Alibaba)</option>
                                 <option value="airforce">Airforce</option>
@@ -469,6 +477,72 @@
                                 <div class="input-with-action">
                                     <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
                                     <button class="btn-toggle-visibility" data-target="settings-psidts">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-grok" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>Grok (xAI) - Free</label>
+                            <p class="settings-hint">No authentication required. Uses anonymous access with automatic identity rotation.</p>
+                            <div class="settings-field">
+                                <label>Proxy (Optional)</label>
+                                <input type="text" id="settings-grok-proxy" placeholder="http://user:pass@ip:port">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-kimi" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>Kimi (Moonshot K2.5)</label>
+                            <p class="settings-hint">Get your JWT token from Kimi web version. Open DevTools (F12) &rarr; Application &rarr; Cookies or Local Storage.</p>
+                            <div class="settings-field">
+                                <label>Access Token</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-kimi-token" placeholder="Enter Kimi JWT token (starts with eyJ)">
+                                    <button class="btn-toggle-visibility" data-target="settings-kimi-token">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-zai" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>Z.ai (GLM International)</label>
+                            <p class="settings-hint">Get your JWT token from chat.z.ai. Open DevTools (F12) &rarr; Application &rarr; Cookies.</p>
+                            <div class="settings-field">
+                                <label>JWT Token</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-zai-token" placeholder="Enter Z.ai JWT token (starts with eyJ)">
+                                    <button class="btn-toggle-visibility" data-target="settings-zai-token">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-zai-free" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>Z.ai Free (No Auth)</label>
+                            <p class="settings-hint">Free anonymous access. No token required. Uses guest sessions with automatic identity rotation.</p>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-glm" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>GLM (Zhipu Qingyan)</label>
+                            <p class="settings-hint">Get your refresh token from chatglm.cn. Open DevTools (F12) &rarr; Application &rarr; Local Storage &rarr; chatglm_refresh_token.</p>
+                            <div class="settings-field">
+                                <label>Refresh Token</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-glm-refresh-token" placeholder="Enter GLM refresh token">
+                                    <button class="btn-toggle-visibility" data-target="settings-glm-refresh-token">
                                         <span class="material-symbols-outlined">visibility</span>
                                     </button>
                                 </div>
@@ -511,6 +585,11 @@
                             <label>Provider</label>
                             <select id="agent-provider-selector" class="dropdown-select">
                                 <option value="gemini">Google Gemini</option>
+                                <option value="grok">Grok (xAI)</option>
+                                <option value="zai-free">Z.ai Free</option>
+                                <option value="kimi">Kimi</option>
+                                <option value="zai">Z.ai (Token)</option>
+                                <option value="glm">GLM (Zhipu)</option>
                                 <option value="deepinfra">DeepInfra</option>
                                 <option value="qwen">Qwen</option>
                                 <option value="airforce">Airforce</option>

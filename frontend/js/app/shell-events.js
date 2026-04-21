@@ -282,6 +282,14 @@ function setupShellEventListeners() {
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
                 document.getElementById('settings-active-provider').value = config.active_provider || 'gemini';
                 document.getElementById('settings-model').value = config.model || '';
+                const grokProxyInput = document.getElementById('settings-grok-proxy');
+                if (grokProxyInput) grokProxyInput.value = config.grok_proxy || '';
+                const kimiTokenInput = document.getElementById('settings-kimi-token');
+                if (kimiTokenInput) kimiTokenInput.value = config.kimi_token || '';
+                const zaiTokenInput = document.getElementById('settings-zai-token');
+                if (zaiTokenInput) zaiTokenInput.value = config.zai_token || '';
+                const glmTokenInput = document.getElementById('settings-glm-refresh-token');
+                if (glmTokenInput) glmTokenInput.value = config.glm_refresh_token || '';
                 updateProviderSettingsVisibility(config.active_provider || 'gemini');
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -341,7 +349,11 @@ function setupShellEventListeners() {
                 Secure_1PSIDTS: document.getElementById('settings-psidts').value,
                 GITHUB_PAT: document.getElementById('settings-github-pat').value,
                 active_provider: document.getElementById('settings-active-provider').value,
-                model: document.getElementById('settings-model').value
+                model: document.getElementById('settings-model').value,
+                grok_proxy: document.getElementById('settings-grok-proxy')?.value || '',
+                kimi_token: document.getElementById('settings-kimi-token')?.value || '',
+                zai_token: document.getElementById('settings-zai-token')?.value || '',
+                glm_refresh_token: document.getElementById('settings-glm-refresh-token')?.value || '',
             };
             try {
                 saveSettingsButton.disabled = true;

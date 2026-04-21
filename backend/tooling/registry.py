@@ -12,6 +12,45 @@ from ..websocket_manager import ws_manager
 from ..image_service import get_image_service, ImageService
 
 class ToolRegistryMixin:
+    @staticmethod
+    def _normalize_tool_name(tool_name: str) -> str:
+        if tool_name is None:
+            return ""
+        normalized = str(tool_name).strip().strip("`'\"")
+        alias_map = {
+            "read": "read_file",
+            "cat": "read_file",
+            "bash": "run_shell_command",
+            "run_command": "run_shell_command",
+            "shell_command": "run_shell_command",
+            "execute_command": "run_shell_command",
+            "glob": "search_files",
+            "question": "ask_user_question",
+            "ask": "ask_user_question",
+            "ls": "list_dir",
+            "tree": "get_file_tree",
+        }
+        return alias_map.get(normalized, normalized)
+
+    @staticmethod
+    def _normalize_tool_args(tool_name: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        args = dict(kwargs or {})
+
+        if tool_name == "read_file":
+            if "path" not in args:
+                args["path"] = args.get("filePath") or args.get("file_path") or args.get("target")
+        elif tool_name == "run_shell_command":
+            if "command" not in args:
+                args["command"] = args.get("cmd") or args.get("script")
+        elif tool_name == "search_files":
+            if "pattern" not in args:
+                args["pattern"] = args.get("glob") or args.get("query")
+        elif tool_name == "ask_user_question":
+            if "question" not in args:
+                args["question"] = args.get("prompt") or args.get("text")
+
+        return {k: v for k, v in args.items() if v is not None}
+
     def get_available_tools(self) -> list:
         """Return list of available tools with descriptions."""
         return [
@@ -55,6 +94,9 @@ class ToolRegistryMixin:
 
     async def execute(self, tool_name: str, **kwargs) -> str:
         """Execute a tool by name with given arguments."""
+        requested_tool_name = tool_name
+        tool_name = self._normalize_tool_name(tool_name)
+        kwargs = self._normalize_tool_args(tool_name, kwargs)
         tool_map = {
             # File System Tools
             "read_file": self.read_file,
@@ -98,7 +140,7 @@ class ToolRegistryMixin:
         }
         
         if tool_name not in tool_map:
-            return f"Error: Unknown tool '{tool_name}'. Available: {list(tool_map.keys())}"
+            return f"Error: Unknown tool '{requested_tool_name}'. Available: {list(tool_map.keys())}"
         
         try:
             func = tool_map[tool_name]

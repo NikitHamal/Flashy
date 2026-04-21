@@ -13,6 +13,24 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "gradient":
         from .gradient import GradientProvider
         return GradientProvider()
+    elif provider_name == "gemini":
+        from .gemini import GeminiProvider
+        return GeminiProvider()
+    elif provider_name == "grok":
+        from .grok import GrokProvider
+        return GrokProvider()
+    elif provider_name == "kimi":
+        from .kimi import KimiProvider
+        return KimiProvider()
+    elif provider_name == "zai":
+        from .zai import ZAIProvider
+        return ZAIProvider()
+    elif provider_name == "zai-free":
+        from .zai_free import ZAIFreeProvider
+        return ZAIFreeProvider()
+    elif provider_name == "glm":
+        from .glm import GLMProvider
+        return GLMProvider()
     else:
         return None
 

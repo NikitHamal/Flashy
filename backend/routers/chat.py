@@ -56,6 +56,26 @@ async def get_models(request: Request):
     if provider_name == "gemini":
         return [{"id": "G_2_5_FLASH", "name": "Agent Flashy"}]
 
+    if provider_name == "grok":
+        from ..providers.grok import MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in MODELS]
+
+    if provider_name == "kimi":
+        from ..providers.kimi import MODELS as KIMI_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in KIMI_MODELS]
+
+    if provider_name == "zai":
+        from ..providers.zai import MODELS as ZAI_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in ZAI_MODELS]
+
+    if provider_name == "zai-free":
+        from ..providers.zai_free import MODELS as ZAI_FREE_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in ZAI_FREE_MODELS]
+
+    if provider_name == "glm":
+        from ..providers.glm import MODELS as GLM_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in GLM_MODELS]
+
     catalog = await _catalog.list_models([provider_name])
     return [
         {"id": item["id"].split("/", 1)[1], "name": item["name"]}

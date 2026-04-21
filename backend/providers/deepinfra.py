@@ -9,6 +9,15 @@ from .base import BaseProvider
 
 logger = logging.getLogger("flashy.deepinfra")
 
+DEEPINFRA_FALLBACK_MODELS = [
+    ("Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen 2.5 Coder 32B", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("Qwen/Qwen2.5-72B-Instruct", "Qwen 2.5 72B", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("meta-llama/Meta-Llama-3.1-8B-Instruct", "Llama 3.1 (8B)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("meta-llama/Meta-Llama-3.3-70B-Instruct", "Llama 3.3 (70B)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("deepseek-ai/DeepSeek-V3.2", "DeepSeek V3.2", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("zai-org/GLM-4.7-Flash", "GLM 4.7 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+]
+
 BROWSER_HEADERS = [
     {
         "accept": "*/*",
@@ -96,11 +105,18 @@ class DeepInfraProvider(BaseProvider):
             "max_tokens": kwargs.get("max_tokens"),
             "top_p": kwargs.get("top_p", 1.0),
         }
-        # Only include valid OpenAI fields that DeepInfra supports
         if tools:
             payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-            logger.info(f"[DEEPINFRA] Passing {len(tools)} tools to API")
+            tool_choice = kwargs.get("tool_choice")
+            if tool_choice and tool_choice not in ("required",):
+                payload["tool_choice"] = tool_choice
+            else:
+                payload["tool_choice"] = "auto"
+
+            is_openai_pass = kwargs.get("is_openai_pass_through", False)
+            if not is_openai_pass:
+                payload.pop("tools", None)
+                payload.pop("tool_choice", None)
 
         proxy_arg = kwargs.get("proxy")
         proxies = []
@@ -140,6 +156,10 @@ class DeepInfraProvider(BaseProvider):
                         else:
                             yield {"error": f"DeepInfra Error: 429 Rate Limit Exceeded after {max_retries} retries. Please try again later or configure a proxy."}
                             return
+
+                    if stream_resp.status_code == 405:
+                        yield {"error": f"DeepInfra Error: 405 Method Not Allowed. This model or endpoint does not support the requested operation (e.g., tool calling with images). Try a different model or provider."}
+                        return
 
                     if stream_resp.status_code != 200:
                         error_text = stream_resp.text
@@ -286,17 +306,33 @@ class DeepInfraProvider(BaseProvider):
                 resp = await session.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    return [
-                        {"id": m["model_name"], "name": m["model_name"].split("/")[-1]}
-                        for m in data
-                        if m.get("type") == "text-generation"
-                    ]
+                    result = []
+                    for m in data:
+                        if m.get("type") != "text-generation":
+                            continue
+                        model_id = m.get("model_name", "")
+                        pricing = m.get("pricing", {}) or {}
+                        ci = float(pricing.get("cents_per_input_token") or 0)
+                        co = float(pricing.get("cents_per_output_token") or 0)
+                        max_ctx = m.get("max_tokens") or m.get("context_window", 32768)
+                        lower = model_id.lower()
+                        caps = {
+                            "chat": True,
+                            "stream": True,
+                            "vision": any(t in lower for t in ("vl", "vision", "omni")),
+                            "reasoning": any(t in lower for t in ("reason", "think", "r1", "o1", "o3", "qwq")),
+                            "tools": True,
+                        }
+                        display = model_id.split("/")[-1] if "/" in model_id else model_id
+                        result.append({
+                            "id": model_id,
+                            "name": display,
+                            "capabilities": caps,
+                            "context_window": max_ctx,
+                            "cents_per_input_token": ci,
+                            "cents_per_output_token": co,
+                        })
+                    return result
         except Exception:
             pass
-        return [
-            {"id": "Qwen/Qwen2.5-Coder-32B-Instruct", "name": "Qwen 2.5 Coder 32B"},
-            {"id": "Qwen/Qwen2.5-72B-Instruct", "name": "Qwen 2.5 72B"},
-            {"id": "meta-llama/Meta-Llama-3.3-70B-Instruct", "name": "Llama 3.3 (70B)"},
-            {"id": "meta-llama/Meta-Llama-3.1-8B-Instruct", "name": "Llama 3.1 (8B)"},
-            {"id": "mistralai/Mistral-7B-Instruct-v0.3", "name": "Mistral 7B v0.3"},
-        ]
+        return [{"id": mid, "name": name, "capabilities": caps} for mid, name, caps in DEEPINFRA_FALLBACK_MODELS]

@@ -19,6 +19,9 @@ async def generate_simple_response(
     message_parts: list,
     images: list,
     history,
+    chat_type: str = "t2t",
+    thinking_enabled: bool = True,
+    thinking_mode: str = "Auto",
 ):
     if provider_name == "gemini":
         gemini_resp = await send_with_retry(service, chat_session, full_prompt, files=files, session_id=session_id)
@@ -49,6 +52,21 @@ async def generate_simple_response(
         yield {"error": f"Provider '{provider_name}' not found.", "is_final": True}
         return
 
+    proxy = service.config.get("proxy")
+    if provider_name == "grok":
+        proxy = service.config.get("grok_proxy") or proxy
+    elif provider_name == "kimi":
+        provider_kwargs["token"] = service.config.get("kimi_token", "")
+    elif provider_name == "zai":
+        provider_kwargs["token"] = service.config.get("zai_token", "")
+    elif provider_name == "glm":
+        provider_kwargs["token"] = service.config.get("glm_refresh_token", "")
+
+    # Get Qwen conversation if available
+    conversation = None
+    if provider_name == "qwen" and hasattr(service, 'qwen_conversations') and session_id:
+        conversation = service.qwen_conversations.get(session_id)
+
     messages = [{"role": "user", "content": full_prompt}]
     accumulated_text = ""
     accumulated_thought = ""
@@ -56,10 +74,14 @@ async def generate_simple_response(
     async for chunk in provider_svc.generate_stream(
         messages,
         service.config.get("model", ""),
-        proxy=service.config.get("proxy"),
+        **provider_kwargs
     ):
         if "error" in chunk:
             yield {"error": chunk["error"], "is_final": True}
+        if "conversation" in chunk:
+            if hasattr(service, 'qwen_conversations') and session_id:
+                service.qwen_conversations[session_id] = chunk["conversation"]
+            continue
         if "thought" in chunk:
             accumulated_thought += chunk["thought"]
             yield {"thought": chunk["thought"]}
