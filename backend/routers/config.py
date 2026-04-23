@@ -19,6 +19,9 @@ class ConfigUpdate(BaseModel):
     kimi_token: Optional[str] = None
     zai_token: Optional[str] = None
     glm_refresh_token: Optional[str] = None
+    chat2api_base_url: Optional[str] = None
+    chat2api_api_key: Optional[str] = None
+    lmarena_cookies: Optional[str] = None
 
 @router.get("/config")
 async def get_config():

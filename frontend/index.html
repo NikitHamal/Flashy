@@ -195,22 +195,19 @@
                                             </button>
                                             <div id="qwen-features-inline" class="qwen-features-inline hidden">
                                                 <button id="btn-qwen-search" class="feature-toggle" title="Enable Web Search">
-                                                    <span class="material-symbols-outlined">search</span>
-                                                    <span class="feature-label">Search</span>
+                                                    <span class="material-symbols-outlined">language</span>
                                                 </button>
                                                 <button id="btn-qwen-research" class="feature-toggle" title="Enable Deep Research">
                                                     <span class="material-symbols-outlined">science</span>
-                                                    <span class="feature-label">Research</span>
                                                 </button>
                                                 <select id="select-qwen-thinking" class="thinking-select" aria-label="Qwen thinking mode">
-                                                    <option value="Auto">💭 Auto</option>
-                                                    <option value="Thinking">💭 Thinking</option>
-                                                    <option value="Fast">⚡ Fast</option>
-                                                    <option value="Disabled">🚫 Off</option>
+                                                    <option value="Auto">Auto</option>
+                                                    <option value="Thinking">Thinking</option>
+                                                    <option value="Fast">Fast</option>
+                                                    <option value="Disabled">Off</option>
                                                 </select>
                                             </div>
                                             <div class="model-selector prompt-pill" id="btn-model-selector">
-                                                <span class="material-symbols-outlined">bolt</span>
                                                 <span id="current-model-name">Agent Flashy</span>
                                                 <span class="material-symbols-outlined prompt-pill-caret">expand_more</span>
                                                 <div id="model-dropdown-menu" class="dropdown-menu hidden">
@@ -455,6 +452,8 @@
                                 <option value="qwen">Qwen (Alibaba)</option>
                                 <option value="airforce">Airforce</option>
                                 <option value="gradient">Gradient Network</option>
+                                <option value="chat2api">Chat2API (Local)</option>
+                                <option value="lmarena">LMArena (Free Models)</option>
                             </select>
                         </div>
                     </div>
@@ -550,6 +549,42 @@
                         </div>
                     </div>
 
+                    <div id="settings-provider-chat2api" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>Chat2API (Local Proxy)</label>
+                            <p class="settings-hint">Connect to a local Chat2API proxy instance. Make sure the proxy is running on your machine.</p>
+                            <div class="settings-field">
+                                <label>Base URL (Optional)</label>
+                                <input type="text" id="settings-chat2api-base-url" placeholder="http://127.0.0.1:8080">
+                            </div>
+                            <div class="settings-field">
+                                <label>API Key (Optional)</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-chat2api-api-key" placeholder="Enter API key if required">
+                                    <button class="btn-toggle-visibility" data-target="settings-chat2api-api-key">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-lmarena" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>LMArena (Free Models)</label>
+                            <p class="settings-hint">Access Claude, GPT-4, Gemini, DeepSeek and more for free via arena.ai. Visit <a href="https://arena.ai" target="_blank">arena.ai</a>, log in, then extract cookies from DevTools (F12) → Application → Cookies. Use arena-auth-prod-v1.1 (preferred) or arena-auth-prod-v1.</p>
+                            <div class="settings-field">
+                                <label>Cookies (JSON or cookie string)</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-lmarena-cookies" placeholder='{"arena-auth-prod-v1.1": "your-cookie-value"}'>
+                                    <button class="btn-toggle-visibility" data-target="settings-lmarena-cookies">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-group">
                         <div class="settings-field">
                             <label>Default Model ID (Optional)</label>
@@ -594,6 +629,7 @@
                                 <option value="qwen">Qwen</option>
                                 <option value="airforce">Airforce</option>
                                 <option value="gradient">Gradient Network</option>
+                                <option value="lmarena">LMArena</option>
                             </select>
                         </div>
                         <div class="settings-field">

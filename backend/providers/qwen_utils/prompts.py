@@ -14,6 +14,8 @@ TOOL_SYSTEM_PREFIX = (
     "- Do NOT write any text before or after the tool call line.\n"
     "- Do NOT say 'Tool does not exist' or 'I cannot access tools'. All listed tools ARE available.\n"
     "- The JSON must have 'name' (exact tool name from the list) and 'arguments' (object with parameter values).\n"
+    "- NEVER generate <tool_result> blocks yourself. I will provide the tool results to you.\n"
+    "- Do NOT simulate or hallucinate tool results in your thinking/reasoning process. Actually call the tool.\n"
     "- After receiving a <tool_result> block, call another tool or give your final answer as plain text.\n\n"
     "Available tools:\n"
 )
@@ -24,12 +26,19 @@ TOOL_APPEND_SUFFIX = (
     "««TOOL_CALL»» {\"name\": \"TOOL_NAME\", \"arguments\": {\"PARAM_NAME\": \"PARAM_VALUE\"}} ««/TOOL_CALL»»\n\n"
     "IMPORTANT: All listed tools are available and functional. Do NOT say 'Tool does not exist'. "
     "Just emit the tool call directly.\n"
+    "NEVER generate <tool_result> blocks yourself. I will provide them.\n"
+    "Do NOT simulate or hallucinate tool results in your thinking/reasoning process. Actually call the tool.\n"
     "After receiving a <tool_result> block, call another tool or give your final answer.\n\n"
     "Available tools:\n"
 )
 
 TOOL_CALL_RE = re.compile(
     r"««TOOL_CALL»»\s*(\{.*?\})\s*««/TOOL_CALL»»",
+    re.DOTALL,
+)
+
+ALT_TOOL_CALL_RE = re.compile(
+    r"<tool_call>\s*(\{.*?\})\s*(?:</tool_call>)?",
     re.DOTALL,
 )
 
@@ -82,8 +91,11 @@ def inject_tools_into_messages(
 def parse_tool_calls_from_text(text: str):
     tool_calls = []
     clean = TOOL_CALL_RE.sub("", text)
+    clean = ALT_TOOL_CALL_RE.sub("", clean)
 
-    for m in TOOL_CALL_RE.finditer(text):
+    matches = list(TOOL_CALL_RE.finditer(text)) + list(ALT_TOOL_CALL_RE.finditer(text))
+
+    for m in matches:
         json_str = m.group(1).strip()
 
         if json_str.startswith("```json"):

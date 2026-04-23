@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .routers import openai
+from .routers import qwen
 
 
 def create_server_app() -> FastAPI:
@@ -14,6 +15,7 @@ def create_server_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(openai.router)
+    app.include_router(qwen.router)
 
     @app.get("/health")
     async def health() -> dict:

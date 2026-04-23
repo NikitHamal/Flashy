@@ -234,9 +234,9 @@ class ResponseFilter:
         # Remove empty list items
         cleaned = self.empty_list_regex.sub('', cleaned)
 
-        # Strip each line
+        # Strip each line only if it's entirely whitespace
         lines = cleaned.split('\n')
-        lines = [line.strip() for line in lines]
+        # lines = [line.strip() for line in lines] # Removed: Too aggressive
 
         # Remove leading empty lines
         while lines and not lines[0]:

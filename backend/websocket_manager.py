@@ -8,12 +8,47 @@ import json
 import logging
 import time
 import uuid
+import sys
+import os
 from typing import Dict, Set, Optional, Callable, Any
 
 logger = logging.getLogger("flashy.ws")
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, field
 from enum import Enum
+
+
+def _get_shell_command(command: str) -> tuple:
+    """Get the shell executable and arguments for cross-platform execution.
+    
+    Returns:
+        tuple: (executable, args_prefix, shell_type)
+    """
+    if sys.platform == 'win32':
+        # Check if running in Git Bash / MSYS2 / MinTTY
+        msystem = os.environ.get('MSYSTEM', '')
+        term = os.environ.get('TERM', '')
+        is_git_bash = (
+            msystem.startswith('MINGW') or
+            msystem.startswith('MSYS') or
+            'msys' in term.lower() or
+            'cygwin' in term.lower()
+        )
+        
+        if is_git_bash:
+            # Use bash for Git Bash environments
+            return ('bash', ['-c'], 'bash')
+        
+        # Check for PowerShell
+        com_spec = os.environ.get('ComSpec', 'cmd.exe').lower()
+        if com_spec.endswith('powershell.exe') or com_spec.endswith('pwsh.exe'):
+            return (com_spec, ['-NoProfile', '-Command'], 'powershell')
+        
+        # Default to cmd.exe
+        return (os.environ.get('ComSpec', 'cmd.exe'), ['/d', '/s', '/c'], 'cmd')
+    
+    # Unix-like systems (Linux, macOS)
+    return ('/bin/bash', ['-c'], 'bash')
 
 
 class MessageType(str, Enum):
@@ -215,13 +250,26 @@ class WebSocketManager:
         Returns the exit code.
         """
         try:
-            # Create subprocess with pipes
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-            )
+            # On Windows, create_subprocess_shell is more reliable
+            # On Unix, we can use create_subprocess_exec with explicit shell
+            if sys.platform == 'win32':
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                )
+            else:
+                # Get proper shell configuration for Unix
+                shell_exe, shell_args, shell_type = _get_shell_command(command)
+                process = await asyncio.create_subprocess_exec(
+                    shell_exe,
+                    *shell_args,
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                )
 
             self.terminals[terminal_id] = process
 
@@ -262,7 +310,10 @@ class WebSocketManager:
             return exit_code
 
         except Exception as e:
-            error_msg = f"Error running command: {str(e)}"
+            import traceback
+            error_details = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
+            tb_info = traceback.format_exc()
+            error_msg = f"Error running command: {error_details}\n{tb_info}"
             await self.broadcast_terminal_output(terminal_id, error_msg, is_error=True)
             return -1
 
@@ -282,12 +333,26 @@ class WebSocketManager:
         output_chunks: list[str] = []
 
         try:
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-            )
+            # On Windows, create_subprocess_shell is more reliable
+            # On Unix, we can use create_subprocess_exec with explicit shell
+            if sys.platform == 'win32':
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                )
+            else:
+                # Get proper shell configuration for Unix
+                shell_exe, shell_args, shell_type = _get_shell_command(command)
+                process = await asyncio.create_subprocess_exec(
+                    shell_exe,
+                    *shell_args,
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                )
 
             self.terminals[terminal_id] = process
 
@@ -323,7 +388,10 @@ class WebSocketManager:
             return output, exit_code
 
         except Exception as e:
-            error_msg = f"Error running command: {str(e)}"
+            import traceback
+            error_details = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
+            tb_info = traceback.format_exc()
+            error_msg = f"Error running command: {error_details}\n{tb_info}"
             await self.broadcast_terminal_output(terminal_id, error_msg, is_error=True)
             return error_msg, -1
 

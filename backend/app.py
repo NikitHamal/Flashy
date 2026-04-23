@@ -48,6 +48,7 @@ from .storage import (
 )
 from .websocket_manager import ws_manager, MessageType
 from .routers import git_routes, workspace, chat, config, agents, memory, computer_use
+from .routers import qwen
 
 app = FastAPI()
 
@@ -63,6 +64,7 @@ app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
 app.include_router(computer_use.router)
+app.include_router(qwen.router)
 
 from . import qwencode_bridge
 

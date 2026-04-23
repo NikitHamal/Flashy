@@ -53,6 +53,14 @@ async def get_models(request: Request):
     service = request.app.state.llm_service
     provider_name = service.get_active_provider()
 
+    if provider_name == "chat2api":
+        from ..providers.chat2api import Chat2APIProvider, clear_model_cache
+        clear_model_cache()
+        base_url = request.app.state.llm_service.config.get("chat2api_base_url", "http://127.0.0.1:8080")
+        api_key = request.app.state.llm_service.config.get("chat2api_api_key", "")
+        models = await Chat2APIProvider.get_models(base_url, api_key)
+        return [{"id": m["id"], "name": m["name"]} for m in models]
+
     if provider_name == "gemini":
         return [{"id": "G_2_5_FLASH", "name": "Agent Flashy"}]
 
@@ -75,6 +83,11 @@ async def get_models(request: Request):
     if provider_name == "glm":
         from ..providers.glm import MODELS as GLM_MODELS
         return [{"id": m["id"], "name": m["name"]} for m in GLM_MODELS]
+
+    if provider_name == "lmarena":
+        from ..providers.lmarena import LmarenaProvider
+        models = await LmarenaProvider.get_models()
+        return [{"id": m["id"], "name": m["name"]} for m in models]
 
     catalog = await _catalog.list_models([provider_name])
     return [

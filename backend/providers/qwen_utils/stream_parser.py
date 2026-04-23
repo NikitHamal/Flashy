@@ -7,7 +7,7 @@ from ..response_types import (
     Reasoning, FinishReason, ToolCall,
     reasoning_to_dict, finish_reason_to_dict, tool_call_to_dict,
 )
-from .prompts import parse_tool_calls_from_text, TOOL_CALL_OPEN, QWEN_NATIVE_TOOLS
+from .prompts import parse_tool_calls_from_text, QWEN_NATIVE_TOOLS
 
 logger = logging.getLogger("flashy.qwen.stream")
 
@@ -17,6 +17,7 @@ class StreamState:
         "buffer", "full_answer_text", "has_yielded_content",
         "current_fc_function_name", "current_fc_arguments", "current_fc_id",
         "saw_native_fc", "seen_function_call_deltas", "function_call_yielded",
+        "pending_parent_id", "has_any_content",
     )
 
     def __init__(self):
@@ -29,6 +30,8 @@ class StreamState:
         self.saw_native_fc = False
         self.seen_function_call_deltas = False
         self.function_call_yielded = False
+        self.pending_parent_id = None
+        self.has_any_content = False
 
 
 def _is_native_tool(name: str) -> bool:
@@ -103,14 +106,13 @@ def _handle_content(
 
     if phase == "think" or phase == "web_search":
         logger.debug(f"[QWEN] Reasoning phase={phase} len={len(content)}")
+        state.has_any_content = True
         return reasoning_to_dict(Reasoning(content))
 
     state.full_answer_text += content
+    state.has_any_content = True
 
-    if has_tools and TOOL_CALL_OPEN in state.full_answer_text:
-        return None
-
-    if has_tools and state.seen_function_call_deltas and not state.function_call_yielded:
+    if has_tools:
         return None
 
     state.has_yielded_content = True
@@ -131,17 +133,17 @@ def _handle_finish_reason(
         events.append({"is_final": True, "finish_reason": "tool_calls"})
         return events
 
-    if has_tools and state.full_answer_text:
+    if state.full_answer_text and not state.has_yielded_content:
         clean_text, parsed_tool_calls = parse_tool_calls_from_text(state.full_answer_text)
         if parsed_tool_calls:
+            if clean_text:
+                events.append({"text": clean_text})
             for tc in parsed_tool_calls:
                 tc_obj = ToolCall(id=tc["id"], name=tc["name"], arguments=tc["arguments"])
                 events.append(tool_call_to_dict(tc_obj))
             events.append(finish_reason_to_dict(FinishReason("tool_calls")))
             return events
-        elif not state.has_yielded_content:
-            if clean_text:
-                events.append({"text": clean_text})
+        events.append({"text": state.full_answer_text})
 
     events.append(finish_reason_to_dict(FinishReason(finish_reason or "stop")))
     return events
@@ -178,8 +180,8 @@ def parse_stream_chunks(
 
         if "response.created" in chunk_data:
             resp_id = chunk_data.get("response.created", {}).get("response_id")
-            if resp_id and conversation and hasattr(conversation, "parent_id"):
-                conversation.parent_id = resp_id
+            if resp_id:
+                state.pending_parent_id = resp_id
 
         choices = chunk_data.get("choices", [])
         if not choices:
@@ -202,6 +204,7 @@ def parse_stream_chunks(
 
         fc_event = _handle_native_function_call(delta, state)
         if fc_event:
+            state.has_any_content = True
             events.append(fc_event)
 
         if finish_reason:
@@ -219,13 +222,18 @@ def parse_stream_chunks(
     return events
 
 
-def finalize_stream(state: StreamState, has_tools: bool) -> List[Dict[str, Any]]:
+def finalize_stream(state: StreamState, has_tools: bool, conversation=None) -> List[Dict[str, Any]]:
     logger.debug(f"[QWEN] finalize_stream: yielded={state.has_yielded_content} text_len={len(state.full_answer_text)} fc_yielded={state.function_call_yielded}")
     events: List[Dict[str, Any]] = []
+
+    if state.has_any_content and state.pending_parent_id and conversation and hasattr(conversation, "parent_id"):
+        conversation.parent_id = state.pending_parent_id
 
     if state.full_answer_text and not state.function_call_yielded:
         clean_text, parsed_tool_calls = parse_tool_calls_from_text(state.full_answer_text)
         if parsed_tool_calls:
+            if clean_text:
+                events.append({"text": clean_text})
             for tc in parsed_tool_calls:
                 tc_obj = ToolCall(id=tc["id"], name=tc["name"], arguments=tc["arguments"])
                 events.append(tool_call_to_dict(tc_obj))

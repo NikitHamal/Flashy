@@ -19,7 +19,7 @@ async function refreshModels() {
         const cacheKey = `models_${activeProvider}`;
         const cached = localStorage.getItem(cacheKey);
 
-        if (cached) {
+        if (cached && activeProvider !== 'chat2api') {
             cachedModels = JSON.parse(cached);
             renderModelDropdown();
         }

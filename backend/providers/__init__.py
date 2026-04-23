@@ -31,6 +31,12 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "glm":
         from .glm import GLMProvider
         return GLMProvider()
+    elif provider_name == "chat2api":
+        from .chat2api import Chat2APIProvider
+        return Chat2APIProvider()
+    elif provider_name == "lmarena":
+        from .lmarena import LmarenaProvider
+        return LmarenaProvider()
     else:
         return None
 

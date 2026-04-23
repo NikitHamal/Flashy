@@ -53,14 +53,20 @@ async def generate_simple_response(
         return
 
     proxy = service.config.get("proxy")
+    provider_kwargs = {"proxy": proxy}
     if provider_name == "grok":
-        proxy = service.config.get("grok_proxy") or proxy
+        provider_kwargs["proxy"] = service.config.get("grok_proxy") or proxy
     elif provider_name == "kimi":
         provider_kwargs["token"] = service.config.get("kimi_token", "")
     elif provider_name == "zai":
         provider_kwargs["token"] = service.config.get("zai_token", "")
     elif provider_name == "glm":
         provider_kwargs["token"] = service.config.get("glm_refresh_token", "")
+    elif provider_name == "chat2api":
+        provider_kwargs["base_url"] = service.config.get("chat2api_base_url", "http://127.0.0.1:8080")
+        provider_kwargs["api_key"] = service.config.get("chat2api_api_key", "")
+    elif provider_name == "lmarena":
+        provider_kwargs["lmarena_cookies"] = service.config.get("lmarena_cookies", "")
 
     # Get Qwen conversation if available
     conversation = None

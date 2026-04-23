@@ -5,11 +5,46 @@ import tempfile
 import shutil
 import json
 import asyncio
+import sys
 from typing import Optional, List, Dict, Any
 
 from ..git_manager import GitManager
 from ..websocket_manager import ws_manager
 from ..image_service import get_image_service, ImageService
+
+
+def _get_shell_command(command: str) -> tuple:
+    """Get the shell executable and arguments for cross-platform execution.
+    
+    Returns:
+        tuple: (executable, args_prefix, shell_type)
+    """
+    if sys.platform == 'win32':
+        # Check if running in Git Bash / MSYS2 / MinTTY
+        msystem = os.environ.get('MSYSTEM', '')
+        term = os.environ.get('TERM', '')
+        is_git_bash = (
+            msystem.startswith('MINGW') or
+            msystem.startswith('MSYS') or
+            'msys' in term.lower() or
+            'cygwin' in term.lower()
+        )
+        
+        if is_git_bash:
+            # Use bash for Git Bash environments
+            return ('bash', ['-c'], 'bash')
+        
+        # Check for PowerShell
+        com_spec = os.environ.get('ComSpec', 'cmd.exe').lower()
+        if com_spec.endswith('powershell.exe') or com_spec.endswith('pwsh.exe'):
+            return (com_spec, ['-NoProfile', '-Command'], 'powershell')
+        
+        # Default to cmd.exe
+        return (os.environ.get('ComSpec', 'cmd.exe'), ['/d', '/s', '/c'], 'cmd')
+    
+    # Unix-like systems (Linux, macOS)
+    return ('/bin/bash', ['-c'], 'bash')
+
 
 class ExecutionMixin:
     async def run_shell_command(self, command: str, cwd: Optional[str] = None, timeout: int = 300, is_background: bool = False) -> str:
@@ -25,17 +60,33 @@ class ExecutionMixin:
             if not command or not command.strip():
                 return "Error: Command is empty."
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
+            
+            # Ensure work_dir exists
+            if not os.path.isdir(work_dir):
+                return f"Error: Working directory does not exist: {work_dir}"
 
             if is_background:
                 terminal_id = f"bg_{os.urandom(4).hex()}"
                 
-                # Start process
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=work_dir,
-                )
+                # On Windows, create_subprocess_shell is more reliable
+                # On Unix, we can use create_subprocess_exec with explicit shell
+                if sys.platform == 'win32':
+                    process = await asyncio.create_subprocess_shell(
+                        command,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=work_dir,
+                    )
+                else:
+                    shell_exe, shell_args, shell_type = _get_shell_command(command)
+                    process = await asyncio.create_subprocess_exec(
+                        shell_exe,
+                        *shell_args,
+                        command,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=work_dir,
+                    )
                 
                 if not hasattr(ws_manager, 'bg_processes'):
                     ws_manager.bg_processes = {}
@@ -53,9 +104,9 @@ class ExecutionMixin:
                             text = chunk.decode("utf-8", errors="replace")
                             if term_id in ws_manager.bg_buffers:
                                 ws_manager.bg_buffers[term_id].append(text)
-                                # keep buffer reasonably sized
-                                if sum(len(c) for c in ws_manager.bg_buffers[term_id]) > 500000:
-                                    ws_manager.bg_buffers[term_id] = ws_manager.bg_buffers[term_id][-50:]
+                            # keep buffer reasonably sized
+                            if sum(len(c) for c in ws_manager.bg_buffers[term_id]) > 500000:
+                                ws_manager.bg_buffers[term_id] = ws_manager.bg_buffers[term_id][-50:]
                         except Exception:
                             break
                             
@@ -76,12 +127,24 @@ class ExecutionMixin:
                 return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{output.strip() or '(no output)'}\n```"
 
             # Non-session: use asyncio subprocess for proper async execution
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=work_dir,
-            )
+            # On Windows, create_subprocess_shell is more reliable
+            if sys.platform == 'win32':
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=work_dir,
+                )
+            else:
+                shell_exe, shell_args, shell_type = _get_shell_command(command)
+                process = await asyncio.create_subprocess_exec(
+                    shell_exe,
+                    *shell_args,
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=work_dir,
+                )
 
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
@@ -97,7 +160,10 @@ class ExecutionMixin:
                 await process.wait()
                 return f"Error: Command timed out after {timeout} seconds. Process was killed."
         except Exception as e:
-            return f"Error running command: {str(e)}"
+            import traceback
+            error_details = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
+            tb_info = traceback.format_exc()
+            return f"Error running command:\n```\n{error_details}\n{tb_info}\n```"
 
     def read_background_output(self, process_id: str) -> str:
         """Read the recent output of a background process."""

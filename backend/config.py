@@ -15,6 +15,9 @@ DEFAULT_CONFIG = {
     "kimi_token": "",
     "zai_token": "",
     "glm_refresh_token": "",
+    "chat2api_base_url": "http://127.0.0.1:8080",
+    "chat2api_api_key": "",
+    "lmarena_cookies": "",
 }
 
 

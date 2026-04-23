@@ -208,6 +208,11 @@ class LLMService:
                             provider_kwargs["token"] = self.config.get("zai_token", "")
                         elif provider_name == "glm":
                             provider_kwargs["token"] = self.config.get("glm_refresh_token", "")
+                        elif provider_name == "chat2api":
+                            provider_kwargs["base_url"] = self.config.get("chat2api_base_url", "http://127.0.0.1:8080")
+                            provider_kwargs["api_key"] = self.config.get("chat2api_api_key", "")
+                        elif provider_name == "lmarena":
+                            provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
 
                         async for chunk in provider_svc.generate_stream(
                             self.provider_sessions[session_id],

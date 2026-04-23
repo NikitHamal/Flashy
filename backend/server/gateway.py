@@ -138,7 +138,10 @@ class ProviderGateway:
         ):
             if "error" in chunk:
                 yield {"type": "error", "error": chunk["error"]}
-                return
+                # Don't return immediately - let the generator finish naturally
+                # This prevents the browser from being killed
+                error_received = True
+                continue
             if "thought" in chunk:
                 yield {"type": "thought", "thought": chunk["thought"]}
             if "text" in chunk:

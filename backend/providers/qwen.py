@@ -39,7 +39,7 @@ class QwenProvider(BaseProvider):
     ) -> AsyncGenerator[Dict[str, Any], None]:
 
         if not model or model == "G_2_5_FLASH":
-            model = "qwen3.5-plus"
+            model = "qwen3.6-plus"
 
         proxy = kwargs.get("proxy")
         tools = kwargs.get("tools")
@@ -121,8 +121,8 @@ class QwenProvider(BaseProvider):
                     else:
                         chat_id = conversation.chat_id
 
-                    source_messages = resolve_messages(messages, tools, conversation)
-                    full_prompt = build_prompt(source_messages)
+                    tool_system_prompt, source_messages = resolve_messages(messages, tools, conversation)
+                    full_prompt = build_prompt(tool_system_prompt, source_messages)
                     feature_config = build_feature_config(thinking_enabled, thinking_mode, chat_type)
                     msg_payload = build_msg_payload(
                         chat_id=chat_id,
@@ -150,12 +150,23 @@ class QwenProvider(BaseProvider):
                     async for chunk_bytes in stream_resp.aiter_content():
                         events = parse_stream_chunks(chunk_bytes, state, conversation, has_tools=bool(tools))
                         for ev in events:
+                            if ev.get("is_final") and not state.has_any_content and attempt < max_attempts - 1:
+                                logger.warning(f"[QWEN] Empty stream with finish_reason={ev.get('finish_reason')}, retrying...")
+                                continue
                             yield ev
                             if ev.get("is_final"):
                                 return
 
                     logger.info(f"[QWEN] stream ended (text_len={len(state.full_answer_text)}, yielded={state.has_yielded_content})")
-                    for ev in finalize_stream(state, has_tools=bool(tools)):
+
+                    if not state.has_any_content and attempt < max_attempts - 1:
+                        logger.warning(f"[QWEN] Empty stream response (attempt {attempt+1}). Retrying with fresh conversation...")
+                        conversation = None
+                        get_midtoken._cached = None
+                        await asyncio.sleep(1.5 * (attempt + 1))
+                        continue
+
+                    for ev in finalize_stream(state, has_tools=bool(tools), conversation=conversation):
                         yield ev
                     return
 

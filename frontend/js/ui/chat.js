@@ -74,13 +74,12 @@ Object.assign(UI, {
             thoughtDiv.innerHTML = `
                 <div class="thought-header">
                     <span class="material-symbols-outlined">psychology</span>
-                    <span class="thought-status">Thinking...</span>
+                    <span class="thought-status">Thought</span>
                     <span class="material-symbols-outlined chevron">expand_more</span>
                 </div>
                 <div class="thought-content">${marked.parse(part.content)}</div>
             `;
             thoughtDiv.querySelector('.thought-header').onclick = () => thoughtDiv.classList.toggle('expanded');
-            thoughtDiv.dataset.startTime = Date.now();
             container.appendChild(thoughtDiv);
         } else if (part.type === 'tool_call') {
             const toolPill = this._createToolPill(part.content);
@@ -230,10 +229,11 @@ Object.assign(UI, {
             if (!thoughtBlock) {
                 thoughtBlock = document.createElement('div');
                 thoughtBlock.className = 'thought-block active expanded';
+                thoughtBlock.dataset.startTime = Date.now();
                 thoughtBlock.innerHTML = `
                     <div class="thought-header">
                         <span class="material-symbols-outlined">psychology</span>
-                        <span>Thought Process</span>
+                        <span class="thought-status">Thinking...</span>
                         <span class="material-symbols-outlined chevron">expand_more</span>
                     </div>
                     <div class="thought-content"></div>
@@ -266,6 +266,29 @@ Object.assign(UI, {
         }
 
         if (chunk.tool_call) {
+            // Clean any JSON that was rendered in the active text div
+            let activeText = bubble.querySelector('.message-text.active');
+            if (activeText && activeText.dataset.raw) {
+                // Remove JSON blocks from the rendered text
+                let cleanedRaw = activeText.dataset.raw;
+                // Remove complete JSON code blocks
+                cleanedRaw = cleanedRaw.replace(/```json\s*\{[\s\S]*?\}\s*```/g, '');
+                // Remove inline JSON objects with action/tool keys
+                cleanedRaw = cleanedRaw.replace(/\{\s*"(?:action|tool)"\s*:[^}]*\}/g, '');
+                // Remove incomplete JSON blocks
+                cleanedRaw = cleanedRaw.replace(/```json\s*\{[\s\S]*$/g, '');
+                // Clean up excessive whitespace
+                cleanedRaw = cleanedRaw.replace(/\n{3}/g, '\n\n').trim();
+                
+                activeText.dataset.raw = cleanedRaw;
+                if (cleanedRaw) {
+                    activeText.innerHTML = marked.parse(cleanedRaw);
+                    activeText.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+                } else {
+                    activeText.remove();
+                }
+            }
+            
             bubble.querySelectorAll('.message-text.active, .thought-block.active').forEach((element) => element.classList.remove('active'));
             const toolPill = this._createToolPill(chunk.tool_call);
             toolPill.classList.add('executing');
@@ -291,11 +314,15 @@ Object.assign(UI, {
             bubble.querySelectorAll('.message-text.active').forEach((element) => element.classList.remove('active'));
             bubble.querySelectorAll('.thought-block.active').forEach((element) => {
                 element.classList.remove('active');
+                element.classList.remove('expanded');
                 const startTime = element.dataset.startTime;
                 if (startTime) {
                     const elapsed = Math.round((Date.now() - parseInt(startTime, 10)) / 1000);
                     const status = element.querySelector('.thought-status');
                     if (status) status.textContent = `Thought for ${elapsed}s`;
+                } else {
+                    const status = element.querySelector('.thought-status');
+                    if (status) status.textContent = 'Thought';
                 }
             });
             this.setAgentState('idle');

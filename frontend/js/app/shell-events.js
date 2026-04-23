@@ -290,6 +290,12 @@ function setupShellEventListeners() {
                 if (zaiTokenInput) zaiTokenInput.value = config.zai_token || '';
                 const glmTokenInput = document.getElementById('settings-glm-refresh-token');
                 if (glmTokenInput) glmTokenInput.value = config.glm_refresh_token || '';
+                const chat2apiBaseUrlInput = document.getElementById('settings-chat2api-base-url');
+                if (chat2apiBaseUrlInput) chat2apiBaseUrlInput.value = config.chat2api_base_url || 'http://127.0.0.1:8080';
+                const chat2apiApiKeyInput = document.getElementById('settings-chat2api-api-key');
+                if (chat2apiApiKeyInput) chat2apiApiKeyInput.value = config.chat2api_api_key || '';
+                const lmarenaCookiesInput = document.getElementById('settings-lmarena-cookies');
+                if (lmarenaCookiesInput) lmarenaCookiesInput.value = config.lmarena_cookies || '';
                 updateProviderSettingsVisibility(config.active_provider || 'gemini');
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -354,6 +360,9 @@ function setupShellEventListeners() {
                 kimi_token: document.getElementById('settings-kimi-token')?.value || '',
                 zai_token: document.getElementById('settings-zai-token')?.value || '',
                 glm_refresh_token: document.getElementById('settings-glm-refresh-token')?.value || '',
+                chat2api_base_url: document.getElementById('settings-chat2api-base-url')?.value || 'http://127.0.0.1:8080',
+                chat2api_api_key: document.getElementById('settings-chat2api-api-key')?.value || '',
+                lmarena_cookies: document.getElementById('settings-lmarena-cookies')?.value || '',
             };
             try {
                 saveSettingsButton.disabled = true;
