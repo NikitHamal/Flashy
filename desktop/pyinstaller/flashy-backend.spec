@@ -4,20 +4,22 @@ from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
+repo_root = os.path.abspath(os.path.join(SPECPATH, '..', '..'))
+
 hiddenimports = collect_submodules('backend')
 
 datas = [
-    ('frontend', 'frontend'),
-    ('agent_config.json', '.'),
-    ('config-example.json', '.'),
+    (os.path.join(repo_root, 'frontend'), 'frontend'),
+    (os.path.join(repo_root, 'agent_config.json'), '.'),
+    (os.path.join(repo_root, 'config-example.json'), '.'),
 ]
 
-if os.path.exists('qwen-code'):
-    datas.append(('qwen-code', 'qwen-code'))
+if os.path.exists(os.path.join(repo_root, 'qwen-code')):
+    datas.append((os.path.join(repo_root, 'qwen-code'), 'qwen-code'))
 
 a = Analysis(
-    ['desktop/pyinstaller/backend_entry.py'],
-    pathex=['.'],
+    ['backend_entry.py'],
+    pathex=[repo_root],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
