@@ -2,6 +2,11 @@
   "name": "flashy-desktop",
   "version": "0.1.0",
   "description": "Native desktop shell for Flashy",
+  "author": "NikitHamal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NikitHamal/Flashy"
+  },
   "private": true,
   "main": "src/main.js",
   "scripts": {
