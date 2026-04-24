@@ -16,7 +16,6 @@ import shutil
 import time
 import json
 import asyncio
-import httpx
 import uuid
 import logging
 import base64
