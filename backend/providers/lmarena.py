@@ -85,6 +85,10 @@ Lmarena_MODELS_LOADED = False
 Lmarena_MODELS_LAST_FETCH = 0
 LMARENA_MODELS_CACHE_TTL = 3600
 
+# Global browser instance
+_global_browser = None
+_global_page = None
+
 BROWSER_HEADERS = {
     "accept": "*/*",
     "accept-language": "en-US,en;q=0.9",
@@ -323,127 +327,53 @@ class LmarenaProvider(BaseProvider):
             yield {"error": "zendriver is required. Install with: pip install zendriver"}
             return
         
-        profile_dir = Path.home() / ".cache" / "flashy" / "lmarena_profile"
-        profile_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Using browser profile: {profile_dir}")
-        
-        browser_args = [
-            "--window-size=1280,720",
-            "--disable-gpu",
-        ]
-        
-        browser = None
-        page = None
+        global _global_browser, _global_page
         
         try:
-            logger.info("Starting browser...")
-            browser = await nodriver.start(
-                headless=False,
-                browser_args=browser_args,
-                user_data_dir=str(profile_dir),
-            )
-            
-            if not browser:
-                logger.error("Failed to start browser - nodriver.start() returned None")
-                yield {"error": "Failed to start browser. Make sure Chrome is installed."}
-                return
-            
-            logger.info("Browser started successfully")
-            logger.info(f"Browser object: {browser}")
-            logger.info(f"Browser tabs: {browser.tabs}")
-            
-            # Get the initial tab
-            tabs = browser.tabs
-            if not tabs:
-                logger.error("No tabs found after browser start")
-                yield {"error": "Browser started but no tabs found"}
-                return
-            
-            page = tabs[0]
-            logger.info(f"Initial page: {page}, URL: {page.url if hasattr(page, 'url') else 'N/A'}")
-            
-            logger.info("Navigating to arena.ai...")
-            await page.get("https://arena.ai/?mode=direct")
-            logger.info("Page loaded, waiting for content...")
-            await asyncio.sleep(5)
-            
-            logger.info(f"Current page URL after load: {page.url if hasattr(page, 'url') else 'N/A'}")
-            
-            # Check if already logged in using browser-level cookie access
-            try:
-                all_cookies = await browser.cookies.get()
-                page_cookies = [c for c in all_cookies if 'arena.ai' in (c.domain or '')]
-                cookie_names = [c.name for c in page_cookies]
-            except Exception as e:
-                logger.warning(f"Failed to get cookies: {e}")
-                page_cookies = []
-                cookie_names = []
-            
-            valid_auth = False
-            for c in page_cookies:
-                cname = c.name.lower()
-                if ('session' in cname or 'token' in cname or 'clerk' in cname or 'auth' in cname):
-                    valid_auth = True
-                    break
-            
-            has_auth = valid_auth
-            
-            logger.info(f"Initial cookies: {cookie_names}")
-            
-            if not has_auth:
-                logger.info("Waiting for user to log in (120 seconds)...")
-                print("\n" + "="*60)
-                print(">>> NOT LOGGED IN.")
-                print(">>> Please LOG INTO arena.ai in the browser window.")
-                print(">>> Window will stay open for 120 seconds.")
-                print("="*60 + "\n")
+            if _global_browser is None or _global_browser.stopped:
+                profile_dir = Path.home() / ".cache" / "flashy" / "lmarena_profile"
+                profile_dir.mkdir(parents=True, exist_ok=True)
                 
-                # Simple wait - don't check cookies, just wait
-                for i in range(120):
-                    await asyncio.sleep(1)
-                    if i % 10 == 0:
-                        logger.info(f"Waiting for login... {i}s elapsed")
+                logger.info(f"Using browser profile: {profile_dir}")
                 
-                # After waiting, check if login was successful
-                try:
-                    all_cookies = await browser.cookies.get()
-                    page_cookies = [c for c in all_cookies if 'arena.ai' in (c.domain or '')]
-                    valid_auth = False
-                    for c in page_cookies:
-                        cname = c.name.lower()
-                        if ('session' in cname or 'token' in cname or 'clerk' in cname or 'auth' in cname):
-                            valid_auth = True
-                            break
-                    has_auth = valid_auth
-                except Exception as e:
-                    logger.warning(f"Failed to check cookies after wait: {e}")
-                    has_auth = False
+                browser_args = [
+                    "--window-size=1280,720",
+                    "--disable-gpu",
+                ]
+                
+                logger.info("Starting global browser...")
+                _global_browser = await nodriver.start(
+                    headless=False,
+                    browser_args=browser_args,
+                    user_data_dir=str(profile_dir),
+                )
+                
+                if not _global_browser:
+                    yield {"error": "Failed to start browser. Make sure Chrome is installed."}
+                    return
+                
+                tabs = _global_browser.tabs
+                if not tabs:
+                    yield {"error": "Browser started but no tabs found"}
+                    return
+                
+                _global_page = tabs[0]
+                logger.info("Navigating to arena.ai...")
+                await _global_page.get("https://arena.ai/?mode=direct")
+                await asyncio.sleep(3)
             
-            if not has_auth:
-                logger.error("Login timeout")
-                yield {"error": "Login timeout. Please try again."}
-                return
+            browser = _global_browser
+            page = _global_page
             
-            logger.info("Login detected! Proceeding with API call...")
-            await asyncio.sleep(2)
-            
-            if not has_auth:
-                logger.error("Login timeout")
-                yield {"error": "Login timeout. Please try again."}
-                return
-            
-            logger.info("User logged in! Navigating to arena.ai to ensure session is active...")
-            await browser.get("https://arena.ai/")
-            await asyncio.sleep(2)
-            
+            # Make sure we are on the right domain
             try:
                 url = await page.evaluate("window.location.href")
-                logger.info(f"Current page URL: {url}")
+                if "arena.ai" not in url:
+                    logger.info(f"Page is at {url}, navigating back to arena.ai...")
+                    await page.get("https://arena.ai/?mode=direct")
+                    await asyncio.sleep(2)
             except Exception as e:
-                logger.warning(f"Page appears closed: {e}")
-                yield {"error": "Browser window was closed. Please try again."}
-                return
+                logger.warning(f"Failed to check URL: {e}")
             
             logger.info("Waiting for ReCAPTCHA...")
             for i in range(30):
@@ -562,7 +492,11 @@ class LmarenaProvider(BaseProvider):
                 status = parts[1] if len(parts) > 1 else "?"
                 error_text = parts[2] if len(parts) > 2 else ""
                 logger.error(f"API error: {status} - {error_text[:200]}")
-                yield {"error": f"Error {status}: {error_text[:200]}"}
+                
+                if status == "401":
+                    yield {"error": "Login required! The Chrome window is still open. Please log into arena.ai and then send your message again."}
+                else:
+                    yield {"error": f"Error {status}: {error_text[:200]}"}
                 return
             
             if result and result.startswith("FETCH_ERROR:"):

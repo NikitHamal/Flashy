@@ -9,7 +9,6 @@ from typing import Optional, List, Dict, Any
 
 from ..git_manager import GitManager
 from ..websocket_manager import ws_manager
-from ..image_service import get_image_service, ImageService
 
 class GitMixin:
     def git_status(self) -> str:

@@ -6,11 +6,10 @@ from ..coding_agent import CodingAgent
 from ..prompts import SYSTEM_PROMPT as LEGACY_SYSTEM_PROMPT
 from ..response_filter import ResponseFilter, ThoughtFilter
 from ..storage import async_save_chat_message
-from ..image_service import get_image_service, ImageResult, ImageType
 from ..providers import get_provider_service
 from .gemini import get_gemini_chat_session, get_gemini_client, send_with_retry
 from .helpers import clean_response_text, separate_thinking
-from .support import generate_simple_response, handle_image_generation, run_delegated_task
+from .support import generate_simple_response, run_delegated_task
 
 
 class LLMService:
@@ -162,21 +161,6 @@ class LLMService:
                         )
                         response_text = gemini_resp.text or ""
                         api_thoughts = getattr(gemini_resp, "thoughts", None) or ""
-
-                        if hasattr(gemini_resp, "images") and gemini_resp.images:
-                            image_service = get_image_service(self.workspace_path)
-                            for image in gemini_resp.images:
-                                image_url = getattr(image, "url", "")
-                                if image_url and image_url not in images:
-                                    images.append(image_url)
-                                    image_service.generated_images.append(
-                                        ImageResult(
-                                            url=image_url,
-                                            image_type=ImageType.GENERATED if "generated" in type(image).__name__.lower() else ImageType.WEB,
-                                            title=getattr(image, "title", None),
-                                            alt=getattr(image, "alt", None),
-                                        )
-                                    )
                     else:
                         provider_svc = get_provider_service(provider_name)
                         if not provider_svc:
@@ -212,6 +196,8 @@ class LLMService:
                             provider_kwargs["base_url"] = self.config.get("chat2api_base_url", "http://127.0.0.1:8080")
                             provider_kwargs["api_key"] = self.config.get("chat2api_api_key", "")
                         elif provider_name == "lmarena":
+                            provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
+
                             provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
 
                         async for chunk in provider_svc.generate_stream(
@@ -318,19 +304,6 @@ class LLMService:
                                 tool_call["args"].get("task", ""),
                                 tool_call["args"].get("context", ""),
                             )
-                        elif tool_call["name"] == "generate_image":
-                            tool_result = await handle_image_generation(
-                                self,
-                                tool_call["args"],
-                                provider_name,
-                                chat_session,
-                                session_id,
-                            )
-                            image_service = get_image_service(self.workspace_path)
-                            for image in image_service.generated_images:
-                                if image.url and image.url not in images:
-                                    images.append(image.url)
-                                    yield {"images": [image.url]}
                         else:
                             tool_result, _ = await agent.execute_tool(tool_call["name"], tool_call["args"])
 

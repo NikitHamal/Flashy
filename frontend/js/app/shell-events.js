@@ -281,7 +281,8 @@ function setupShellEventListeners() {
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
                 document.getElementById('settings-active-provider').value = config.active_provider || 'gemini';
-                document.getElementById('settings-model').value = config.model || '';
+                const modelInput = document.getElementById('settings-model');
+                if (modelInput) modelInput.value = config.model || '';
                 const grokProxyInput = document.getElementById('settings-grok-proxy');
                 if (grokProxyInput) grokProxyInput.value = config.grok_proxy || '';
                 const kimiTokenInput = document.getElementById('settings-kimi-token');
@@ -355,7 +356,7 @@ function setupShellEventListeners() {
                 Secure_1PSIDTS: document.getElementById('settings-psidts').value,
                 GITHUB_PAT: document.getElementById('settings-github-pat').value,
                 active_provider: document.getElementById('settings-active-provider').value,
-                model: document.getElementById('settings-model').value,
+                model: document.getElementById('settings-model')?.value || '',
                 grok_proxy: document.getElementById('settings-grok-proxy')?.value || '',
                 kimi_token: document.getElementById('settings-kimi-token')?.value || '',
                 zai_token: document.getElementById('settings-zai-token')?.value || '',

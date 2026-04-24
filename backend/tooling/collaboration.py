@@ -9,7 +9,6 @@ from typing import Optional, List, Dict, Any
 
 from ..git_manager import GitManager
 from ..websocket_manager import ws_manager
-from ..image_service import get_image_service, ImageService
 
 class CollaborationMixin:
     def save_memory(self, category: str, title: str, content: str) -> str:
@@ -168,7 +167,6 @@ You MUST strictly follow the instructions in the <activated_skill> block above f
             "git": {},
             "commands": {},
             "web": {"requests_html": False},
-            "image": {"available": self.image_service is not None},
             "warnings": [],
             "errors": [],
         }

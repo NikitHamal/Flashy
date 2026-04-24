@@ -3,7 +3,6 @@ import asyncio
 from ..agents import agent_registry
 from ..coding_agent import CodingAgent
 from ..config import load_config
-from ..image_service import get_image_service, ImageResult, ImageType
 from ..providers import get_provider_service
 from .gemini import get_gemini_client, send_with_retry
 from .helpers import clean_response_text, separate_thinking, resolve_gemini_model
@@ -101,53 +100,6 @@ async def generate_simple_response(
         message_parts.append({"type": "thought", "content": accumulated_thought})
     message_parts.append({"type": "text", "content": accumulated_text})
     yield {"images": images, "is_final": True}
-
-
-async def handle_image_generation(service, args: dict, provider_name: str, chat_session, session_id: str) -> str:
-    prompt = args.get("prompt", "")
-    save_to_project = args.get("save_to_project", False)
-    filename = args.get("filename")
-
-    if provider_name != "gemini":
-        return "Image generation only supported on Gemini provider."
-
-    image_prompt = f"Generate an image: {prompt}. Use your image generation capabilities."
-    try:
-        image_response = await send_with_retry(service, chat_session, image_prompt, session_id=session_id)
-    except Exception as exc:
-        return f"Image generation failed: {str(exc)}"
-
-    if not hasattr(image_response, "images") or not image_response.images:
-        return "Image generation requested but no images returned."
-
-    results = []
-    for img in image_response.images:
-        img_url = getattr(img, "url", "")
-        if not img_url:
-            continue
-
-        img_type = "generated" if "generated" in type(img).__name__.lower() else "web"
-        img_svc = get_image_service(service.workspace_path)
-        img_result = ImageResult(
-            url=img_url,
-            image_type=ImageType.GENERATED if img_type == "generated" else ImageType.WEB,
-            title=getattr(img, "title", None),
-            alt=getattr(img, "alt", None),
-        )
-        img_svc.generated_images.append(img_result)
-
-        if save_to_project and service.workspace_path:
-            success, save_path = await img_svc.save_image_from_url(img_url, filename)
-            if success:
-                img_result.local_path = save_path
-                img_result.saved = True
-                results.append(f"Image generated and saved to: {save_path}")
-            else:
-                results.append(f"Image generated but failed to save: {save_path}")
-        else:
-            results.append(f"Image generated: {img_url[:60]}...")
-
-    return "\n".join(results) if results else "Image generation completed with no results."
 
 
 async def run_delegated_task(service, task: str, context: str = "") -> str:

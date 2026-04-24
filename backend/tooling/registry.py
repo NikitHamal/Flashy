@@ -9,7 +9,6 @@ from typing import Optional, List, Dict, Any
 
 from ..git_manager import GitManager
 from ..websocket_manager import ws_manager
-from ..image_service import get_image_service, ImageService
 
 class ToolRegistryMixin:
     @staticmethod
@@ -86,10 +85,6 @@ class ToolRegistryMixin:
             {"name": "git_log", "description": "Show commit history. Args: limit (int, optional)"},
             {"name": "git_clone", "description": "Clone a repo. Args: url (str), path (str, optional)"},
             {"name": "git_init", "description": "Initialize a new git repo. No args."},
-            # Image Tools
-            {"name": "generate_image", "description": "Generate an AI image. Args: prompt (str), save_to_project (bool, optional), filename (str, optional)"},
-            {"name": "save_image", "description": "Save image from URL to project. Args: url (str), filename (str, optional), subdir (str, optional)"},
-            {"name": "save_generated_images", "description": "Save all recently generated images. Args: subdir (str, optional)"}
         ]
 
     async def execute(self, tool_name: str, **kwargs) -> str:
@@ -133,10 +128,6 @@ class ToolRegistryMixin:
             "git_log": self.git_log,
             "git_clone": self.git_clone,
             "git_init": self.git_init,
-            # Image Tools
-            "generate_image": self.generate_image,
-            "save_image": self.save_image,
-            "save_generated_images": self.save_generated_images,
         }
         
         if tool_name not in tool_map:
