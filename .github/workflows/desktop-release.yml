@@ -70,9 +70,11 @@ jobs:
         with:
           name: flashy-${{ matrix.name }}
           path: |
-            desktop/release/**
-            !desktop/release/**/builder-debug.yml
-            !desktop/release/**/builder-effective-config.yaml
+            desktop/release/*.exe
+            desktop/release/*.deb
+            desktop/release/*.AppImage
+            desktop/release/*.dmg
+            desktop/release/*.zip
           if-no-files-found: error
 
   publish-github-release:
