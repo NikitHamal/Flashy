@@ -61,9 +61,6 @@ async def get_models(request: Request):
         models = await Chat2APIProvider.get_models(base_url, api_key)
         return [{"id": m["id"], "name": m["name"]} for m in models]
 
-    if provider_name == "gemini":
-        return [{"id": "G_2_5_FLASH", "name": "Agent Flashy"}]
-
     if provider_name == "grok":
         from ..providers.grok import MODELS
         return [{"id": m["id"], "name": m["name"]} for m in MODELS]

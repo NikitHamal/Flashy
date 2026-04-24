@@ -6,13 +6,9 @@ from .desktop_runtime import data_file
 CONFIG_FILE = os.environ.get("FLASHY_CONFIG_FILE", str(data_file("config.json")))
 
 DEFAULT_CONFIG = {
-    "Secure_1PSID": "",
-    "Secure_1PSIDTS": "",
     "model": "qwen3.6-plus",
     "GITHUB_PAT": "",
     "active_provider": "qwen",
-    "computer_use_provider": "airforce",
-    "computer_use_model": "",
     "grok_proxy": "",
     "kimi_token": "",
     "zai_token": "",

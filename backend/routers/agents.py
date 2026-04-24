@@ -68,9 +68,8 @@ async def get_agent_types():
 async def get_available_providers():
     """Get all available providers for agent configuration."""
     return [
-        {"id": "gemini", "name": "Google Gemini"},
-        {"id": "deepinfra", "name": "DeepInfra"},
         {"id": "qwen", "name": "Qwen (Alibaba)"},
+        {"id": "deepinfra", "name": "DeepInfra"},
     ]
 
 

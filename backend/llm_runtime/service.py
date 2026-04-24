@@ -7,14 +7,12 @@ from ..prompts import SYSTEM_PROMPT as LEGACY_SYSTEM_PROMPT
 from ..response_filter import ResponseFilter, ThoughtFilter
 from ..storage import async_save_chat_message
 from ..providers import get_provider_service
-from .gemini import get_gemini_chat_session, get_gemini_client, send_with_retry
 from .helpers import clean_response_text, separate_thinking
 from .support import generate_simple_response, run_delegated_task
 
 
 class LLMService:
     def __init__(self):
-        self.gemini_client = None
         self.config = load_config()
         self.sessions: Dict[str, Any] = {}
         self.provider_sessions: Dict[str, List[Dict[str, str]]] = {}
@@ -46,9 +44,6 @@ class LLMService:
         self.config = load_config()
         return self.config.get("active_provider", "qwen")
 
-    async def get_gemini_client(self):
-        return await get_gemini_client(self)
-
     def get_agent(self, session_id: str) -> CodingAgent:
         if session_id not in self.agents:
             self.agents[session_id] = CodingAgent(
@@ -60,9 +55,6 @@ class LLMService:
             agent_registry.register_session(session_id, self.agents[session_id])
         return self.agents[session_id]
 
-    async def get_gemini_chat_session(self, session_id: str, history=None, fresh: bool = False):
-        return await get_gemini_chat_session(self, session_id, history=history, fresh=fresh)
-
     def interrupt_session(self, session_id: str):
         self.interrupted_sessions.add(session_id)
         if session_id in self.active_tasks:
@@ -72,9 +64,6 @@ class LLMService:
 
     def _is_interrupted(self, session_id: str) -> bool:
         return session_id in self.interrupted_sessions
-
-    async def _send_with_retry(self, *args, **kwargs):
-        return await send_with_retry(self, *args, **kwargs)
 
     async def generate_response(
         self,
@@ -126,12 +115,9 @@ class LLMService:
                 full_prompt = text
 
             chat_session = None
-            if provider_name == "gemini":
-                chat_session = await self.get_gemini_chat_session(session_id, history=history)
-            else:
-                if session_id not in self.provider_sessions:
-                    self.provider_sessions[session_id] = []
-                self.provider_sessions[session_id].append({"role": "user", "content": full_prompt})
+            if session_id not in self.provider_sessions:
+                self.provider_sessions[session_id] = []
+            self.provider_sessions[session_id].append({"role": "user", "content": full_prompt})
 
             if agent and self.workspace_path:
                 max_iterations = 20
@@ -153,115 +139,94 @@ class LLMService:
                     response_text = ""
                     api_thoughts = ""
 
-                    if provider_name == "gemini":
-                        gemini_resp = await self._send_with_retry(
-                            chat_session,
-                            current_prompt,
-                            files=files if iteration == 0 else None,
-                            session_id=session_id,
-                        )
-                        response_text = gemini_resp.text or ""
-                        api_thoughts = getattr(gemini_resp, "thoughts", None) or ""
-                    else:
-                        provider_svc = get_provider_service(provider_name)
-                        if not provider_svc:
-                            yield {"error": f"Provider '{provider_name}' not found.", "is_final": True}
-                            return
+                    provider_svc = get_provider_service(provider_name)
+                    if not provider_svc:
+                        yield {"error": f"Provider '{provider_name}' not found.", "is_final": True}
+                        return
 
-                        if iteration > 0:
-                            self.provider_sessions[session_id].append({"role": "user", "content": current_prompt})
+                    if iteration > 0:
+                        self.provider_sessions[session_id].append({"role": "user", "content": current_prompt})
 
-                        accumulated_text = ""
-                        accumulated_thought = ""
-                        in_think_block = False
+                    accumulated_text = ""
+                    accumulated_thought = ""
+                    in_think_block = False
 
-                        provider_kwargs = {
-                            "proxy": self.config.get("proxy"),
-                            "chat_type": chat_type,
-                            "thinking_enabled": thinking_enabled,
-                            "thinking_mode": thinking_mode,
-                            "files": files,
-                            "conversation": self.qwen_conversations.get(session_id) if provider_name == "qwen" else None,
-                        }
-                        if provider_name == "grok":
-                            provider_kwargs["proxy"] = self.config.get("grok_proxy") or provider_kwargs["proxy"]
-                        elif provider_name == "deepseek":
-                            provider_kwargs["token"] = self.config.get("deepseek_token", "")
-                        elif provider_name == "kimi":
-                            provider_kwargs["token"] = self.config.get("kimi_token", "")
-                        elif provider_name == "zai":
-                            provider_kwargs["token"] = self.config.get("zai_token", "")
-                        elif provider_name == "glm":
-                            provider_kwargs["token"] = self.config.get("glm_refresh_token", "")
-                        elif provider_name == "chat2api":
-                            provider_kwargs["base_url"] = self.config.get("chat2api_base_url", "http://127.0.0.1:8080")
-                            provider_kwargs["api_key"] = self.config.get("chat2api_api_key", "")
-                        elif provider_name == "lmarena":
-                            provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
+                    provider_kwargs = {
+                        "proxy": self.config.get("proxy"),
+                        "chat_type": chat_type,
+                        "thinking_enabled": thinking_enabled,
+                        "thinking_mode": thinking_mode,
+                        "files": files,
+                        "conversation": self.qwen_conversations.get(session_id) if provider_name == "qwen" else None,
+                    }
+                    if provider_name == "grok":
+                        provider_kwargs["proxy"] = self.config.get("grok_proxy") or provider_kwargs["proxy"]
+                    elif provider_name == "deepseek":
+                        provider_kwargs["token"] = self.config.get("deepseek_token", "")
+                    elif provider_name == "kimi":
+                        provider_kwargs["token"] = self.config.get("kimi_token", "")
+                    elif provider_name == "zai":
+                        provider_kwargs["token"] = self.config.get("zai_token", "")
+                    elif provider_name == "glm":
+                        provider_kwargs["token"] = self.config.get("glm_refresh_token", "")
+                    elif provider_name == "chat2api":
+                        provider_kwargs["base_url"] = self.config.get("chat2api_base_url", "http://127.0.0.1:8080")
+                        provider_kwargs["api_key"] = self.config.get("chat2api_api_key", "")
+                    elif provider_name == "lmarena":
+                        provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
 
-                            provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
-
-                        async for chunk in provider_svc.generate_stream(
-                            self.provider_sessions[session_id],
-                            self.config.get("model", ""),
-                            **provider_kwargs
-                        ):
-                            if "conversation" in chunk:
-                                self.qwen_conversations[session_id] = chunk["conversation"]
+                    async for chunk in provider_svc.generate_stream(
+                        self.provider_sessions[session_id],
+                        self.config.get("model", ""),
+                        **provider_kwargs
+                    ):
+                        if "conversation" in chunk:
+                            self.qwen_conversations[session_id] = chunk["conversation"]
+                            continue
+                        if "error" in chunk:
+                            yield {"error": chunk["error"]}
+                            message_parts.append({"type": "error", "content": chunk["error"]})
+                            continue
+                        if "thought" in chunk:
+                            accumulated_thought += chunk["thought"]
+                            yield {"thought": chunk["thought"]}
+                        if "usage" in chunk:
+                            self._qwen_usage_stats[session_id] = chunk["usage"]
+                            yield {"usage": chunk["usage"]}
+                        if "text" in chunk:
+                            token = chunk["text"]
+                            accumulated_text += token
+                            if "<think>" in token:
+                                in_think_block = True
+                                before, after = token.split("<think>", 1)
+                                if before:
+                                    yield {"text": before}
+                                if after:
+                                    accumulated_thought += after
+                                    yield {"thought": after}
                                 continue
-                            if "error" in chunk:
-                                yield {"error": chunk["error"]}
-                                message_parts.append({"type": "error", "content": chunk["error"]})
+                            if "</think>" in token:
+                                in_think_block = False
+                                before, after = token.split("</think>", 1)
+                                if before:
+                                    accumulated_thought += before
+                                    yield {"thought": before}
+                                if after:
+                                    yield {"text": after}
                                 continue
-                            if "thought" in chunk:
-                                accumulated_thought += chunk["thought"]
-                                yield {"thought": chunk["thought"]}
-                            if "usage" in chunk:
-                                self._qwen_usage_stats[session_id] = chunk["usage"]
-                                yield {"usage": chunk["usage"]}
-                            if "text" in chunk:
-                                token = chunk["text"]
-                                accumulated_text += token
-                                if "<think>" in token:
-                                    in_think_block = True
-                                    before, after = token.split("<think>", 1)
-                                    if before:
-                                        yield {"text": before}
-                                    if after:
-                                        accumulated_thought += after
-                                        yield {"thought": after}
-                                    continue
-                                if "</think>" in token:
-                                    in_think_block = False
-                                    before, after = token.split("</think>", 1)
-                                    if before:
-                                        accumulated_thought += before
-                                        yield {"thought": before}
-                                    if after:
-                                        yield {"text": after}
-                                    continue
-                                if in_think_block:
-                                    accumulated_thought += token
-                                    yield {"thought": token}
-                                else:
-                                    yield {"text": token}
+                            if in_think_block:
+                                accumulated_thought += token
+                                yield {"thought": token}
+                            else:
+                                yield {"text": token}
 
-                        response_text = accumulated_text
-                        api_thoughts = accumulated_thought
-                        self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
+                    response_text = accumulated_text
+                    api_thoughts = accumulated_thought
+                    self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
 
-                    if provider_name == "gemini":
-                        embedded_thinking, clean_response = separate_thinking(self, response_text)
-                        all_thoughts = api_thoughts
-                        if embedded_thinking:
-                            all_thoughts = f"{all_thoughts}\n\n{embedded_thinking}".strip() if all_thoughts else embedded_thinking
-                        if all_thoughts:
-                            yield {"thought": all_thoughts}
-                            message_parts.append({"type": "thought", "content": all_thoughts})
-                    else:
-                        clean_response = response_text
-                        if api_thoughts:
-                            message_parts.append({"type": "thought", "content": api_thoughts})
+                    clean_response = response_text
+                    if api_thoughts:
+                        message_parts.append({"type": "thought", "content": api_thoughts})
 
                     tool_call = agent.parse_tool_call(clean_response)
                     if not tool_call:
@@ -288,8 +253,6 @@ class LLMService:
 
                     display_text = clean_response_text(self, clean_response, tool_call.get("raw_match"))
                     if display_text:
-                        if provider_name == "gemini":
-                            yield {"text": display_text + "\n"}
                         message_parts.append({"type": "text", "content": display_text})
 
                     yield {"tool_call": {"name": tool_call["name"], "args": tool_call["args"]}}
@@ -359,9 +322,7 @@ class LLMService:
             error_str = str(exc).lower()
             provider_name = self.get_active_provider()
             if "invalid response" in error_str or "403" in error_str or "failed to generate" in error_str:
-                if provider_name == "gemini":
-                    error_msg += "\n\n**Hint:** Your Gemini cookies (Secure-1PSID) might be invalid or expired."
-                elif provider_name == "qwen":
+                if provider_name == "qwen":
                     error_msg += "\n\n**Hint:** Qwen may have triggered a WAF/captcha challenge. Try again in a moment."
                 else:
                     error_msg += f"\n\n**Hint:** The {provider_name} provider may be temporarily unavailable."

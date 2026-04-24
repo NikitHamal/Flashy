@@ -198,7 +198,7 @@ class AgentRegistry:
                 return None
         
         agent = agent_class(
-            provider_name=config.get("provider", "gemini"),
+            provider_name=config.get("provider", "qwen"),
             model=config.get("model", "G_3_0_FLASH"),
             workspace_path=workspace_path,
             session_id=session_id
@@ -229,7 +229,7 @@ class AgentRegistry:
         for agent_type in AgentType:
             config = self.get_agent_config(agent_type)
             result[agent_type.value] = {
-                "provider": config.get("provider", "gemini"),
+                "provider": config.get("provider", "qwen"),
                 "model": config.get("model", ""),
                 "description": config.get("description", "")
             }

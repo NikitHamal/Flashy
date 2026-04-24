@@ -1,6 +1,6 @@
 {
   "orchestrator": {
-    "provider": "gemini",
+    "provider": "qwen",
     "model": "G_3_0_FLASH",
     "description": "Coordinates tasks and delegates to specialized agents"
   },
@@ -10,7 +10,7 @@
     "description": "Designs system architecture and plans"
   },
   "developer": {
-    "provider": "gemini",
+    "provider": "qwen",
     "model": "G_3_0_FLASH",
     "description": "Implements code and features"
   },
@@ -45,12 +45,12 @@
     "description": "Refactors and improves code"
   },
   "testing": {
-    "provider": "gemini",
+    "provider": "qwen",
     "model": "G_3_0_FLASH",
     "description": "Creates and runs tests"
   },
   "deploy": {
-    "provider": "gemini",
+    "provider": "qwen",
     "model": "G_3_0_FLASH",
     "description": "Handles deployment tasks"
   }

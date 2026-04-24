@@ -56,9 +56,6 @@
                 <button id="btn-add-workspace" class="btn-secondary full-width">
                     <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
-                <a href="/computer-use" class="btn-secondary full-width" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <span class="material-symbols-outlined">desktop_windows</span> Computer Use
-                </a>
             </div>
         </aside>
         <div id="sidebar-resizer" class="resizer-h"></div>
@@ -444,7 +441,6 @@
                             <select id="settings-active-provider" class="dropdown-select">
                                 <option value="qwen">Qwen (Alibaba)</option>
                                 <option value="deepinfra">DeepInfra</option>
-                                <option value="gemini">Google Gemini (Web)</option>
                                 <option value="grok">Grok (xAI)</option>
                                 <option value="zai-free">Z.ai Free (No Auth)</option>
                                 <option value="kimi">Kimi (Moonshot)</option>
@@ -455,31 +451,6 @@
                                 <option value="chat2api">Chat2API (Local)</option>
                                 <option value="lmarena">LMArena (Free Models)</option>
                             </select>
-                        </div>
-                    </div>
-
-                    <div id="settings-provider-gemini" class="provider-settings-section">
-                        <div class="settings-group">
-                            <label>Gemini Web Authentication</label>
-                            <p class="settings-hint">Extract these from cookies on gemini.google.com</p>
-                            <div class="settings-field">
-                                <label>__Secure-1PSID</label>
-                                <div class="input-with-action">
-                                    <input type="password" id="settings-psid" placeholder="Enter __Secure-1PSID">
-                                    <button class="btn-toggle-visibility" data-target="settings-psid">
-                                        <span class="material-symbols-outlined">visibility</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="settings-field">
-                                <label>__Secure-1PSIDTS</label>
-                                <div class="input-with-action">
-                                    <input type="password" id="settings-psidts" placeholder="Enter __Secure-1PSIDTS">
-                                    <button class="btn-toggle-visibility" data-target="settings-psidts">
-                                        <span class="material-symbols-outlined">visibility</span>
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -620,7 +591,6 @@
                             <select id="agent-provider-selector" class="dropdown-select">
                                 <option value="qwen">Qwen</option>
                                 <option value="deepinfra">DeepInfra</option>
-                                <option value="gemini">Google Gemini</option>
                                 <option value="grok">Grok (xAI)</option>
                                 <option value="zai-free">Z.ai Free</option>
                                 <option value="kimi">Kimi</option>

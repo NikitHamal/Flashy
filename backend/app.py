@@ -50,7 +50,7 @@ from .storage import (
 )
 from .websocket_manager import ws_manager, MessageType
 from .desktop_runtime import resource_path, truthy_env, user_data_dir
-from .routers import git_routes, workspace, chat, config, agents, memory, computer_use
+from .routers import git_routes, workspace, chat, config, agents, memory
 from .routers import qwen
 
 app = FastAPI()
@@ -119,7 +119,6 @@ app.include_router(chat.router)
 app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
-app.include_router(computer_use.router)
 app.include_router(qwen.router)
 
 from . import qwencode_bridge
@@ -136,18 +135,13 @@ async def spa_fallback_handler(request: Request, __):
         "/history",
         "/workspace",
         "/workspaces",
-        "/proxy_image",
         "/config",
         "/git",
-        "/api/computer-use",
     )
     path = request.url.path
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
-    if path == "/computer-use" or path.startswith("/computer-use/"):
-        return FileResponse(FRONTEND_DIR / "computer-use.html")
     return FileResponse(FRONTEND_DIR / "index.html")
-
 
 UPLOAD_DIR = os.path.join(os.getenv("TEMP", "/tmp"), "flashy_uploads")
 if not os.path.exists(UPLOAD_DIR):
@@ -158,21 +152,9 @@ if not os.path.exists(UPLOAD_DIR):
 async def favicon():
     return Response(content="", media_type="image/x-icon")
 
-
 @app.get("/qwencode", include_in_schema=False)
 async def serve_qwen_code_ui():
     return FileResponse(FRONTEND_DIR / "qwencode.html")
-
-
-@app.get("/computer-use", include_in_schema=False)
-async def serve_computer_use_ui():
-    return FileResponse(FRONTEND_DIR / "computer-use.html")
-
-
-@app.get("/computer-use/{session_id}", include_in_schema=False)
-async def serve_computer_use_session_ui(session_id: str):
-    return FileResponse(FRONTEND_DIR / "computer-use.html")
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -263,10 +245,6 @@ async def chat_endpoint(
                     elif "tool_result" in chunk:
                         yield json.dumps(chunk) + "\n"
                     else:
-                        if chunk.get("images"):
-                            chunk["images"] = [
-                                f"/proxy_image?url={url}" for url in chunk["images"]
-                            ]
                         yield json.dumps(chunk) + "\n"
             except Exception as e:
                 print(f"Error in streaming: {e}")
@@ -289,72 +267,6 @@ async def chat_endpoint(
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/proxy_image")
-async def proxy_image(url: str):
-    """Proxy external images to avoid CORS issues with Google's generated images."""
-    import traceback
-
-    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-        try:
-            # Add headers that help with Google's image servers
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://gemini.google.com/",
-                "Origin": "https://gemini.google.com",
-                "Sec-Fetch-Dest": "image",
-                "Sec-Fetch-Mode": "no-cors",
-                "Sec-Fetch-Site": "cross-site",
-            }
-
-            # Try to get cookies from llm_service if available
-            try:
-                from .config import load_config
-
-                config = load_config()
-                cookies = {}
-                if config.get("Secure_1PSID"):
-                    cookies["__Secure-1PSID"] = config.get("Secure_1PSID")
-                if config.get("Secure_1PSIDTS"):
-                    cookies["__Secure-1PSIDTS"] = config.get("Secure_1PSIDTS")
-                if config.get("Secure_1PSIDCC"):
-                    cookies["__Secure-1PSIDCC"] = config.get("Secure_1PSIDCC")
-                if cookies:
-                    resp = await client.get(url, headers=headers, cookies=cookies)
-                else:
-                    resp = await client.get(url, headers=headers)
-            except Exception:
-                resp = await client.get(url, headers=headers)
-
-            if resp.status_code != 200:
-                print(
-                    f"[proxy_image] Failed to fetch {url[:100]}... Status: {resp.status_code}"
-                )
-                # Return a placeholder image instead of an error
-                placeholder = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-                return Response(content=placeholder, media_type="image/png")
-
-            content_type = resp.headers.get("Content-Type", "image/png")
-            return Response(
-                content=resp.content,
-                media_type=content_type,
-                headers={
-                    "Cache-Control": "public, max-age=86400",
-                    "Access-Control-Allow-Origin": "*",
-                },
-            )
-        except httpx.TimeoutException:
-            print(f"[proxy_image] Timeout fetching: {url[:100]}...")
-            raise HTTPException(status_code=504, detail="Image fetch timed out")
-        except Exception as e:
-            print(f"[proxy_image] Error fetching {url[:100]}...: {e}")
-            traceback.print_exc()
-            # Return a placeholder instead of error
-            placeholder = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-            return Response(content=placeholder, media_type="image/png")
 
 
 # --- WebSocket ---
@@ -548,17 +460,12 @@ async def handle_ws_chat(
                         {"content": chunk["tool_result"]},
                     )
                 else:
-                    # Proxy images through our server to avoid CORS issues
-                    images = chunk.get("images", [])
-                    proxied_images = (
-                        [f"/proxy_image?url={url}" for url in images] if images else []
-                    )
                     await ws_manager.send_to_session(
                         session_id,
                         MessageType.TEXT,
                         {
                             "content": chunk.get("text", ""),
-                            "images": proxied_images,
+                            "images": chunk.get("images", []),
                             "is_final": chunk.get("is_final", False),
                         },
                     )

@@ -6,15 +6,11 @@ from ..config import load_config, save_config
 router = APIRouter()
 
 class ConfigUpdate(BaseModel):
-    Secure_1PSID: Optional[str] = None
-    Secure_1PSIDTS: Optional[str] = None
     GITHUB_PAT: Optional[str] = None
     model: Optional[str] = None
     active_provider: Optional[str] = "qwen"
     deepinfra_api_key: Optional[str] = None
     qwen_api_key: Optional[str] = None
-    computer_use_provider: Optional[str] = None
-    computer_use_model: Optional[str] = None
     grok_proxy: Optional[str] = None
     kimi_token: Optional[str] = None
     zai_token: Optional[str] = None
