@@ -7,6 +7,8 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
+from ..desktop_runtime import user_data_dir
+
 from .models import (
     ComputerUseEvent,
     ComputerUseMessage,
@@ -15,7 +17,7 @@ from .models import (
     SessionSummary,
 )
 
-DATA_DIR = "data"
+DATA_DIR = os.environ.get("FLASHY_STORAGE_DIR", str(user_data_dir() / "data"))
 COMPUTER_USE_FILE = os.path.join(DATA_DIR, "computer_use_sessions.json")
 
 

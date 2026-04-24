@@ -19,6 +19,8 @@ import asyncio
 import httpx
 import uuid
 import logging
+import base64
+import secrets
 from typing import List, Optional
 
 # ── Logging setup ──────────────────────────────────────────────────────────────
@@ -47,10 +49,64 @@ from .storage import (
     add_workspace,
 )
 from .websocket_manager import ws_manager, MessageType
+from .desktop_runtime import resource_path, truthy_env, user_data_dir
 from .routers import git_routes, workspace, chat, config, agents, memory, computer_use
 from .routers import qwen
 
 app = FastAPI()
+
+FRONTEND_DIR = resource_path("frontend")
+FLASHY_HOST = os.environ.get("FLASHY_HOST", "127.0.0.1" if truthy_env("FLASHY_DESKTOP") else "0.0.0.0")
+FLASHY_PORT = int(os.environ.get("FLASHY_PORT", "8000"))
+FLASHY_RELOAD = truthy_env("FLASHY_RELOAD", default=not truthy_env("FLASHY_DESKTOP"))
+AUTH_USERNAME = os.environ.get("FLASHY_DESKTOP_AUTH_USERNAME", "flashy")
+AUTH_PASSWORD = os.environ.get("FLASHY_DESKTOP_AUTH_PASSWORD", "")
+AUTH_ENABLED = bool(AUTH_PASSWORD)
+
+
+def _auth_ok(auth_header: str | None) -> bool:
+    if not AUTH_ENABLED:
+        return True
+    if not auth_header or not auth_header.lower().startswith("basic "):
+        return False
+    try:
+        decoded = base64.b64decode(auth_header.split(" ", 1)[1]).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except Exception:
+        return False
+    return secrets.compare_digest(username, AUTH_USERNAME) and secrets.compare_digest(password, AUTH_PASSWORD)
+
+
+def _token_ok(token: str | None) -> bool:
+    return AUTH_ENABLED and bool(token) and secrets.compare_digest(token, AUTH_PASSWORD)
+
+
+@app.middleware("http")
+async def desktop_basic_auth(request: Request, call_next):
+    # Keep the readiness probe unauthenticated so the desktop shell can detect start-up.
+    if AUTH_ENABLED and request.url.path not in {"/global/health", "/healthz"}:
+        if not _auth_ok(request.headers.get("authorization")):
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Flashy Desktop"'},
+                content="Authentication required",
+            )
+    return await call_next(request)
+
+
+@app.get("/global/health", include_in_schema=False)
+async def global_health():
+    return {
+        "status": "ok",
+        "service": "flashy",
+        "desktop": truthy_env("FLASHY_DESKTOP"),
+        "data_dir": str(user_data_dir()),
+    }
+
+
+@app.get("/healthz", include_in_schema=False)
+async def healthz():
+    return {"status": "ok"}
 
 
 # Share service instances
@@ -89,8 +145,8 @@ async def spa_fallback_handler(request: Request, __):
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
     if path == "/computer-use" or path.startswith("/computer-use/"):
-        return FileResponse("frontend/computer-use.html")
-    return FileResponse("frontend/index.html")
+        return FileResponse(FRONTEND_DIR / "computer-use.html")
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 UPLOAD_DIR = os.path.join(os.getenv("TEMP", "/tmp"), "flashy_uploads")
@@ -105,17 +161,17 @@ async def favicon():
 
 @app.get("/qwencode", include_in_schema=False)
 async def serve_qwen_code_ui():
-    return FileResponse("frontend/qwencode.html")
+    return FileResponse(FRONTEND_DIR / "qwencode.html")
 
 
 @app.get("/computer-use", include_in_schema=False)
 async def serve_computer_use_ui():
-    return FileResponse("frontend/computer-use.html")
+    return FileResponse(FRONTEND_DIR / "computer-use.html")
 
 
 @app.get("/computer-use/{session_id}", include_in_schema=False)
 async def serve_computer_use_session_ui(session_id: str):
-    return FileResponse("frontend/computer-use.html")
+    return FileResponse(FRONTEND_DIR / "computer-use.html")
 
 
 app.add_middleware(
@@ -306,6 +362,13 @@ async def proxy_image(url: str):
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    if AUTH_ENABLED and not (
+        _auth_ok(websocket.headers.get("authorization"))
+        or _token_ok(websocket.query_params.get("desktop_token"))
+    ):
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+
     workspace_id = websocket.query_params.get("workspace_id")
     connection_id = await ws_manager.connect(websocket, session_id, workspace_id)
     try:
@@ -527,9 +590,9 @@ async def handle_ws_chat(
                     pass
 
 
-app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
+app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.app:app", host=FLASHY_HOST, port=FLASHY_PORT, reload=FLASHY_RELOAD)

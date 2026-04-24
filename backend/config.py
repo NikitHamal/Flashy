@@ -1,7 +1,9 @@
 import json
 import os
 
-CONFIG_FILE = "config.json"
+from .desktop_runtime import data_file
+
+CONFIG_FILE = os.environ.get("FLASHY_CONFIG_FILE", str(data_file("config.json")))
 
 DEFAULT_CONFIG = {
     "Secure_1PSID": "",

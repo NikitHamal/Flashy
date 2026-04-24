@@ -56,11 +56,19 @@ class FlashyWebSocket {
             const host = window.location.host;
             let url = `${protocol}//${host}/ws/${sessionId}`;
 
+            const params = new URLSearchParams();
             if (workspaceId) {
-                url += `?workspace_id=${workspaceId}`;
+                params.set('workspace_id', workspaceId);
+            }
+            if (window.flashyDesktop?.authToken) {
+                params.set('desktop_token', window.flashyDesktop.authToken);
+            }
+            const query = params.toString();
+            if (query) {
+                url += `?${query}`;
             }
 
-            console.log('[WS] Connecting to:', url);
+            console.log('[WS] Connecting to:', url.replace(/desktop_token=[^&]+/, 'desktop_token=***'));
             this.ws = new WebSocket(url);
 
             this.ws.onopen = () => {

@@ -31,4 +31,18 @@ qwen-code/packages/*/dist/
 qwen-code/.qwen/
 qwen-code/integration-tests/node_modules/
 
-qwen-code/
+# Desktop packaging
+node_modules/
+desktop/node_modules/
+desktop/build/
+desktop/release/
+build/
+dist/
+*.spec.bak
+
+# Python runtime/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/

@@ -5,6 +5,8 @@ import os
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import subprocess
 
+from .desktop_runtime import resource_path
+
 router = APIRouter()
 
 active_sessions = {}
@@ -25,7 +27,7 @@ class QwenCodeSession:
     async def start_qwen_code(
         self, prompt: str, auth_type: str, model: str, workspace_path: str
     ):
-        flashy_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        flashy_root = str(resource_path())
         cli_js = os.path.join(flashy_root, "qwen-code", "dist", "cli.js")
 
         cmd = [
@@ -51,7 +53,7 @@ class QwenCodeSession:
         # cmd.extend(["--session-id", self.session_id, "--chat-recording"])
 
         env = os.environ.copy()
-        env["FLASHY_API_URL"] = "http://127.0.0.1:8000"
+        env["FLASHY_API_URL"] = f"http://127.0.0.1:{os.environ.get('FLASHY_PORT', '8000')}"
 
         self.process = await asyncio.create_subprocess_exec(
             *cmd,

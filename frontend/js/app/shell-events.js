@@ -86,14 +86,39 @@ function setupShellEventListeners() {
     if (closeConnectButton) {
         closeConnectButton.addEventListener('click', () => connectModal.classList.add('hidden'));
     }
+    async function connectWorkspacePath(path) {
+        const workspace = await API.setWorkspace(path);
+        if (workspace && workspace.id) {
+            await refreshState();
+            openWorkspace(workspace.id);
+        }
+        return workspace;
+    }
+
+    window.addEventListener('flashy:native-folder-picked', async (event) => {
+        if (!event.detail) return;
+        try {
+            await connectWorkspacePath(event.detail);
+        } catch (error) {
+            alert(`Error connecting path: ${error.message}`);
+        }
+    });
+
     if (choiceDevice) {
         choiceDevice.addEventListener('click', async () => {
             connectModal.classList.add('hidden');
             try {
-                const workspace = await API.pickWorkspace();
-                if (workspace && workspace.id) {
-                    await refreshState();
-                    openWorkspace(workspace.id);
+                let workspace;
+                if (window.flashyDesktop?.selectDirectory) {
+                    const path = await window.flashyDesktop.selectDirectory();
+                    if (!path) return;
+                    workspace = await connectWorkspacePath(path);
+                } else {
+                    workspace = await API.pickWorkspace();
+                    if (workspace && workspace.id) {
+                        await refreshState();
+                        openWorkspace(workspace.id);
+                    }
                 }
             } catch (error) {
                 alert('Failed to open dialog. Please try entering the path manually below.');
@@ -139,9 +164,14 @@ function setupShellEventListeners() {
     if (pickCloneParentButton) {
         pickCloneParentButton.addEventListener('click', async () => {
             try {
-                const result = await API.pickPath();
-                if (result && result.path) {
-                    document.getElementById('clone-parent-path').value = result.path;
+                if (window.flashyDesktop?.selectDirectory) {
+                    const path = await window.flashyDesktop.selectDirectory();
+                    if (path) document.getElementById('clone-parent-path').value = path;
+                } else {
+                    const result = await API.pickPath();
+                    if (result && result.path) {
+                        document.getElementById('clone-parent-path').value = result.path;
+                    }
                 }
             } catch (error) {
                 alert('Failed to open dialog. You can enter the path manually.');

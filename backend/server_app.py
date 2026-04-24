@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -34,4 +36,9 @@ app = create_server_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("backend.server_app:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run(
+        "backend.server_app:app",
+        host=os.environ.get("FLASHY_PROVIDER_HOST", "127.0.0.1"),
+        port=int(os.environ.get("FLASHY_PROVIDER_PORT", "8001")),
+        reload=os.environ.get("FLASHY_RELOAD", "0").lower() in {"1", "true", "yes"},
+    )

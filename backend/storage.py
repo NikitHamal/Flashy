@@ -5,12 +5,13 @@ import uuid
 import asyncio
 import tempfile
 
-DATA_DIR = "data"
+from .desktop_runtime import user_data_dir
+
+DATA_DIR = os.environ.get("FLASHY_STORAGE_DIR", str(user_data_dir() / "data"))
 CHATS_FILE = os.path.join(DATA_DIR, "chats.json")
 WORKSPACES_FILE = os.path.join(DATA_DIR, "workspaces.json")
 
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Asyncio locks for file-level concurrency protection per file
 _file_locks: dict[str, asyncio.Lock] = {}
