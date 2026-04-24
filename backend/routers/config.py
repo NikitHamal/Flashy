@@ -10,7 +10,7 @@ class ConfigUpdate(BaseModel):
     Secure_1PSIDTS: Optional[str] = None
     GITHUB_PAT: Optional[str] = None
     model: Optional[str] = None
-    active_provider: Optional[str] = None
+    active_provider: Optional[str] = "qwen"
     deepinfra_api_key: Optional[str] = None
     qwen_api_key: Optional[str] = None
     computer_use_provider: Optional[str] = None

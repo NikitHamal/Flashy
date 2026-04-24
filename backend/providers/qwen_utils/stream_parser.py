@@ -194,6 +194,11 @@ def parse_stream_chunks(
         finish_reason = choice.get("finish_reason")
         status = delta.get("status")
 
+        usage = chunk_data.get("usage")
+        if usage:
+            logger.debug(f"[QWEN] usage chunk: {usage}")
+            events.append({"usage": usage})
+
         if content or finish_reason or (phase and phase not in ("answer",)) or (status and status != "typing"):
             logger.debug(f"[QWEN] chunk: phase={phase} content_len={len(content) if content else 0} finish_reason={finish_reason} status={status} fc={bool(delta.get('function_call'))} fc_name={delta.get('name')}")
 

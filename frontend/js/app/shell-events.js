@@ -280,7 +280,7 @@ function setupShellEventListeners() {
                 document.getElementById('settings-psid').value = config.Secure_1PSID || '';
                 document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
                 document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
-                document.getElementById('settings-active-provider').value = config.active_provider || 'gemini';
+                document.getElementById('settings-active-provider').value = config.active_provider || 'qwen';
                 const modelInput = document.getElementById('settings-model');
                 if (modelInput) modelInput.value = config.model || '';
                 const grokProxyInput = document.getElementById('settings-grok-proxy');
@@ -297,7 +297,7 @@ function setupShellEventListeners() {
                 if (chat2apiApiKeyInput) chat2apiApiKeyInput.value = config.chat2api_api_key || '';
                 const lmarenaCookiesInput = document.getElementById('settings-lmarena-cookies');
                 if (lmarenaCookiesInput) lmarenaCookiesInput.value = config.lmarena_cookies || '';
-                updateProviderSettingsVisibility(config.active_provider || 'gemini');
+                updateProviderSettingsVisibility(config.active_provider || 'qwen');
             } catch (error) {
                 console.error('Failed to load settings', error);
             }
@@ -390,7 +390,7 @@ function setupShellEventListeners() {
         agentTypeSelector.addEventListener('change', async () => {
             try {
                 const config = await API.getAgentConfig(agentTypeSelector.value);
-                if (agentProviderSelector) agentProviderSelector.value = config.provider || 'gemini';
+                if (agentProviderSelector) agentProviderSelector.value = config.provider || 'qwen';
                 if (agentModelInput) agentModelInput.value = config.model || '';
             } catch (error) {
                 console.error('Failed to load agent config:', error);

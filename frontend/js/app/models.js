@@ -32,6 +32,10 @@ async function refreshModels() {
             UI.updateFeatureVisibility(activeProvider);
         }
 
+        if (activeProvider === 'qwen') {
+            document.getElementById('current-model-name').textContent = 'Qwen AI';
+            return;
+        }
         if (activeProvider === 'gemini') {
             document.getElementById('current-model-name').textContent = 'Agent Flashy';
             return;
@@ -76,7 +80,9 @@ async function selectModel(id, name) {
         config.model = id;
         await API.saveConfig(config);
 
-        if (config.active_provider === 'gemini') {
+        if (config.active_provider === 'qwen') {
+            document.getElementById('current-model-name').textContent = 'Qwen AI';
+        } else if (config.active_provider === 'gemini') {
             document.getElementById('current-model-name').textContent = 'Agent Flashy';
         } else {
             document.getElementById('current-model-name').textContent = name;

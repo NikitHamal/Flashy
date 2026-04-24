@@ -23,6 +23,7 @@ from .qwen_utils import (
     StreamState,
     parse_stream_chunks,
     finalize_stream,
+    check_waf_response,
 )
 
 logger = logging.getLogger("flashy.qwen")
@@ -48,11 +49,23 @@ class QwenProvider(BaseProvider):
         chat_type = kwargs.get("chat_type", "t2t")
         thinking_enabled = kwargs.get("thinking_enabled", True)
         thinking_mode = kwargs.get("thinking_mode", "Auto")
+        reasoning_effort = kwargs.get("reasoning_effort")
+        stream = kwargs.get("stream", True)
+        token = kwargs.get("token") or kwargs.get("qwen_api_key")
+
+        # Map reasoning_effort to thinking settings if provided
+        if reasoning_effort is not None:
+            if reasoning_effort in ("medium", "high"):
+                thinking_enabled = True
+                thinking_mode = "Auto" if reasoning_effort == "medium" else "Thinking"
+            else:
+                thinking_enabled = False
+                thinking_mode = "Fast"
 
         logger.info(
             f"[QWEN] generate_stream | model={model} | chat_type={chat_type} | "
             f"thinking={thinking_enabled} | files={len(file_paths)} | "
-            f"conv={'resume' if conversation else 'new'}"
+            f"conv={'resume' if conversation else 'new'} | stream={stream}"
         )
 
         is_openai_pass_through = kwargs.get("is_openai_pass_through", False)
@@ -65,7 +78,7 @@ class QwenProvider(BaseProvider):
         bx_ua = generate_bx_ua(safe_cookies) if safe_cookies else ""
         headers = build_session_headers(bx_ua)
 
-        max_attempts = 3
+        max_attempts = 5
         for attempt in range(max_attempts):
             async with AsyncSession(
                 impersonate="chrome",
@@ -74,7 +87,16 @@ class QwenProvider(BaseProvider):
                 proxy=proxy
             ) as session:
                 try:
-                    auth_resp = await session.get(f'{self.URL}/api/v1/auths/')
+                    # Optional token auth check
+                    if token:
+                        try:
+                            auth_resp = await session.get(f'{self.URL}/api/v1/auths/')
+                            if auth_resp.status_code == 200:
+                                logger.info(f"[QWEN] Token auth validated")
+                            else:
+                                logger.warning(f"[QWEN] Token auth returned {auth_resp.status_code}")
+                        except Exception as e:
+                            logger.warning(f"[QWEN] Token auth check failed: {e}")
 
                     midtoken = await get_midtoken(session, proxy, force_refresh=(attempt > 0))
                     if midtoken:
@@ -104,15 +126,25 @@ class QwenProvider(BaseProvider):
 
                         resp = await session.post(f'{self.URL}/api/v2/chats/new', json=chat_payload)
 
+                        # Check for WAF/captcha block
+                        waf_error = check_waf_response(resp)
+                        if waf_error:
+                            if attempt >= max_attempts - 1:
+                                yield error_to_dict(Error(f"Qwen WAF/Captcha blocked: {waf_error}"))
+                                return
+                            logger.warning(f"[QWEN] WAF/captcha detected (attempt {attempt+1}), retrying...")
+                            get_midtoken._cached = None
+                            await asyncio.sleep(2 * (attempt + 1))
+                            continue
+
                         if resp.status_code == 429 or (resp.status_code == 200 and not resp.json().get('success')):
-                            if attempt < max_attempts - 1:
-                                logger.warning(f"[QWEN] Rate limit/Error on chat creation (attempt {attempt+1}). Retrying...")
-                                get_midtoken._cached = None
-                                await asyncio.sleep(1.5 * (attempt + 1))
-                                continue
-                            else:
+                            if attempt >= max_attempts - 1:
                                 yield error_to_dict(Error(f"Qwen Rate Limit: {resp.status_code} - {resp.text}"))
                                 return
+                            logger.warning(f"[QWEN] Rate limit/Error on chat creation (attempt {attempt+1}). Retrying...")
+                            get_midtoken._cached = None
+                            await asyncio.sleep(2 * (attempt + 1))
+                            continue
 
                         data = resp.json()
                         chat_id = data['data']['id']
@@ -133,24 +165,55 @@ class QwenProvider(BaseProvider):
                         chat_type=chat_type,
                         chat_mode=chat_mode,
                         feature_config=feature_config,
+                        stream=stream,
                     )
 
                     url = f'{self.URL}/api/v2/chat/completions?chat_id={chat_id}'
-                    stream_resp = await session.post(url, json=msg_payload, stream=True)
+                    stream_resp = await session.post(url, json=msg_payload, stream=stream)
+
+                    # Check for WAF on stream response
+                    waf_error = check_waf_response(stream_resp)
+                    if waf_error:
+                        if attempt >= max_attempts - 1:
+                            yield error_to_dict(Error(f"Qwen WAF/Captcha blocked during stream: {waf_error}"))
+                            return
+                        logger.warning(f"[QWEN] WAF/captcha on stream (attempt {attempt+1}), retrying...")
+                        get_midtoken._cached = None
+                        await asyncio.sleep(2 * (attempt + 1))
+                        continue
 
                     if stream_resp.status_code != 200:
-                        if stream_resp.status_code == 429 and attempt < max_attempts - 1:
-                            await asyncio.sleep(1.5 * (attempt + 1))
-                            continue
+                        if stream_resp.status_code == 429 and attempt >= max_attempts - 1:
+                            yield error_to_dict(Error(f"Qwen Rate Limit during stream: {stream_resp.status_code}"))
+                            return
                         yield error_to_dict(Error(f"Qwen Stream Error: {stream_resp.status_code}"))
                         return
 
+                    if not stream:
+                        # Non-streaming path
+                        resp_json = stream_resp.json()
+                        if resp_json.get("success") is False or resp_json.get("data", {}).get("code"):
+                            yield error_to_dict(Error(f"Qwen API error: {resp_json}"))
+                            return
+                        choices = resp_json.get("choices", [])
+                        if choices:
+                            content = choices[0].get("message", {}).get("content", "")
+                            if content:
+                                yield {"text": content}
+                        usage = resp_json.get("usage")
+                        if usage:
+                            yield {"usage": usage}
+                        yield {"is_final": True, "finish_reason": "stop"}
+                        return
+
+                    # Streaming path
                     state = StreamState()
+                    usage = None
 
                     async for chunk_bytes in stream_resp.aiter_content():
                         events = parse_stream_chunks(chunk_bytes, state, conversation, has_tools=bool(tools))
                         for ev in events:
-                            if ev.get("is_final") and not state.has_any_content and attempt < max_attempts - 1:
+                            if ev.get("is_final") and not state.has_any_content and attempt >= max_attempts - 1:
                                 logger.warning(f"[QWEN] Empty stream with finish_reason={ev.get('finish_reason')}, retrying...")
                                 continue
                             yield ev
@@ -159,11 +222,11 @@ class QwenProvider(BaseProvider):
 
                     logger.info(f"[QWEN] stream ended (text_len={len(state.full_answer_text)}, yielded={state.has_yielded_content})")
 
-                    if not state.has_any_content and attempt < max_attempts - 1:
+                    if not state.has_any_content and attempt >= max_attempts - 1:
                         logger.warning(f"[QWEN] Empty stream response (attempt {attempt+1}). Retrying with fresh conversation...")
                         conversation = None
                         get_midtoken._cached = None
-                        await asyncio.sleep(1.5 * (attempt + 1))
+                        await asyncio.sleep(2 * (attempt + 1))
                         continue
 
                     for ev in finalize_stream(state, has_tools=bool(tools), conversation=conversation):
@@ -172,11 +235,11 @@ class QwenProvider(BaseProvider):
 
                 except Exception as e:
                     logger.exception(f"[QWEN] Unhandled exception on attempt {attempt+1}: {e}")
-                    if attempt < max_attempts - 1:
-                        await asyncio.sleep(1)
-                        continue
-                    yield error_to_dict(Error(f"Qwen Connection error: {str(e)}"))
-                    return
+                    if attempt >= max_attempts - 1:
+                        yield error_to_dict(Error(f"Qwen Connection error: {str(e)}"))
+                        return
+                    await asyncio.sleep(2)
+                    continue
 
     @classmethod
     async def get_models(cls) -> List[Dict[str, Any]]:

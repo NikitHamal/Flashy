@@ -124,15 +124,48 @@ Execute this task autonomously and provide a complete summary of what you accomp
             response = await asyncio.wait_for(chat.send_message(prompt), timeout=120)
             response_text = response.text or ""
         else:
-            return "Delegation currently optimized for Gemini provider."
+            provider_svc = get_provider_service(provider_name)
+            if not provider_svc:
+                return f"Delegation error: Provider '{provider_name}' not found."
+            messages = [{"role": "user", "content": prompt}]
+            accumulated_text = ""
+            try:
+                async for chunk in provider_svc.generate_stream(
+                    messages,
+                    service.config.get("model", ""),
+                    proxy=service.config.get("proxy"),
+                ):
+                    if "text" in chunk:
+                        accumulated_text += chunk["text"]
+                    if "error" in chunk:
+                        return f"Delegation error: {chunk['error']}"
+            except Exception as e:
+                return f"Delegation error: {str(e)}"
+            response_text = accumulated_text
 
         for _ in range(8):
             tool_call = temp_agent.parse_tool_call(response_text)
             if not tool_call:
                 break
             tool_result, _ = await temp_agent.execute_tool(tool_call["name"], tool_call["args"])
-            response = await asyncio.wait_for(chat.send_message(tool_result), timeout=120)
-            response_text = response.text or ""
+            if provider_name == "gemini":
+                response = await asyncio.wait_for(chat.send_message(tool_result), timeout=120)
+                response_text = response.text or ""
+            else:
+                followup_messages = [
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": response_text},
+                    {"role": "tool", "content": tool_result},
+                ]
+                accumulated_text = ""
+                async for chunk in provider_svc.generate_stream(
+                    followup_messages,
+                    service.config.get("model", ""),
+                    proxy=service.config.get("proxy"),
+                ):
+                    if "text" in chunk:
+                        accumulated_text += chunk["text"]
+                response_text = accumulated_text
 
         return f"**Sub-agent Result:**\n{response_text}"
     except asyncio.TimeoutError:

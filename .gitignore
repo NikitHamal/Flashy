@@ -30,3 +30,5 @@ qwen-code/packages/*/node_modules/
 qwen-code/packages/*/dist/
 qwen-code/.qwen/
 qwen-code/integration-tests/node_modules/
+
+qwen-code/

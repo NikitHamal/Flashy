@@ -63,6 +63,26 @@ def generate_bx_ua(cookies_data: Dict[str, str]) -> str:
         return ""
 
 
+def check_waf_response(resp):
+    """Check if a response indicates a WAF/captcha block."""
+    if resp.status_code == 403:
+        return "Access forbidden - possible WAF block"
+    if resp.status_code in (503, 520, 521, 522, 523, 524, 525, 526, 527, 529, 530):
+        return f"Cloudflare/WAF error (HTTP {resp.status_code})"
+    if resp.status_code == 200:
+        # Some WAFs return 200 with HTML captcha pages
+        content_type = resp.headers.get("content-type", "")
+        if "text/html" in content_type:
+            try:
+                text = resp.text if hasattr(resp, "text") else ""
+                lower_text = text.lower()
+                if any(k in lower_text for k in ("aliyun_waf_aa", "captcha", "blocked", "verification", "challenge")):
+                    return "WAF/Captcha page returned"
+            except Exception:
+                pass
+    return None
+
+
 async def get_midtoken(session: AsyncSession, proxy: str = None, force_refresh: bool = False):
     midtoken = getattr(get_midtoken, "_cached", None)
     uses = getattr(get_midtoken, "_uses", 0)

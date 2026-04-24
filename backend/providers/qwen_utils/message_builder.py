@@ -112,11 +112,13 @@ def build_feature_config(
             "auto_thinking": thinking_mode == "Auto",
             "thinking_mode": thinking_mode,
             "thinking_enabled": True,
+            "output_schema": "phase",
             "research_mode": "normal" if chat_type != "deep_research" else "deep",
             "auto_search": chat_type in ("search", "deep_research"),
         }
     return {
         "thinking_enabled": False,
+        "output_schema": "phase",
         "thinking_budget": 81920,
     }
 
@@ -130,11 +132,12 @@ def build_msg_payload(
     chat_type: str,
     chat_mode: str,
     feature_config: Dict[str, Any],
+    stream: bool = True,
 ) -> Dict[str, Any]:
     msg_id = str(uuid.uuid4())
     return {
-        "stream": True,
-        "incremental_output": True,
+        "stream": stream,
+        "incremental_output": stream,
         "chat_id": chat_id,
         "chat_mode": chat_mode,
         "model": model,
@@ -170,4 +173,9 @@ def resolve_chat_mode(chat_type: str) -> str:
         return "search"
     if chat_type == "deep_research":
         return "deep_research"
+    if chat_type == "artifacts":
+        return "artifacts"
+    if chat_type == "web_dev":
+        return "web_dev"
+    # t2t is the default; explicitly reject image/video generation modes
     return "normal"

@@ -26,6 +26,7 @@ class LLMService:
         self.workspace_id: Optional[str] = None
         self.response_filter = ResponseFilter(aggressive=False)
         self.thought_filter = ThoughtFilter()
+        self._qwen_usage_stats: Dict[str, Dict[str, int]] = {}
 
     def set_workspace(self, path: str, workspace_id: str = None) -> str:
         import os
@@ -43,7 +44,7 @@ class LLMService:
 
     def get_active_provider(self) -> str:
         self.config = load_config()
-        return self.config.get("active_provider", "gemini")
+        return self.config.get("active_provider", "qwen")
 
     async def get_gemini_client(self):
         return await get_gemini_client(self)
@@ -215,6 +216,9 @@ class LLMService:
                             if "thought" in chunk:
                                 accumulated_thought += chunk["thought"]
                                 yield {"thought": chunk["thought"]}
+                            if "usage" in chunk:
+                                self._qwen_usage_stats[session_id] = chunk["usage"]
+                                yield {"usage": chunk["usage"]}
                             if "text" in chunk:
                                 token = chunk["text"]
                                 accumulated_text += token
@@ -353,8 +357,14 @@ class LLMService:
             traceback.print_exc()
             error_msg = f"Error ({type(exc).__name__}): {str(exc)}"
             error_str = str(exc).lower()
+            provider_name = self.get_active_provider()
             if "invalid response" in error_str or "403" in error_str or "failed to generate" in error_str:
-                error_msg += "\n\n**Hint:** Your Gemini cookies (Secure-1PSID) might be invalid or expired."
+                if provider_name == "gemini":
+                    error_msg += "\n\n**Hint:** Your Gemini cookies (Secure-1PSID) might be invalid or expired."
+                elif provider_name == "qwen":
+                    error_msg += "\n\n**Hint:** Qwen may have triggered a WAF/captcha challenge. Try again in a moment."
+                else:
+                    error_msg += f"\n\n**Hint:** The {provider_name} provider may be temporarily unavailable."
             yield {"error": error_msg, "is_final": True}
             message_parts.append({"type": "error", "content": error_msg})
             return

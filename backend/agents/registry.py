@@ -15,8 +15,8 @@ from .base import BaseAgent, AgentType, AgentMessage
 # Default agent configurations
 DEFAULT_AGENT_CONFIG = {
     AgentType.ORCHESTRATOR: {
-        "provider": "gemini",
-        "model": "G_3_0_FLASH",
+        "provider": "qwen",
+        "model": "qwen3.6-plus",
         "description": "Coordinates tasks and delegates to specialized agents"
     },
     AgentType.ARCHITECT: {
@@ -25,8 +25,8 @@ DEFAULT_AGENT_CONFIG = {
         "description": "Designs system architecture and plans"
     },
     AgentType.DEVELOPER: {
-        "provider": "gemini", 
-        "model": "G_3_0_FLASH",
+        "provider": "qwen",
+        "model": "qwen3-coder-plus",
         "description": "Implements code and features"
     },
     AgentType.REVIEWER: {
@@ -60,13 +60,13 @@ DEFAULT_AGENT_CONFIG = {
         "description": "Refactors and improves code"
     },
     AgentType.TESTING: {
-        "provider": "gemini",
-        "model": "G_3_0_FLASH",
+        "provider": "qwen",
+        "model": "qwen3-coder-plus",
         "description": "Creates and runs tests"
     },
     AgentType.DEPLOY: {
-        "provider": "gemini",
-        "model": "G_3_0_FLASH",
+        "provider": "qwen",
+        "model": "qwen3.6-plus",
         "description": "Handles deployment tasks"
     }
 }

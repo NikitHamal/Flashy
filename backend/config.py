@@ -6,9 +6,9 @@ CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
     "Secure_1PSID": "",
     "Secure_1PSIDTS": "",
-    "model": "G_3_0_FLASH",
+    "model": "qwen3.6-plus",
     "GITHUB_PAT": "",
-    "active_provider": "gemini",
+    "active_provider": "qwen",
     "computer_use_provider": "airforce",
     "computer_use_model": "",
     "grok_proxy": "",

@@ -26,8 +26,8 @@ class OrchestratorAgent(BaseAgent):
 
     def __init__(
         self,
-        provider_name: str = "gemini",
-        model: str = "G_2_5_FLASH",
+        provider_name: str = "qwen",
+        model: str = "qwen3.6-plus",
         workspace_path: str = None,
         session_id: str = None
     ):

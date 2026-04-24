@@ -11,7 +11,7 @@ from .prompts import (
 )
 from .stream_parser import StreamState, parse_stream_chunks, finalize_stream
 from .file_upload import upload_file
-from .auth import get_midtoken, build_session_headers, prepare_cookies, generate_bx_ua
+from .auth import get_midtoken, build_session_headers, prepare_cookies, generate_bx_ua, check_waf_response
 from .models import get_models
 from .message_builder import (
     QwenConversation,
