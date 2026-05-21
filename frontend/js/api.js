@@ -324,5 +324,49 @@ const API = {
         const response = await fetch(`${this.baseUrl}/memory/${workspaceId}/search?query=${encodeURIComponent(query)}&limit=${limit}`);
         if (!response.ok) throw new Error('Failed to search memories');
         return await response.json();
+    },
+
+    async getServerStatus() {
+        const response = await fetch(`${this.baseUrl}/server/status`);
+        if (!response.ok) throw new Error('Failed to load server status');
+        return await response.json();
+    },
+
+    async startServer(port = null) {
+        const response = await fetch(`${this.baseUrl}/server/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(port ? { port } : {})
+        });
+        if (!response.ok) throw new Error('Failed to start server');
+        return await response.json();
+    },
+
+    async stopServer() {
+        const response = await fetch(`${this.baseUrl}/server/stop`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to stop server');
+        return await response.json();
+    },
+
+    async restartServer(port = null) {
+        const response = await fetch(`${this.baseUrl}/server/restart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(port ? { port } : {})
+        });
+        if (!response.ok) throw new Error('Failed to restart server');
+        return await response.json();
+    },
+
+    async getServerLogs(lines = 300) {
+        const response = await fetch(`${this.baseUrl}/server/logs?lines=${encodeURIComponent(lines)}`);
+        if (!response.ok) throw new Error('Failed to load server logs');
+        return await response.json();
+    },
+
+    async getServerEvents(limit = 120) {
+        const response = await fetch(`${this.baseUrl}/server/events?limit=${encodeURIComponent(limit)}`);
+        if (!response.ok) throw new Error('Failed to load server events');
+        return await response.json();
     }
 };

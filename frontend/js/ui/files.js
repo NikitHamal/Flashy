@@ -25,7 +25,7 @@ Object.assign(UI, {
             item.className = `tree-item ${node.type}`;
             const icon = node.type === 'directory' ? 'folder' : getFileIcon(node.name);
             const arrow = node.type === 'directory' ? '<span class="material-symbols-outlined directory-icon">expand_more</span>' : '';
-            item.innerHTML = `${arrow}<span class="material-symbols-outlined icon">${icon}</span><span class="name">${node.name}</span>`;
+            item.innerHTML = `${arrow}<span class="material-symbols-outlined icon">${icon}</span><span class="name">${this.escapeHtml(node.name)}</span>`;
             container.appendChild(item);
             if (node.type === 'directory' && node.children) {
                 const childrenContainer = document.createElement('div');
@@ -68,12 +68,12 @@ Object.assign(UI, {
             const sessions = grouped[wsId] || [];
             if (sessions.length === 0) return;
             const groupDiv = document.createElement('div');
-            groupDiv.innerHTML = `<div class="sidebar-group-title"><span class="material-symbols-outlined icon">folder</span><span>${ws.name}</span></div>`;
+            groupDiv.innerHTML = `<div class="sidebar-group-title"><span class="material-symbols-outlined icon">folder</span><span>${this.escapeHtml(ws.name)}</span></div>`;
             sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = `nav-item sidebar-session-item ${s.id === currentSessionId ? 'active' : ''}`;
                 item.innerHTML = `
-                    <span class="name">${s.title || 'Untitled'}</span>
+                    <span class="name">${this.escapeHtml(s.title || 'Untitled')}</span>
                     <div class="nav-actions"><button class="btn-item-action delete-session" title="Delete session"><span class="material-symbols-outlined">delete</span></button></div>
                 `;
                 item.onclick = (e) => {
@@ -102,7 +102,7 @@ Object.assign(UI, {
         sessions.forEach(s => {
             const item = document.createElement('div');
             item.className = `dropdown-item ${s.id === currentSessionId ? 'active' : ''}`;
-            item.innerHTML = `<div class="item-info"><div class="item-title">${s.title || 'Untitled'}</div><div class="item-meta">${new Date(s.created_at * 1000).toLocaleString()}</div></div>`;
+            item.innerHTML = `<div class="item-info"><div class="item-title">${this.escapeHtml(s.title || 'Untitled')}</div><div class="item-meta">${new Date(s.created_at * 1000).toLocaleString()}</div></div>`;
             item.onclick = () => { onSelect(s); menu.classList.add('hidden'); };
             menu.appendChild(item);
         });

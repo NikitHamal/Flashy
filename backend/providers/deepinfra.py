@@ -15,7 +15,7 @@ DEEPINFRA_FALLBACK_MODELS = [
     ("meta-llama/Meta-Llama-3.1-8B-Instruct", "Llama 3.1 (8B)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
     ("meta-llama/Meta-Llama-3.3-70B-Instruct", "Llama 3.3 (70B)", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
     ("deepseek-ai/DeepSeek-V3.2", "DeepSeek V3.2", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
-    ("zai-org/GLM-4.7-Flash", "GLM 4.7 Flash", {"chat": True, "stream": True, "vision": False, "reasoning": False, "tools": True}),
+    ("zai-org/GLM-4.7-Flash", "GLM 4.7 Flash", {"chat": True, "stream": True, "vision": True, "reasoning": False, "tools": True}),
 ]
 
 BROWSER_HEADERS = [
@@ -155,6 +155,17 @@ class DeepInfraProvider(BaseProvider):
                             continue
                         else:
                             yield {"error": f"DeepInfra Error: 429 Rate Limit Exceeded after {max_retries} retries. Please try again later or configure a proxy."}
+                            return
+
+                    if stream_resp.status_code == 403:
+                        if attempt < max_retries - 1:
+                            delay = random.uniform(1.5, 4.0) * (attempt + 1)
+                            logger.warning(f"[DEEPINFRA] Forbidden (403). Retrying with new IP in {delay:.1f}s...")
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            error_text = stream_resp.text
+                            yield {"error": f"DeepInfra Error: 403 Forbidden after {max_retries} retries - {error_text}"}
                             return
 
                     if stream_resp.status_code == 405:
@@ -319,7 +330,7 @@ class DeepInfraProvider(BaseProvider):
                         caps = {
                             "chat": True,
                             "stream": True,
-                            "vision": any(t in lower for t in ("vl", "vision", "omni")),
+                            "vision": any(t in lower for t in ("vl", "vision", "omni", "gemma-4", "gemma4", "qwen3", "glm-4", "glm-5", "kimi-k2")),
                             "reasoning": any(t in lower for t in ("reason", "think", "r1", "o1", "o3", "qwq")),
                             "tools": True,
                         }

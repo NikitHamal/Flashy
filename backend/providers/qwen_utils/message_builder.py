@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import Dict, Any, List, Optional
 
-from .prompts import inject_tools_into_messages, TOOL_CALL_OPEN, TOOL_CALL_CLOSE
+from .prompts import inject_tools_into_messages, TOOL_CALL_OPEN, TOOL_CALL_CLOSE, TOOL_PASSTHROUGH_PREFIX
 
 
 class QwenConversation:
@@ -17,11 +17,12 @@ def resolve_messages(
     messages: List[Dict[str, str]],
     tools: Optional[List[Dict]] = None,
     conversation: Optional[QwenConversation] = None,
+    pass_through: bool = False,
 ) -> tuple:
     """Returns (tool_system_prompt: str | None, source_messages: List[Dict])"""
     # Always inject tools into messages first so tool definitions are available
     if tools:
-        effective_messages = inject_tools_into_messages(messages, tools)
+        effective_messages = inject_tools_into_messages(messages, tools, pass_through=pass_through)
         # Extract the tool system prompt so we can always prepend it
         if effective_messages and effective_messages[0].get("role") == "system":
             tool_system_prompt = effective_messages[0]["content"]
@@ -50,17 +51,9 @@ def resolve_messages(
     return tool_system_prompt, source_messages
 
 
-def build_prompt(tool_system_prompt: Optional[str], source_messages: List[Dict[str, str]]) -> str:
+def build_prompt(tool_system_prompt: Optional[str], source_messages: List[Dict[str, str]], pass_through: bool = False) -> str:
     prompt_parts = []
-
-    # Always prepend tool system instructions when tools are present,
-    # even if they were sliced out due to conversation resume logic
-    if tool_system_prompt:
-        # Avoid doubling up if the system message is already the first source message
-        first_role = source_messages[0].get("role") if source_messages else None
-        first_content = source_messages[0].get("content") if source_messages else ""
-        if first_role != "system" or first_content != tool_system_prompt:
-            prompt_parts.append(tool_system_prompt)
+    system_appended = False
 
     for msg in source_messages:
         role = msg.get("role", "user")
@@ -76,9 +69,12 @@ def build_prompt(tool_system_prompt: Optional[str], source_messages: List[Dict[s
             content = raw_content or ""
 
         if role == "system":
-            # Only append system if not already added as tool_system_prompt above
-            if content != tool_system_prompt:
+            if not system_appended and tool_system_prompt:
+                prompt_parts.append(tool_system_prompt)
+                system_appended = True
+            elif content != tool_system_prompt:
                 prompt_parts.append(content)
+                system_appended = True
         elif role == "user":
             prompt_parts.append(content)
         elif role == "assistant":
@@ -97,7 +93,18 @@ def build_prompt(tool_system_prompt: Optional[str], source_messages: List[Dict[s
                 prompt_parts.append(content)
         elif role == "tool":
             tool_name = msg.get("name", "") or msg.get("tool_call_id", "tool")
-            prompt_parts.append(f'<tool_result name="{tool_name}">\n{content}\n</tool_result>')
+            tool_result_block = f'<tool_result name="{tool_name}">\n{content}\n</tool_result>'
+            prompt_parts.append(tool_result_block)
+
+    if tool_system_prompt and not system_appended:
+        prompt_parts.insert(0, tool_system_prompt)
+
+    if pass_through and tool_system_prompt:
+        reminder = (
+            "\n\n[Remember: You have the tools listed above as built-in capabilities. "
+            "Use ««TOOL_CALL»» to invoke them. Do NOT ask the user for information you can obtain with a tool.]"
+        )
+        prompt_parts.append(reminder)
 
     return "\n\n".join(p for p in prompt_parts if p)
 

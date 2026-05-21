@@ -209,6 +209,78 @@ function setupShellEventListeners() {
         toggleExplorerButton.addEventListener('click', () => UI.toggleExplorer());
     }
 
+    const toggleServerButton = document.getElementById('btn-toggle-server');
+    if (toggleServerButton) {
+        toggleServerButton.addEventListener('click', () => UI.toggleServerCenter());
+    }
+
+    const serverRefreshButton = document.getElementById('btn-server-refresh');
+    if (serverRefreshButton) {
+        serverRefreshButton.addEventListener('click', () => UI.refreshServerCenter());
+    }
+
+    const serverStartButton = document.getElementById('btn-server-start');
+    if (serverStartButton) {
+        serverStartButton.addEventListener('click', async () => {
+            try {
+                serverStartButton.disabled = true;
+                serverStartButton.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Starting...';
+                await API.startServer();
+                await UI.refreshServerCenter();
+            } catch (error) {
+                alert(`Failed to start server: ${error.message}`);
+            } finally {
+                serverStartButton.innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Start Server';
+            }
+        });
+    }
+
+    const serverStopButton = document.getElementById('btn-server-stop');
+    if (serverStopButton) {
+        serverStopButton.addEventListener('click', async () => {
+            try {
+                serverStopButton.disabled = true;
+                await API.stopServer();
+                await UI.refreshServerCenter();
+            } catch (error) {
+                alert(`Failed to stop server: ${error.message}`);
+            } finally {
+                serverStopButton.disabled = false;
+            }
+        });
+    }
+
+    const serverRestartButton = document.getElementById('btn-server-restart');
+    if (serverRestartButton) {
+        serverRestartButton.addEventListener('click', async () => {
+            try {
+                serverRestartButton.disabled = true;
+                await API.restartServer();
+                await UI.refreshServerCenter();
+            } catch (error) {
+                alert(`Failed to restart server: ${error.message}`);
+            } finally {
+                serverRestartButton.disabled = false;
+            }
+        });
+    }
+
+    const serverCopyLogButton = document.getElementById('btn-server-copy-log-path');
+    if (serverCopyLogButton) {
+        serverCopyLogButton.addEventListener('click', async () => {
+            const path = UI.serverLogPath || '';
+            if (!path) return;
+            try {
+                await navigator.clipboard.writeText(path);
+                serverCopyLogButton.textContent = 'Copied';
+                setTimeout(() => serverCopyLogButton.textContent = 'Copy log path', 1200);
+            } catch (_) {
+                alert(path);
+            }
+        });
+    }
+
+
     const refreshExplorerButton = document.getElementById('btn-refresh-explorer');
     if (refreshExplorerButton) {
         refreshExplorerButton.addEventListener('click', () => {
@@ -307,26 +379,36 @@ function setupShellEventListeners() {
             settingsModal.classList.remove('hidden');
             try {
                 const config = await API.getConfig();
-                document.getElementById('settings-psid').value = config.Secure_1PSID || '';
-                document.getElementById('settings-psidts').value = config.Secure_1PSIDTS || '';
-                document.getElementById('settings-github-pat').value = config.GITHUB_PAT || '';
-                document.getElementById('settings-active-provider').value = config.active_provider || 'qwen';
+                
+                const githubPatInput = document.getElementById('settings-github-pat');
+                if (githubPatInput) githubPatInput.value = config.GITHUB_PAT || '';
+                
+                const activeProviderInput = document.getElementById('settings-active-provider');
+                if (activeProviderInput) activeProviderInput.value = config.active_provider || 'qwen';
                 const modelInput = document.getElementById('settings-model');
                 if (modelInput) modelInput.value = config.model || '';
+                
                 const grokProxyInput = document.getElementById('settings-grok-proxy');
                 if (grokProxyInput) grokProxyInput.value = config.grok_proxy || '';
+                
                 const kimiTokenInput = document.getElementById('settings-kimi-token');
                 if (kimiTokenInput) kimiTokenInput.value = config.kimi_token || '';
+                
                 const zaiTokenInput = document.getElementById('settings-zai-token');
                 if (zaiTokenInput) zaiTokenInput.value = config.zai_token || '';
+                
                 const glmTokenInput = document.getElementById('settings-glm-refresh-token');
                 if (glmTokenInput) glmTokenInput.value = config.glm_refresh_token || '';
+                
                 const chat2apiBaseUrlInput = document.getElementById('settings-chat2api-base-url');
                 if (chat2apiBaseUrlInput) chat2apiBaseUrlInput.value = config.chat2api_base_url || 'http://127.0.0.1:8080';
+                
                 const chat2apiApiKeyInput = document.getElementById('settings-chat2api-api-key');
                 if (chat2apiApiKeyInput) chat2apiApiKeyInput.value = config.chat2api_api_key || '';
+                
                 const lmarenaCookiesInput = document.getElementById('settings-lmarena-cookies');
                 if (lmarenaCookiesInput) lmarenaCookiesInput.value = config.lmarena_cookies || '';
+                
                 updateProviderSettingsVisibility(config.active_provider || 'qwen');
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -382,10 +464,8 @@ function setupShellEventListeners() {
     if (saveSettingsButton && settingsModal) {
         saveSettingsButton.addEventListener('click', async () => {
             const config = {
-                Secure_1PSID: document.getElementById('settings-psid').value,
-                Secure_1PSIDTS: document.getElementById('settings-psidts').value,
-                GITHUB_PAT: document.getElementById('settings-github-pat').value,
-                active_provider: document.getElementById('settings-active-provider').value,
+                GITHUB_PAT: document.getElementById('settings-github-pat')?.value || '',
+                active_provider: document.getElementById('settings-active-provider')?.value || 'qwen',
                 model: document.getElementById('settings-model')?.value || '',
                 grok_proxy: document.getElementById('settings-grok-proxy')?.value || '',
                 kimi_token: document.getElementById('settings-kimi-token')?.value || '',

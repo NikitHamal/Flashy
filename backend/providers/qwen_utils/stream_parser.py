@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 import logging
 from typing import Dict, Any, List, Optional
@@ -10,6 +11,8 @@ from ..response_types import (
 from .prompts import parse_tool_calls_from_text, QWEN_NATIVE_TOOLS
 
 logger = logging.getLogger("flashy.qwen.stream")
+
+_TOOL_RESULT_RE = re.compile(r"<tool_result[^>]*>.*?</tool_result>", re.DOTALL)
 
 
 class StreamState:
@@ -134,8 +137,12 @@ def _handle_finish_reason(
         return events
 
     if state.full_answer_text and not state.has_yielded_content:
-        clean_text, parsed_tool_calls = parse_tool_calls_from_text(state.full_answer_text)
+        cleaned = _TOOL_RESULT_RE.sub("", state.full_answer_text).strip()
+        source_text = cleaned if cleaned else state.full_answer_text
+        logger.info(f"[QWEN] _handle_finish_reason: parsing text_len={len(state.full_answer_text)} cleaned_len={len(cleaned)}")
+        clean_text, parsed_tool_calls = parse_tool_calls_from_text(source_text)
         if parsed_tool_calls:
+            logger.info(f"[QWEN] _handle_finish_reason: found {len(parsed_tool_calls)} tool calls")
             if clean_text:
                 events.append({"text": clean_text})
             for tc in parsed_tool_calls:
@@ -143,7 +150,8 @@ def _handle_finish_reason(
                 events.append(tool_call_to_dict(tc_obj))
             events.append(finish_reason_to_dict(FinishReason("tool_calls")))
             return events
-        events.append({"text": state.full_answer_text})
+        if cleaned:
+            events.append({"text": cleaned})
 
     events.append(finish_reason_to_dict(FinishReason(finish_reason or "stop")))
     return events
@@ -235,7 +243,13 @@ def finalize_stream(state: StreamState, has_tools: bool, conversation=None) -> L
         conversation.parent_id = state.pending_parent_id
 
     if state.full_answer_text and not state.function_call_yielded:
-        clean_text, parsed_tool_calls = parse_tool_calls_from_text(state.full_answer_text)
+        cleaned = _TOOL_RESULT_RE.sub("", state.full_answer_text).strip()
+        if not cleaned:
+            logger.info("[QWEN] finalize_stream: model output was entirely echoed <tool_result> blocks, discarding")
+        else:
+            logger.info(f"[QWEN] finalize_stream cleaned (first 300): {cleaned[:300]}")
+        source_text = cleaned if cleaned else state.full_answer_text
+        clean_text, parsed_tool_calls = parse_tool_calls_from_text(source_text)
         if parsed_tool_calls:
             if clean_text:
                 events.append({"text": clean_text})

@@ -25,10 +25,20 @@ def resolve_provider_alias(provider_name: Optional[str], default: str = "qwen") 
 
 def infer_capabilities(model_id: str) -> Dict[str, bool]:
     lower_id = (model_id or "").lower()
+    vision_tokens = (
+        "vl", "vision", "gpt-4o", "omni",
+        "gemma-4", "gemma4",
+        "qwen3.5", "qwen3.6", "qwen3-vl", "qwen2-vl",
+        "glm-4.5v", "glm-5", "glm-4.7",
+        "gemini", "claude",
+        "kimi-k2", "kimi-k2.5",
+        "llama-4",
+        "deepseek-v4",
+    )
     return {
         "chat": True,
         "stream": True,
-        "vision": any(token in lower_id for token in ("vl", "vision", "gpt-4o", "omni")),
+        "vision": any(token in lower_id for token in vision_tokens),
         "reasoning": any(token in lower_id for token in ("reason", "think", "r1", "o1", "o3", "qwq")),
         "tools": True,
     }

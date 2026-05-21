@@ -1,4 +1,7 @@
 @import url("/css/modules/base.css");
+@import url("/css/activity.css");
+@import url("/css/memory.css");
+@import url("/css/computer-use.css");
 @import url("/css/modules/sidebar.css");
 @import url("/css/modules/shell.css");
 @import url("/css/modules/panels.css");
@@ -7,5 +10,6 @@
 @import url("/css/modules/components.css");
 @import url("/css/modules/utilities.css");
 @import url("/css/modules/modals.css");
+@import url("/css/modules/server.css");
 @import url("/css/modules/terminal.css");
 @import url("/css/modules/qwen-features.css");

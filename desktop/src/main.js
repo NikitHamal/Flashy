@@ -17,6 +17,7 @@ let isQuitting = false;
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const isDev = !app.isPackaged;
+app.setAppUserModelId('dev.flashy.desktop');
 
 function getLogPath() {
   const logDir = path.join(app.getPath('userData'), 'logs');

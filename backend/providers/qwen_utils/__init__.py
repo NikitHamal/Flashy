@@ -1,5 +1,6 @@
 from .prompts import (
     TOOL_SYSTEM_PREFIX,
+    TOOL_PASSTHROUGH_PREFIX,
     TOOL_APPEND_SUFFIX,
     TOOL_CALL_RE,
     TOOL_CALL_OPEN,

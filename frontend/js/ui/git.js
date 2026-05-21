@@ -38,8 +38,8 @@ Object.assign(UI, {
             const actionMethod = isStaged ? 'gitUnstage' : 'gitStage';
             
             item.innerHTML = `
-                <div class="git-file-status ${file.status}">${file.status[0].toUpperCase()}</div>
-                <div class="git-file-path" title="${file.path}">${file.path}</div>
+                <div class="git-file-status ${file.status}">${this.escapeHtml(file.status[0].toUpperCase())}</div>
+                <div class="git-file-path" title="${this.escapeHtml(file.path)}">${this.escapeHtml(file.path)}</div>
                 <div class="git-action-btn" title="${actionTitle}">
                     <span class="material-symbols-outlined" style="font-size: 14px;">${icon}</span>
                 </div>
@@ -165,7 +165,7 @@ Object.assign(UI, {
             item.className = `git-branch-item ${b.current ? 'active' : ''}`;
             item.innerHTML = `
                 <span class="material-symbols-outlined" style="font-size: 14px;">${b.current ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
-                <span>${b.name}</span>
+                <span>${this.escapeHtml(b.name)}</span>
             `;
             if (!b.current) {
                 item.onclick = () => onBranchClick(b.name);
@@ -181,11 +181,11 @@ Object.assign(UI, {
                 item.className = 'git-log-item';
                 item.innerHTML = `
                     <div class="commit-header">
-                        <span class="commit-hash">${commit.hash}</span>
-                        <span class="commit-date">${commit.date}</span>
+                        <span class="commit-hash">${this.escapeHtml(commit.hash)}</span>
+                        <span class="commit-date">${this.escapeHtml(commit.date)}</span>
                     </div>
                     <div class="commit-msg">${this.escapeHtml(commit.message)}</div>
-                    <div class="commit-author">by ${commit.author}</div>
+                    <div class="commit-author">by ${this.escapeHtml(commit.author || '')}</div>
                 `;
                 logList.appendChild(item);
             });

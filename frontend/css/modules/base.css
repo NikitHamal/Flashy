@@ -1,15 +1,23 @@
 :root {
-    --bg-dark: #0d0d0d;
-    --bg-sidebar: #141414;
-    --bg-card: #1a1a1a;
-    --bg-input: #1e1e1e;
-    --border: #2a2a2a;
-    --text-primary: #e5e5e5;
-    --text-secondary: #888888;
-    --accent: #4ade80;
-    --accent-hover: #22c55e;
-    --font-sans: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    color-scheme: dark;
+    --bg-dark: #090b0a;
+    --bg-sidebar: #0f1210;
+    --bg-card: #141713;
+    --bg-input: #171b18;
+    --border: rgba(255, 255, 255, 0.085);
+    --border-subtle: rgba(255, 255, 255, 0.055);
+    --text-primary: #edf4ef;
+    --text-secondary: #9aa39d;
+    --text-tertiary: #66706a;
+    --accent: #60f6a5;
+    --accent-hover: #38dd85;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #38bdf8;
+    --font-display: 'Sora', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-sans: 'IBM Plex Sans', 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --shadow-soft: 0 24px 70px rgba(0, 0, 0, 0.36);
 }
 
 * {
@@ -22,17 +30,41 @@
     display: none !important;
 }
 
+html,
 body {
-    background-color: var(--bg-dark);
+    height: 100%;
+}
+
+body {
+    background:
+        radial-gradient(circle at 18% -10%, rgba(96, 246, 165, 0.08), transparent 34rem),
+        radial-gradient(circle at 96% 0%, rgba(56, 189, 248, 0.07), transparent 28rem),
+        var(--bg-dark);
     color: var(--text-primary);
     font-family: var(--font-sans);
     height: 100vh;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 2px solid rgba(96, 246, 165, 0.55);
+    outline-offset: 2px;
 }
 
 .app-container {
     display: flex;
     height: 100vh;
+    min-width: 0;
 }
-

@@ -1,11 +1,11 @@
 window.MemoryUI = {
     isOpen: false,
     workspaceId: null,
+    initialized: false,
 
     init(workspaceId) {
         this.workspaceId = workspaceId;
 
-        // Cache DOM elements
         this.sidebar = document.getElementById('memory-sidebar');
         this.toggleBtn = document.getElementById('btn-toggle-memory');
         this.content = document.getElementById('memory-content');
@@ -13,7 +13,9 @@ window.MemoryUI = {
         this.addBtn = document.getElementById('btn-add-memory');
         this.refreshBtn = document.getElementById('btn-refresh-memory');
 
-        // Event Listeners
+        if (this.initialized) return;
+        this.initialized = true;
+
         if (this.toggleBtn) {
             this.toggleBtn.addEventListener('click', () => this.toggle());
         }
@@ -23,7 +25,6 @@ window.MemoryUI = {
         }
 
         if (this.searchInput) {
-            // Local debounce implementation
             let timeout;
             this.searchInput.addEventListener('input', (e) => {
                 clearTimeout(timeout);
@@ -38,31 +39,32 @@ window.MemoryUI = {
         }
     },
 
-    toggle() {
+    toggle(force) {
         if (!this.sidebar) return;
 
-        this.isOpen = !this.isOpen;
+        const nextState = typeof force === 'boolean' ? force : !this.isOpen;
+        this.isOpen = nextState;
         if (this.isOpen) {
             this.sidebar.classList.remove('hidden');
-            this.toggleBtn.classList.add('active');
-
-            // Close other sidebars if needed (implement logic if exclusive)
-            document.getElementById('git-sidebar')?.classList.add('hidden');
-            document.getElementById('plan-sidebar')?.classList.add('hidden');
-            document.getElementById('btn-toggle-git')?.classList.remove('active');
-            document.getElementById('btn-toggle-plan')?.classList.remove('active');
+            this.toggleBtn?.classList.add('active');
+            UI.hideServerCenter?.();
+            UI.hideExplorer?.();
+            UI.hideGit?.();
+            UI.hidePlan?.();
+            document.getElementById('chat-container')?.classList.remove('hidden');
+            document.getElementById('workspace-dashboard')?.classList.add('hidden');
 
             if (this.workspaceId) {
                 this.loadMemories();
             }
         } else {
             this.sidebar.classList.add('hidden');
-            this.toggleBtn.classList.remove('active');
+            this.toggleBtn?.classList.remove('active');
         }
     },
 
     async loadMemories() {
-        if (!this.workspaceId) return;
+        if (!this.workspaceId || !this.content) return;
 
         try {
             this.content.innerHTML = '<div class="memory-loading"><span class="material-symbols-outlined spin">refresh</span> Loading memories...</div>';
@@ -71,7 +73,7 @@ window.MemoryUI = {
             this.renderMemories(data.memories || []);
         } catch (error) {
             console.error('Failed to load memories:', error);
-            this.content.innerHTML = `<div class="memory-error">Failed to load memories: ${error.message}</div>`;
+            this.content.innerHTML = `<div class="memory-error">Failed to load memories: ${UI.escapeHtml(error.message)}</div>`;
         }
     },
 
@@ -90,18 +92,15 @@ window.MemoryUI = {
     },
 
     renderMemories(memories) {
+        if (!this.content) return;
         if (!memories || memories.length === 0) {
             this.content.innerHTML = '<div class="memory-empty">No project memories found. The Learner agent will auto-save important details here.</div>';
             return;
         }
 
-        // Sort by timestamp desc
         memories.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        this.content.innerHTML = memories.map(mem => this.createMemoryCard(mem)).join('');
 
-        const html = memories.map(mem => this.createMemoryCard(mem)).join('');
-        this.content.innerHTML = html;
-
-        // Add delete listeners
         this.content.querySelectorAll('.btn-delete-memory').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.currentTarget.dataset.id;
@@ -117,13 +116,13 @@ window.MemoryUI = {
         return `
             <div class="memory-card importance-${importanceClass}">
                 <div class="memory-header">
-                    <span class="memory-category tag">${memory.category}</span>
-                    <span class="memory-date">${date}</span>
-                    <button class="btn-icon-xs btn-delete-memory" data-id="${memory.id}" title="Delete">
+                    <span class="memory-category tag">${UI.escapeHtml(memory.category || 'memory')}</span>
+                    <span class="memory-date">${UI.escapeHtml(date)}</span>
+                    <button class="btn-icon-xs btn-delete-memory" data-id="${UI.escapeHtml(memory.id)}" title="Delete">
                         <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
                     </button>
                 </div>
-                <div class="memory-title">${memory.title}</div>
+                <div class="memory-title">${UI.escapeHtml(memory.title || 'Untitled')}</div>
                 <div class="memory-body">${marked.parse(memory.content || '')}</div>
             </div>
         `;
@@ -134,21 +133,20 @@ window.MemoryUI = {
 
         try {
             await API.deleteMemory(this.workspaceId, id);
-            this.loadMemories(); // Refresh
+            this.loadMemories();
         } catch (error) {
             alert('Failed to delete memory: ' + error.message);
         }
     },
 
     showAddModal() {
-        // Simple prompt for now, could be a nicer modal later
-        const category = prompt("Category (architecture, pattern, decision, etc):", "decision");
+        const category = prompt('Category (architecture, pattern, decision, etc):', 'decision');
         if (!category) return;
 
-        const title = prompt("Title:");
+        const title = prompt('Title:');
         if (!title) return;
 
-        const content = prompt("Content:");
+        const content = prompt('Content:');
         if (!content) return;
 
         this.addMemory(category, title, content);

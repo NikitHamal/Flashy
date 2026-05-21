@@ -20,6 +20,22 @@ function run(cmd, args, options = {}) {
   }
 }
 
+function removeCaches(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '__pycache__' || entry.name === '.pytest_cache') {
+        fs.rmSync(full, { recursive: true, force: true });
+      } else {
+        removeCaches(full);
+      }
+    } else if (/\.(pyc|pyo|log)$/i.test(entry.name)) {
+      fs.rmSync(full, { force: true });
+    }
+  }
+}
+
 run(python, ['-m', 'PyInstaller', spec, '--noconfirm', '--clean']);
 
 const exeName = process.platform === 'win32' ? 'flashy-backend.exe' : 'flashy-backend';
@@ -30,10 +46,12 @@ const target = path.join(targetDir, exeName);
 fs.rmSync(targetDir, { recursive: true, force: true });
 fs.mkdirSync(targetDir, { recursive: true });
 fs.copyFileSync(source, target);
+removeCaches(targetDir);
 
 if (process.platform !== 'win32') {
   fs.chmodSync(target, 0o755);
 }
 
-console.log(`Backend sidecar ready: ${path.relative(repoRoot, target)}`);
+const sizeMb = fs.statSync(target).size / (1024 * 1024);
+console.log(`Backend sidecar ready: ${path.relative(repoRoot, target)} (${sizeMb.toFixed(1)} MB)`);
 console.log(`Platform: ${process.platform}/${process.arch} on ${os.release()}`);

@@ -71,16 +71,30 @@ Object.assign(UI, {
         }
     },
 
+    prepareChatSurface() {
+        this.hideServerCenter?.();
+        document.getElementById('workspace-dashboard')?.classList.add('hidden');
+        document.getElementById('chat-container')?.classList.remove('hidden');
+    },
+
+    setUtilityButtonActive(id, active) {
+        document.getElementById(id)?.classList.toggle('active', Boolean(active));
+    },
+
     // UI Helpers related to sidebars
     toggleExplorer() {
         const sidebar = document.getElementById('explorer-sidebar');
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) {
+            this.prepareChatSurface();
             const isHidden = sidebar.classList.toggle('hidden');
             if (!isHidden) {
                 this.hidePlan();
                 this.hideGit();
                 this.hideMemory();
+                this.setUtilityButtonActive('btn-toggle-explorer', true);
+            } else {
+                this.setUtilityButtonActive('btn-toggle-explorer', false);
             }
             if (resizer) {
                 if (isHidden) resizer.classList.add('hidden');
@@ -94,6 +108,7 @@ Object.assign(UI, {
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) sidebar.classList.add('hidden');
         if (resizer) resizer.classList.add('hidden');
+        this.setUtilityButtonActive('btn-toggle-explorer', false);
     },
 
     showExplorer() {
@@ -101,16 +116,21 @@ Object.assign(UI, {
         const resizer = document.getElementById('explorer-resizer');
         if (sidebar) sidebar.classList.remove('hidden');
         if (resizer) resizer.classList.remove('hidden');
+        this.setUtilityButtonActive('btn-toggle-explorer', true);
     },
 
     togglePlan() {
         const sidebar = document.getElementById('plan-sidebar');
         if (sidebar) {
+            this.prepareChatSurface();
             const isHidden = sidebar.classList.toggle('hidden');
             if (!isHidden) {
                 this.hideExplorer();
                 this.hideGit();
                 this.hideMemory();
+                this.setUtilityButtonActive('btn-toggle-plan', true);
+            } else {
+                this.setUtilityButtonActive('btn-toggle-plan', false);
             }
         }
     },
@@ -118,16 +138,21 @@ Object.assign(UI, {
     hidePlan() {
         const sidebar = document.getElementById('plan-sidebar');
         if (sidebar) sidebar.classList.add('hidden');
+        this.setUtilityButtonActive('btn-toggle-plan', false);
     },
 
     toggleGit() {
         const sidebar = document.getElementById('git-sidebar');
         if (sidebar) {
+            this.prepareChatSurface();
             const isHidden = sidebar.classList.toggle('hidden');
             if (!isHidden) {
                 this.hideExplorer();
                 this.hidePlan();
                 this.hideMemory();
+                this.setUtilityButtonActive('btn-toggle-git', true);
+            } else {
+                this.setUtilityButtonActive('btn-toggle-git', false);
             }
         }
     },
@@ -135,14 +160,14 @@ Object.assign(UI, {
     hideGit() {
         const sidebar = document.getElementById('git-sidebar');
         if (sidebar) sidebar.classList.add('hidden');
+        this.setUtilityButtonActive('btn-toggle-git', false);
     },
 
     hideMemory() {
         if (window.MemoryUI && MemoryUI.isOpen) {
-            MemoryUI.toggle();
-        } else {
-            document.getElementById('memory-sidebar')?.classList.add('hidden');
-            document.getElementById('btn-toggle-memory')?.classList.remove('active');
+            MemoryUI.isOpen = false;
         }
+        document.getElementById('memory-sidebar')?.classList.add('hidden');
+        this.setUtilityButtonActive('btn-toggle-memory', false);
     }
 });

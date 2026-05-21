@@ -160,3 +160,107 @@ class OpenAIAdapter:
 
         finally:
             yield "data: [DONE]\n\n"
+
+    def to_responses_response(self, request, completion: ProviderCompletion) -> Dict[str, Any]:
+        response: Dict[str, Any] = {
+            "id": f"resp_{uuid.uuid4().hex}",
+            "object": "response",
+            "created": int(time.time()),
+            "model": request.model,
+            "outputs": [
+                {
+                    "type": "message",
+                    "id": f"msg_{uuid.uuid4().hex}",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": completion.text if not completion.tool_calls else None,
+                        }
+                    ],
+                }
+            ],
+            "usage": {
+                "input_tokens": completion.input_tokens or 0,
+                "output_tokens": completion.output_tokens or 0,
+                "total_tokens": (completion.input_tokens or 0) + (completion.output_tokens or 0),
+            },
+        }
+
+        if completion.thoughts:
+            response["outputs"][0]["content"].insert(
+                0,
+                {
+                    "type": "reasoning",
+                    "id": f"reason_{uuid.uuid4().hex}",
+                    "summary": [{"type": "summary_text", "text": completion.thoughts}],
+                },
+            )
+
+        if completion.tool_calls:
+            response["outputs"][0]["content"].append(
+                {
+                    "type": "function_call",
+                    "name": completion.tool_calls[0].get("name", "unknown"),
+                    "arguments": completion.tool_calls[0].get("arguments", "{}"),
+                }
+            )
+
+        if completion.model:
+            response["model"] = completion.model
+        return response
+
+    async def stream_responses_events(self, request, provider_request: ProviderRequest):
+        response_id = f"resp_{uuid.uuid4().hex}"
+        created_time = int(time.time())
+        message_id = f"msg_{uuid.uuid4().hex}"
+
+        def _make_chunk(event_type: str, content: Any, finish: bool = False) -> str:
+            if event_type == "message_start":
+                return f"data: {json.dumps({'type': 'response.created', 'response': {'id': response_id}})}\n\n"
+            elif event_type == "content_block_start":
+                return f"data: {json.dumps({'type': 'response.content_block.started', 'response_id': response_id, 'content_block': {'type': 'output_text', 'id': f'block_{uuid.uuid4().hex}'}})}\n\n"
+            elif event_type == "content_block_delta":
+                return f"data: {json.dumps({'type': 'response.content_block.delta', 'response_id': response_id, 'content_block': {'type': 'output_text', 'delta': content}})}\n\n"
+            elif event_type == "content_block_stop":
+                return f"data: {json.dumps({'type': 'response.content_block.stopped', 'response_id': response_id})}\n\n"
+            elif event_type == "message_delta":
+                return f"data: {json.dumps({'type': 'response.message.delta', 'response_id': response_id, 'delta': {'content': content}})}\n\n"
+            elif event_type == "message_stop":
+                return f"data: {json.dumps({'type': 'response.message.completed', 'response_id': response_id})}\n\n"
+            return ""
+
+        try:
+            yield _make_chunk("message_start", None)
+
+            async for event in self.gateway.stream(provider_request):
+                event_type = event.get("type")
+
+                if event_type == "error":
+                    yield f"data: {json.dumps({'type': 'error', 'error': {'message': event['error'], 'type': 'provider_error'}})}\n\n"
+                    break
+
+                if event_type == "text":
+                    yield _make_chunk("content_block_delta", event["text"])
+
+                elif event_type == "thought":
+                    yield f"data: {json.dumps({'type': 'response.content_block.started', 'response_id': response_id, 'content_block': {'type': 'reasoning', 'id': f'reason_{uuid.uuid4().hex}'}})}\n\n"
+                    yield f"data: {json.dumps({'type': 'response.content_block.delta', 'response_id': response_id, 'content_block': {'type': 'reasoning', 'delta': event['thought']}})}\n\n"
+                    yield _make_chunk("content_block_stop", None)
+
+                elif event_type == "tool_call":
+                    tool_call = event["tool_call"]
+                    tool_name = tool_call.get("name", "unknown")
+                    arguments = tool_call.get("arguments", "{}")
+                    if not isinstance(arguments, str):
+                        arguments = json.dumps(arguments)
+                    yield f"data: {json.dumps({'type': 'response.content_block.started', 'response_id': response_id, 'content_block': {'type': 'function_call', 'id': f'func_{uuid.uuid4().hex}', 'name': tool_name}})}\n\n"
+                    yield f"data: {json.dumps({'type': 'response.content_block.delta', 'response_id': response_id, 'content_block': {'type': 'function_call', 'delta': arguments}})}\n\n"
+
+                elif event_type == "final":
+                    yield _make_chunk("message_stop", None)
+                    break
+
+        finally:
+            yield f"data: {json.dumps({'type': 'response.completed', 'response': {'id': response_id}})}\n\n"

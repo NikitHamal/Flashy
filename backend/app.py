@@ -31,7 +31,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
-for _name in ("flashy.chat", "flashy.qwen", "flashy.deepinfra"):
+for _name in ("flashy.chat", "flashy.qwen", "flashy.deepinfra", "flashy.lmarena"):
     _logger = logging.getLogger(_name)
     _logger.setLevel(getattr(logging, _log_level, logging.DEBUG))
     if not _logger.handlers:
@@ -51,6 +51,7 @@ from .websocket_manager import ws_manager, MessageType
 from .desktop_runtime import resource_path, truthy_env, user_data_dir
 from .routers import git_routes, workspace, chat, config, agents, memory
 from .routers import qwen
+from . import server_control
 
 app = FastAPI()
 
@@ -136,6 +137,7 @@ async def spa_fallback_handler(request: Request, __):
         "/workspaces",
         "/config",
         "/git",
+        "/server",
     )
     path = request.url.path
     if path.startswith(api_prefixes) or "." in path.split("/")[-1]:
@@ -161,6 +163,52 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+# --- Provider Server Control ---
+
+@app.get("/server/status")
+async def provider_server_status():
+    return server_control.status()
+
+
+@app.post("/server/start")
+async def provider_server_start(request: Request):
+    payload = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    port = payload.get("port") if isinstance(payload, dict) else None
+    try:
+        port_value = int(port) if port else None
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid provider server port")
+    return server_control.start(port=port_value)
+
+
+@app.post("/server/stop")
+async def provider_server_stop():
+    return server_control.stop()
+
+
+@app.post("/server/restart")
+async def provider_server_restart(request: Request):
+    payload = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    port = payload.get("port") if isinstance(payload, dict) else None
+    try:
+        port_value = int(port) if port else None
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid provider server port")
+    return server_control.restart(port=port_value)
+
+
+@app.get("/server/logs")
+async def provider_server_logs(lines: int = 300):
+    return server_control.tail_log(lines)
+
+
+@app.get("/server/events")
+async def provider_server_events(limit: int = 120):
+    return server_control.recent_events(limit)
+
 
 # --- Core Routes that need heavy logic or service integration ---
 

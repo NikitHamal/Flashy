@@ -153,8 +153,22 @@ class QwenProvider(BaseProvider):
                     else:
                         chat_id = conversation.chat_id
 
-                    tool_system_prompt, source_messages = resolve_messages(messages, tools, conversation)
-                    full_prompt = build_prompt(tool_system_prompt, source_messages)
+                    tool_system_prompt, source_messages = resolve_messages(messages, tools, conversation, pass_through=is_openai_pass_through)
+                    if is_openai_pass_through:
+                        logger.info(f"[QWEN] Incoming messages count: {len(messages)}")
+                        for i, m in enumerate(messages):
+                            role = m.get("role", "?")
+                            content_preview = str(m.get("content", ""))[:200] if m.get("content") else "(None)"
+                            tc = m.get("tool_calls")
+                            tci = m.get("tool_call_id")
+                            logger.info(f"[QWEN]   msg[{i}]: role={role} content={content_preview} tool_calls={bool(tc)} tool_call_id={tci}")
+                        logger.info(f"[QWEN] source_messages count: {len(source_messages)}")
+                        logger.info(f"[QWEN] tool_system_prompt is None: {tool_system_prompt is None}")
+                    full_prompt = build_prompt(tool_system_prompt, source_messages, pass_through=is_openai_pass_through)
+                    if is_openai_pass_through and tools:
+                        logger.info(f"[QWEN] Pass-through mode with {len(tools)} tools. Tool names: {[t.get('function', {}).get('name', t.get('name', 'unknown')) for t in tools]}")
+                        logger.info(f"[QWEN] Full prompt (first 1500 chars):\n{full_prompt[:1500]}")
+                        logger.info(f"[QWEN] Total prompt length: {len(full_prompt)} chars")
                     feature_config = build_feature_config(thinking_enabled, thinking_mode, chat_type)
                     msg_payload = build_msg_payload(
                         chat_id=chat_id,

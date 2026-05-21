@@ -513,3 +513,71 @@
     display: none !important;
 }
 
+
+/* Production right-dock hardening: these utility panels must never enter the left rail. */
+.workspace-layout > .chat-container,
+.workspace-layout > .workspace-dashboard,
+.workspace-layout > .server-center {
+    order: 1;
+}
+
+#explorer-resizer {
+    order: 2;
+}
+
+#explorer-sidebar,
+#plan-sidebar,
+#git-sidebar,
+#memory-sidebar {
+    order: 3;
+    flex: 0 0 var(--right-panel-width, 340px);
+    width: var(--right-panel-width, 340px);
+    min-width: 280px;
+    max-width: min(42vw, 520px);
+    align-self: stretch;
+    border-left: 1px solid var(--border);
+    border-right: 0;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)),
+        #0b0d0c;
+    box-shadow: -24px 0 80px rgba(0, 0, 0, 0.28);
+}
+
+#explorer-sidebar {
+    --right-panel-width: 300px;
+}
+
+#plan-sidebar,
+#git-sidebar,
+#memory-sidebar {
+    --right-panel-width: 360px;
+}
+
+.workspace-layout > aside:not(.hidden) {
+    animation: rightPanelIn 180ms ease-out both;
+}
+
+@keyframes rightPanelIn {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.explorer-header {
+    min-height: 48px;
+    font-family: var(--font-display);
+}
+
+.tree-item .name,
+.git-file-path,
+.nav-item .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

@@ -67,10 +67,16 @@ function setupWebSocketHandlers() {
         }
     });
 
-    flashyWS.on('stream_end', () => {
+    flashyWS.on('stream_end', async () => {
         UI.hideLoading();
         UI.setAgentState('idle');
-        refreshState(false);
+        await refreshState(true);
+        if (currentWorkspaceId) {
+            refreshExplorer();
+            refreshGit();
+            refreshPlan();
+            if (window.MemoryUI?.isOpen) MemoryUI.loadMemories();
+        }
     });
 
     flashyWS.on('error', (message) => {

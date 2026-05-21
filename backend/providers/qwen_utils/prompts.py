@@ -20,6 +20,24 @@ TOOL_SYSTEM_PREFIX = (
     "Available tools:\n"
 )
 
+TOOL_PASSTHROUGH_PREFIX = (
+    "[SYSTEM CONFIGURATION]\n"
+    "You are operating in an integrated development environment with direct access to the following tools. "
+    "These are built-in capabilities of your environment, not external plugins.\n\n"
+    "HOW TO USE A TOOL — output exactly this format on its own line:\n"
+    "««TOOL_CALL»» {\"name\": \"<tool_name>\", \"arguments\": {<key>: <value>}} ««/TOOL_CALL»»\n\n"
+    "RULES:\n"
+    "- You possess these tools as built-in capabilities. They are part of your system.\n"
+    "- When a user asks you to read files, run commands, search code, or perform any file/system operation, "
+    "you MUST use the appropriate tool rather than asking the user to provide the information.\n"
+    "- Do NOT say any tool is unavailable, does not exist, or that you cannot access it.\n"
+    "- Do NOT ask the user to paste file contents — use the tools to read files directly.\n"
+    "- After you receive a <tool_result>, you may call more tools or give your final answer.\n"
+    "- Do NOT fabricate tool results. Wait for the actual <tool_result>.\n"
+    "[/SYSTEM CONFIGURATION]\n\n"
+    "YOUR TOOLS:\n"
+)
+
 TOOL_APPEND_SUFFIX = (
     "\n---\n"
     "Tool calling: when you need to use a tool, respond with ONLY a single line in this format:\n\n"
@@ -37,6 +55,11 @@ TOOL_CALL_RE = re.compile(
     re.DOTALL,
 )
 
+TOOL_CALL_OPEN_ONLY_RE = re.compile(
+    r"««TOOL_CALL»»\s*(\{.*?\})\s*$",
+    re.MULTILINE,
+)
+
 ALT_TOOL_CALL_RE = re.compile(
     r"<tool_call>\s*(\{.*?\})\s*(?:</tool_call>)?",
     re.DOTALL,
@@ -50,28 +73,61 @@ QWEN_NATIVE_TOOLS = {
 }
 
 
-def build_tool_system_prompt(tools: List[Dict], *, as_suffix: bool = False) -> str:
-    base = TOOL_APPEND_SUFFIX if as_suffix else TOOL_SYSTEM_PREFIX
+def build_tool_system_prompt(tools: List[Dict], *, as_suffix: bool = False, pass_through: bool = False) -> str:
+    if pass_through:
+        base = TOOL_PASSTHROUGH_PREFIX
+    elif as_suffix:
+        base = TOOL_APPEND_SUFFIX
+    else:
+        base = TOOL_SYSTEM_PREFIX
     lines = [base]
     for t in tools:
         fn = t.get("function", t)
         name = fn.get("name", "unknown")
         desc = fn.get("description", "")
         params = fn.get("parameters", {})
-        lines.append(f"- **{name}**: {desc}")
-        if params.get("properties"):
-            for pname, pinfo in params["properties"].items():
-                req = "required" if pname in params.get("required", []) else "optional"
-                pdesc = pinfo.get("description", "")
-                ptype = pinfo.get("type", "any")
-                lines.append(f"  - {pname} ({ptype}, {req}): {pdesc}")
-    lines.append("")
+        if pass_through:
+            param_strs = []
+            if params.get("properties"):
+                required = params.get("required", [])
+                for pname, pinfo in params["properties"].items():
+                    pdesc = pinfo.get("description", "")
+                    ptype = pinfo.get("type", "any")
+                    req_tag = "required" if pname in required else "optional"
+                    param_strs.append(f"{pname} ({ptype}, {req_tag}) — {pdesc}")
+            param_block = ""
+            if param_strs:
+                param_block = ". Parameters: " + "; ".join(param_strs)
+            lines.append(f"  - {name}: {desc}{param_block}")
+        else:
+            lines.append(f"- **{name}**: {desc}")
+            if params.get("properties"):
+                for pname, pinfo in params["properties"].items():
+                    req = "required" if pname in params.get("required", []) else "optional"
+                    pdesc = pinfo.get("description", "")
+                    ptype = pinfo.get("type", "any")
+                    lines.append(f"  - {pname} ({ptype}, {req}): {pdesc}")
+    if pass_through:
+        tool_names = [t.get("function", t).get("name", "unknown") for t in tools]
+        lines.append("")
+        lines.append("USAGE EXAMPLE:")
+        first_tool = tool_names[0]
+        example_args = "{}"
+        first_params = tools[0].get("function", tools[0]).get("parameters", {})
+        if first_params.get("properties"):
+            example_args = "{\"" + list(first_params["properties"].keys())[0] + "\": \"value\"}"
+        lines.append(f'««TOOL_CALL»» {{"name": "{first_tool}", "arguments": {example_args}}} ««/TOOL_CALL»»')
+        lines.append("")
+    else:
+        lines.append("")
     return "\n".join(lines)
 
 
 def inject_tools_into_messages(
     messages: List[Dict[str, str]],
     tools: List[Dict],
+    *,
+    pass_through: bool = False,
 ) -> List[Dict[str, str]]:
     if not tools:
         return messages
@@ -79,10 +135,10 @@ def inject_tools_into_messages(
     out = list(messages)
 
     if out and out[0].get("role") == "system":
-        tool_suffix = build_tool_system_prompt(tools, as_suffix=True)
+        tool_suffix = build_tool_system_prompt(tools, as_suffix=True, pass_through=pass_through)
         out[0] = {**out[0], "content": out[0]["content"] + tool_suffix}
     else:
-        tool_prefix = build_tool_system_prompt(tools, as_suffix=False)
+        tool_prefix = build_tool_system_prompt(tools, as_suffix=False, pass_through=pass_through)
         out.insert(0, {"role": "system", "content": tool_prefix})
 
     return out
@@ -90,12 +146,26 @@ def inject_tools_into_messages(
 
 def parse_tool_calls_from_text(text: str):
     tool_calls = []
+    seen_spans = set()
     clean = TOOL_CALL_RE.sub("", text)
+    clean = TOOL_CALL_OPEN_ONLY_RE.sub("", clean)
     clean = ALT_TOOL_CALL_RE.sub("", clean)
 
-    matches = list(TOOL_CALL_RE.finditer(text)) + list(ALT_TOOL_CALL_RE.finditer(text))
+    all_matches = []
+    for m in TOOL_CALL_RE.finditer(text):
+        all_matches.append(m)
+    for m in TOOL_CALL_OPEN_ONLY_RE.finditer(text):
+        span = (m.start(), m.end())
+        if span not in seen_spans:
+            seen_spans.add(span)
+            all_matches.append(m)
+    for m in ALT_TOOL_CALL_RE.finditer(text):
+        span = (m.start(), m.end())
+        if span not in seen_spans:
+            seen_spans.add(span)
+            all_matches.append(m)
 
-    for m in matches:
+    for m in all_matches:
         json_str = m.group(1).strip()
 
         if json_str.startswith("```json"):

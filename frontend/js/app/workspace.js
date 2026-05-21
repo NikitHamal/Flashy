@@ -24,6 +24,8 @@ async function refreshState(updateUI = true) {
 function showDashboard() {
     currentWorkspaceId = null;
     currentSessionId = null;
+    UI.hideServerCenter?.();
+    stopWorkspaceRealtime();
     document.getElementById('home-dashboard').classList.remove('hidden');
     document.getElementById('workspace-view').classList.add('hidden');
 
@@ -49,7 +51,7 @@ function renderSidebarWorkspaces(workspaces) {
         item.className = `nav-item ${workspace.id === currentWorkspaceId ? 'active' : ''}`;
         item.innerHTML = `
             <span class="material-symbols-outlined icon">folder</span>
-            <span class="name">${workspace.name}</span>
+            <span class="name">${UI.escapeHtml(workspace.name)}</span>
             <div class="nav-actions">
                 <button class="btn-item-action close-workspace" title="Close project">
                     <span class="material-symbols-outlined">close</span>
@@ -100,8 +102,8 @@ function renderRecentProjects(workspaces) {
         const card = document.createElement('div');
         card.className = 'project-card';
         card.innerHTML = `
-            <div class="project-name">${workspace.name}</div>
-            <div class="project-path">${workspace.path}</div>
+            <div class="project-name">${UI.escapeHtml(workspace.name)}</div>
+            <div class="project-path">${UI.escapeHtml(workspace.path)}</div>
             <div class="project-time">Last opened ${new Date(workspace.last_accessed * 1000).toLocaleDateString()}</div>
         `;
         card.onclick = () => openWorkspace(workspace.id);
@@ -176,6 +178,7 @@ async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession 
     currentWorkspaceId = workspaceId;
     localStorage.setItem('lastWorkspaceId', workspaceId);
 
+    UI.hideServerCenter?.();
     document.getElementById('home-dashboard').classList.add('hidden');
     document.getElementById('workspace-view').classList.remove('hidden');
 
@@ -207,6 +210,7 @@ async function openWorkspace(workspaceId, pushState = true, autoLoadLastSession 
     if (window.MemoryUI) {
         MemoryUI.init(workspaceId);
     }
+    startWorkspaceRealtime();
 }
 
 function renderWorkspaceDashboard(sessions) {
@@ -215,6 +219,7 @@ function renderWorkspaceDashboard(sessions) {
     const grid = document.getElementById('recent-sessions-grid');
     const explorerToggle = document.getElementById('btn-toggle-explorer');
 
+    UI.hideServerCenter?.();
     chatContainer.classList.add('hidden');
     dashboard.classList.remove('hidden');
     if (explorerToggle) {
@@ -229,7 +234,7 @@ function renderWorkspaceDashboard(sessions) {
         const card = document.createElement('div');
         card.className = 'project-card';
         card.innerHTML = `
-            <div class="project-name">${session.title || 'Untitled Session'}</div>
+            <div class="project-name">${UI.escapeHtml(session.title || 'Untitled Session')}</div>
             <div class="project-path">${session.messages ? session.messages.length : 0} messages</div>
             <div class="project-time">ID: ${session.id.slice(0, 12)}...</div>
         `;
@@ -244,6 +249,7 @@ function createNewSession(workspaceId, pushState = true) {
     currentWorkspaceId = workspaceId;
     currentSessionId = `session_${Date.now()}`;
 
+    UI.hideServerCenter?.();
     document.getElementById('workspace-dashboard').classList.add('hidden');
     document.getElementById('chat-container').classList.remove('hidden');
 
@@ -283,6 +289,7 @@ function loadSession(session, pushState = true) {
     currentSessionId = session.id;
     currentWorkspaceId = session.workspace_id;
 
+    UI.hideServerCenter?.();
     document.getElementById('home-dashboard').classList.add('hidden');
     document.getElementById('workspace-view').classList.remove('hidden');
     document.getElementById('workspace-dashboard').classList.add('hidden');
@@ -350,6 +357,50 @@ async function deleteSession(sessionId) {
         alert('Failed to delete session');
     }
 }
+
+
+let workspaceRealtimeTimer = null;
+let workspaceRealtimePending = false;
+
+async function refreshVisibleWorkspaceSurfaces() {
+    if (!currentWorkspaceId || workspaceRealtimePending) return;
+    workspaceRealtimePending = true;
+    try {
+        await refreshState(true);
+        if (!document.getElementById('explorer-sidebar')?.classList.contains('hidden')) {
+            await refreshExplorer();
+        }
+        if (!document.getElementById('plan-sidebar')?.classList.contains('hidden')) {
+            await refreshPlan();
+        }
+        if (!document.getElementById('git-sidebar')?.classList.contains('hidden')) {
+            await refreshGit();
+        }
+        if (window.MemoryUI?.isOpen) {
+            await MemoryUI.loadMemories();
+        }
+    } catch (error) {
+        console.warn('[Realtime] Workspace refresh failed', error);
+    } finally {
+        workspaceRealtimePending = false;
+    }
+}
+
+function startWorkspaceRealtime() {
+    stopWorkspaceRealtime();
+    workspaceRealtimeTimer = setInterval(refreshVisibleWorkspaceSurfaces, 6000);
+}
+
+function stopWorkspaceRealtime() {
+    if (workspaceRealtimeTimer) {
+        clearInterval(workspaceRealtimeTimer);
+        workspaceRealtimeTimer = null;
+    }
+}
+
+window.addEventListener('focus', () => {
+    if (currentWorkspaceId) refreshVisibleWorkspaceSurfaces();
+});
 
 function initResizers() {
     const sidebar = document.querySelector('.sidebar');

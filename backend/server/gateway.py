@@ -1,4 +1,8 @@
+import base64
 import json
+import os
+import tempfile
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -32,11 +36,70 @@ class ProviderCompletion:
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     finish_reason: str = "stop"
     model: str = ""
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+
+
+WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena"}
+
+_UPLOAD_DIR = os.path.join(os.getenv("TEMP", tempfile.gettempdir()), "flashy_uploads")
+
+_IMAGE_MIME_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/bmp": ".bmp",
+    "image/svg+xml": ".svg",
+}
 
 
 class ProviderGateway:
     def __init__(self):
         self.default_provider = "airforce"
+
+    @staticmethod
+    def _extract_images_from_messages(messages: List[Dict[str, Any]]) -> List[str]:
+        file_paths: List[str] = []
+        for message in messages:
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") != "image_url":
+                    continue
+                image_url = item.get("image_url", {})
+                url = image_url.get("url", "") if isinstance(image_url, dict) else ""
+                if not url:
+                    continue
+
+                if url.startswith("data:"):
+                    header, _, data = url.partition(",")
+                    if not data:
+                        continue
+                    mime = header.split(";")[0].split(":")[-1] if ":" in header else "image/png"
+                    ext = _IMAGE_MIME_EXT.get(mime, ".png")
+                    try:
+                        raw = base64.b64decode(data, validate=True)
+                    except Exception:
+                        continue
+                elif url.startswith(("http://", "https://")):
+                    continue
+                else:
+                    continue
+
+                os.makedirs(_UPLOAD_DIR, exist_ok=True)
+                fpath = os.path.join(_UPLOAD_DIR, f"vision_{uuid.uuid4().hex[:8]}{ext}")
+                try:
+                    with open(fpath, "wb") as f:
+                        f.write(raw)
+                    file_paths.append(fpath)
+                except Exception:
+                    continue
+        return file_paths
 
     @staticmethod
     def _stringify_content(content: Any) -> str:
@@ -95,7 +158,9 @@ class ProviderGateway:
             return resolve_provider_alias(provider_name, self.default_provider), actual_model
         return self.default_provider, model_name
 
-    def _provider_kwargs(self, request: ProviderRequest) -> Dict[str, Any]:
+    def _provider_kwargs(self, request: ProviderRequest, provider_name: str = "") -> Dict[str, Any]:
+        is_scraper = provider_name in WEB_SCRAPER_PROVIDERS
+        resolved_name = resolve_provider_alias(request.provider, self.default_provider) if not provider_name else provider_name
         kwargs = {
             "tools": request.tools,
             "tool_choice": request.tool_choice,
@@ -105,20 +170,19 @@ class ProviderGateway:
             "chat_type": request.chat_type,
             "thinking_enabled": request.thinking_enabled,
             "thinking_mode": request.thinking_mode,
-            "is_openai_pass_through": request.pass_through,
+            "is_openai_pass_through": False if is_scraper else request.pass_through,
             **request.metadata,
         }
-        provider_name = resolve_provider_alias(request.provider, self.default_provider)
         config = load_config()
-        if provider_name == "kimi":
+        if resolved_name == "kimi":
             kwargs["token"] = config.get("kimi_token", "")
-        elif provider_name == "zai":
+        elif resolved_name == "zai":
             kwargs["token"] = config.get("zai_token", "")
-        elif provider_name == "zai-free":
-            pass  # no token needed
-        elif provider_name == "glm":
+        elif resolved_name == "zai-free":
+            pass
+        elif resolved_name == "glm":
             kwargs["token"] = config.get("glm_refresh_token", "")
-        elif provider_name == "grok":
+        elif resolved_name == "grok":
             kwargs["proxy"] = config.get("grok_proxy") or kwargs.get("proxy")
         return kwargs
 
@@ -129,19 +193,25 @@ class ProviderGateway:
             yield {"type": "error", "error": f"Provider '{provider_name}' not found"}
             return
 
-        normalized_messages = self.normalize_messages(request.messages, pass_through=request.pass_through)
+        is_scraper = provider_name in WEB_SCRAPER_PROVIDERS
+        normalize_passthrough = False if is_scraper else request.pass_through
+        normalized_messages = self.normalize_messages(request.messages, pass_through=normalize_passthrough)
+
+        kwargs = self._provider_kwargs(request, provider_name=provider_name)
+
+        if is_scraper:
+            image_paths = self._extract_images_from_messages(request.messages)
+            if image_paths:
+                kwargs["files"] = image_paths
 
         async for chunk in provider_service.generate_stream(
             normalized_messages,
             request.model,
-            **self._provider_kwargs(request),
+            **kwargs,
         ):
             if "error" in chunk:
                 yield {"type": "error", "error": chunk["error"]}
-                # Don't return immediately - let the generator finish naturally
-                # This prevents the browser from being killed
-                error_received = True
-                continue
+                return
             if "thought" in chunk:
                 yield {"type": "thought", "thought": chunk["thought"]}
             if "text" in chunk:
