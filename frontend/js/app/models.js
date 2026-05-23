@@ -32,14 +32,10 @@ async function refreshModels() {
             UI.updateFeatureVisibility(activeProvider);
         }
 
-        if (activeProvider === 'qwen') {
-            document.getElementById('current-model-name').textContent = 'Qwen AI';
-            return;
-        }
-
         const activeModelId = config.model;
         const activeModel = cachedModels.find((model) => model.id === activeModelId);
         document.getElementById('current-model-name').textContent = activeModel ? activeModel.name : (activeModelId || 'Select Model');
+
     } catch (error) {
         console.error('Failed to refresh models', error);
     }
@@ -76,13 +72,10 @@ async function selectModel(id, name) {
         config.model = id;
         await API.saveConfig(config);
 
-        if (config.active_provider === 'qwen') {
-            document.getElementById('current-model-name').textContent = 'Qwen AI';
-        } else {
-            document.getElementById('current-model-name').textContent = name;
-        }
+        document.getElementById('current-model-name').textContent = name;
 
         document.getElementById('model-dropdown-menu').classList.add('hidden');
+
         console.log(`Model selected: ${name} (${id})`);
     } catch (error) {
         alert(`Failed to save model selection: ${error.message}`);

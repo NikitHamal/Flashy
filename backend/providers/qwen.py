@@ -39,8 +39,22 @@ class QwenProvider(BaseProvider):
         **kwargs
     ) -> AsyncGenerator[Dict[str, Any], None]:
 
-        if not model or model == "G_2_5_FLASH":
+        # Standardize / Map generic or agent sub-models to valid active Qwen API model IDs
+        original_model = model
+        model_lower = (model or "").lower()
+        if not model or model == "G_2_5_FLASH" or model == "G_3_0_FLASH" or "flash" in model_lower:
             model = "qwen3.6-plus"
+        elif "235b" in model_lower or "max" in model_lower or "qwq" in model_lower:
+            if "preview" in model_lower:
+                model = "qwen3.6-max-preview"
+            else:
+                model = "qwen3.7-max"
+        elif "coder" in model_lower or "plus" in model_lower:
+            model = "qwen3.6-plus"
+        else:
+            model = "qwen3.6-plus"
+
+        logger.info(f"[QWEN] Model resolved: original={original_model} -> mapped={model}")
 
         proxy = kwargs.get("proxy")
         tools = kwargs.get("tools")
@@ -52,6 +66,13 @@ class QwenProvider(BaseProvider):
         reasoning_effort = kwargs.get("reasoning_effort")
         stream = kwargs.get("stream", True)
         token = kwargs.get("token") or kwargs.get("qwen_api_key")
+        if not token:
+            try:
+                from ..config import load_config
+                config = load_config()
+                token = config.get("qwen_api_token") or config.get("qwen_api_key")
+            except Exception:
+                token = None
 
         # Map reasoning_effort to thinking settings if provided
         if reasoning_effort is not None:
@@ -89,8 +110,18 @@ class QwenProvider(BaseProvider):
                 try:
                     # Optional token auth check
                     if token:
+                        if ";" in token or "=" in token:
+                            for part in token.split(";"):
+                                part = part.strip()
+                                if "=" in part:
+                                    k, v = part.split("=", 1)
+                                    session.cookies[k.strip()] = v.strip()
+                        else:
+                            session.headers["Authorization"] = f"Bearer {token}" if not token.lower().startswith("bearer ") else token
+
                         try:
                             auth_resp = await session.get(f'{self.URL}/api/v1/auths/')
+
                             if auth_resp.status_code == 200:
                                 logger.info(f"[QWEN] Token auth validated")
                             else:
@@ -257,4 +288,11 @@ class QwenProvider(BaseProvider):
 
     @classmethod
     async def get_models(cls) -> List[Dict[str, Any]]:
-        return await get_models()
+        from ..config import load_config
+        try:
+            config = load_config()
+            token = config.get("qwen_api_token") or config.get("qwen_api_key")
+        except Exception:
+            token = None
+        return await get_models(token=token)
+

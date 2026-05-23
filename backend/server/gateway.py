@@ -184,6 +184,8 @@ class ProviderGateway:
             kwargs["token"] = config.get("glm_refresh_token", "")
         elif resolved_name == "grok":
             kwargs["proxy"] = config.get("grok_proxy") or kwargs.get("proxy")
+        elif resolved_name == "qwen":
+            kwargs["token"] = config.get("qwen_api_token") or config.get("qwen_api_key") or ""
         return kwargs
 
     async def stream(self, request: ProviderRequest) -> AsyncGenerator[Dict[str, Any], None]:
