@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="116" fill="#080B0A"/>
+  <rect x="30" y="30" width="452" height="452" rx="92" fill="url(#g)" stroke="rgba(255,255,255,0.16)" stroke-width="4"/>
+  <path d="M300 46L102 284H238L205 466L410 218H270L300 46Z" fill="#60F6A5"/>
+  <path d="M300 46L102 284H238L205 466L410 218H270L300 46Z" fill="url(#bolt)"/>
+  <path d="M117 282L300 46L270 218H410L206 466L238 284H102L117 282Z" stroke="rgba(255,255,255,0.32)" stroke-width="6" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="g" x1="68" y1="42" x2="455" y2="492" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#121B16"/>
+      <stop offset="0.55" stop-color="#0A100D"/>
+      <stop offset="1" stop-color="#101713"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="148" y1="70" x2="369" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D9FFE8" stop-opacity="0.88"/>
+      <stop offset="0.35" stop-color="#60F6A5"/>
+      <stop offset="1" stop-color="#1BAE6A"/>
+    </linearGradient>
+  </defs>
+</svg>

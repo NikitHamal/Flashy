@@ -18,6 +18,8 @@ from .desktop_runtime import data_file, is_frozen, resource_path
 _PROVIDER_PROCESS: subprocess.Popen | None = None
 _PROVIDER_PORT: int | None = None
 _PROVIDER_STARTED_AT: float | None = None
+_LAST_HEALTH_CHECK_TIME: float = 0.0
+_CACHED_HEALTH_RESULT: dict[str, Any] | None = None
 
 DEFAULT_PROVIDER_PORT = int(os.environ.get("FLASHY_PROVIDER_PORT_DEFAULT", "8001"))
 
@@ -45,13 +47,24 @@ def _find_port(preferred: int = DEFAULT_PROVIDER_PORT) -> int:
 
 
 def _health(port: int) -> dict[str, Any]:
+    global _LAST_HEALTH_CHECK_TIME, _CACHED_HEALTH_RESULT
+    now = time.time()
+    if _CACHED_HEALTH_RESULT is not None and (now - _LAST_HEALTH_CHECK_TIME) < 5.0:
+        return _CACHED_HEALTH_RESULT
+
     try:
         with urlopen(f"http://127.0.0.1:{port}/health", timeout=0.75) as response:
             payload = response.read(4096).decode("utf-8", errors="replace")
             data = json.loads(payload) if payload else {}
-            return {"ok": response.status == 200, "status_code": response.status, "payload": data}
+            res = {"ok": response.status == 200, "status_code": response.status, "payload": data}
+            _CACHED_HEALTH_RESULT = res
+            _LAST_HEALTH_CHECK_TIME = now
+            return res
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-        return {"ok": False, "error": str(exc)}
+        res = {"ok": False, "error": str(exc)}
+        _CACHED_HEALTH_RESULT = res
+        _LAST_HEALTH_CHECK_TIME = now
+        return res
 
 
 def _process_running() -> bool:
@@ -103,7 +116,11 @@ def status() -> dict[str, Any]:
 
 
 def start(port: int | None = None) -> dict[str, Any]:
-    global _PROVIDER_PROCESS, _PROVIDER_PORT, _PROVIDER_STARTED_AT
+    global _PROVIDER_PROCESS, _PROVIDER_PORT, _PROVIDER_STARTED_AT, _LAST_HEALTH_CHECK_TIME, _CACHED_HEALTH_RESULT
+
+    # Invalidate cache so startup check works instantly
+    _LAST_HEALTH_CHECK_TIME = 0.0
+    _CACHED_HEALTH_RESULT = None
 
     if _process_running():
         return status()
@@ -143,7 +160,11 @@ def start(port: int | None = None) -> dict[str, Any]:
 
 
 def stop() -> dict[str, Any]:
-    global _PROVIDER_PROCESS
+    global _PROVIDER_PROCESS, _LAST_HEALTH_CHECK_TIME, _CACHED_HEALTH_RESULT
+
+    # Invalidate cache
+    _LAST_HEALTH_CHECK_TIME = 0.0
+    _CACHED_HEALTH_RESULT = None
 
     proc = _PROVIDER_PROCESS
     if proc and proc.poll() is None:
