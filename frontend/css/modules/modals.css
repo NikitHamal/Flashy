@@ -217,3 +217,29 @@
 .btn-toggle-visibility .material-symbols-outlined {
     font-size: 18px;
 }
+
+.input-with-action .btn-icon {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.input-with-action .btn-icon:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.input-with-action .btn-icon .material-symbols-outlined {
+    font-size: 18px;
+}
