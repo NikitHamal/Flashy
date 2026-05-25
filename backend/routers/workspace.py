@@ -91,6 +91,24 @@ def _run_isolated_picker():
             text=True,
             timeout=120
         )
+        if result.returncode != 0:
+            print(f"Isolated picker failed with exit code {result.returncode}")
+            print(f"Stderr: {result.stderr}")
+            # Try running tkinter inline as a fallback!
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes('-topmost', True)
+                path = filedialog.askdirectory()
+                root.destroy()
+                if path:
+                    return os.path.abspath(path)
+            except Exception as tk_err:
+                print(f"Inline picker fallback failed: {tk_err}")
+            return None
+
         output = result.stdout.strip()
         if output == "CANCELLED":
             return None
@@ -99,6 +117,19 @@ def _run_isolated_picker():
         return output
     except Exception as e:
         print(f"Isolated picker error: {e}")
+        # Try running tkinter inline as a fallback!
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            path = filedialog.askdirectory()
+            root.destroy()
+            if path:
+                return os.path.abspath(path)
+        except Exception as tk_err:
+            print(f"Inline picker fallback failed: {tk_err}")
         return None
 
 @router.post("/workspace/pick")

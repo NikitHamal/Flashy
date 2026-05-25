@@ -106,7 +106,6 @@ function setupShellEventListeners() {
 
     if (choiceDevice) {
         choiceDevice.addEventListener('click', async () => {
-            connectModal.classList.add('hidden');
             try {
                 let workspace;
                 if (window.__TAURI__?.dialog?.open) {
@@ -115,24 +114,29 @@ function setupShellEventListeners() {
                         multiple: false,
                         title: 'Select a project folder'
                     });
-                    if (!path) {
-                        connectModal.classList.remove('hidden');
-                        return;
-                    }
+                    if (!path) return;
+                    connectModal.classList.add('hidden');
                     workspace = await connectWorkspacePath(path);
                 } else if (window.flashyDesktop?.selectDirectory) {
                     const path = await window.flashyDesktop.selectDirectory();
                     if (!path) return;
+                    connectModal.classList.add('hidden');
                     workspace = await connectWorkspacePath(path);
                 } else {
+                    // In-browser fallback: keep modal open while Tkinter picker displays
                     workspace = await API.pickWorkspace();
                     if (workspace && workspace.id) {
+                        connectModal.classList.add('hidden');
                         await refreshState();
                         openWorkspace(workspace.id);
+                    } else if (workspace && workspace.message === "Cancelled") {
+                        console.log("Workspace picker cancelled by user.");
+                    } else {
+                        throw new Error(workspace?.message || "Failed to connect to workspace.");
                     }
                 }
             } catch (error) {
-                alert('Failed to open dialog. Please try entering the path manually below.');
+                alert(`Failed to open folder picker: ${error.message || error}. Please try entering the path manually below.`);
                 connectModal.classList.remove('hidden');
                 console.error(error);
             }
