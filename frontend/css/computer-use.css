@@ -463,7 +463,6 @@ a { color: inherit; text-decoration: none; }
 
 .cu-composer-surface:focus-within {
     border-color: var(--accent-border);
-    box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent-border);
 }
 
 .cu-composer-surface textarea {

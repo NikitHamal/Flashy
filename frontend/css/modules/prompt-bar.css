@@ -1,12 +1,12 @@
 .chat-history {
-    padding-bottom: 220px;
+    padding-bottom: 200px;
 }
 
 .input-area {
     position: absolute;
-    left: 20px;
-    right: 20px;
-    bottom: 20px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
     display: flex;
     flex-direction: column;
     gap: 10px;

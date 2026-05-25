@@ -225,7 +225,7 @@ Object.assign(UI, {
             let thoughtBlock = bubble.querySelector('.thought-block.active');
             if (!thoughtBlock) {
                 thoughtBlock = document.createElement('div');
-                thoughtBlock.className = 'thought-block active expanded';
+                thoughtBlock.className = 'thought-block active';
                 thoughtBlock.dataset.startTime = Date.now();
                 thoughtBlock.innerHTML = `
                     <div class="thought-header">

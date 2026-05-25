@@ -112,9 +112,78 @@
 .thought-block {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    margin-bottom: 10px;
+    border-radius: var(--radius-xs);
+    margin: 4px 0;
     overflow: hidden;
+    transition: border var(--transition-fast);
+}
+
+.thought-block:hover {
+    border-color: var(--border-strong);
+}
+
+.thought-header {
+    padding: 5px 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    background: var(--bg-card);
+    user-select: none;
+}
+
+.thought-header:hover {
+    background: var(--bg-elevated);
+}
+
+.thought-header .material-symbols-outlined {
+    font-size: 14px;
+    color: var(--text-tertiary);
+}
+
+.thought-header .chevron {
+    margin-left: auto;
+    font-size: 14px;
+    transition: transform 0.2s;
+}
+
+.thought-block.expanded .chevron {
+    transform: rotate(180deg);
+}
+
+.thought-content {
+    display: none;
+    border-top: 1px solid var(--border);
+    background: var(--bg-dark);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    padding: 8px;
+}
+
+.thought-block.expanded .thought-content {
+    display: block;
+}
+
+.thought-status {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.thought-content p, .thought-content ul, .thought-content ol {
+    margin: 4px 0;
+}
+
+.thought-content ul, .thought-content ol {
+    padding-left: 16px;
+}
+
+.thought-content code {
+    font-family: var(--font-mono);
+    font-size: 11px;
 }
 
 .thought-header {

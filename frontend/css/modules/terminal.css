@@ -10,7 +10,6 @@
     flex-direction: column;
     z-index: 50;
     transition: transform var(--transition-slow);
-    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
 }
 
 .terminal-container.hidden {

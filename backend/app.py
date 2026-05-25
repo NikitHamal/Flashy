@@ -11,6 +11,15 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, Response, FileResponse, JSONResponse
+
+class NonCachingStaticFiles(StaticFiles):
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
 import os
 import shutil
 import time
@@ -544,7 +553,7 @@ async def handle_ws_chat(
                     pass
 
 
-app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
+app.mount("/", NonCachingStaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
