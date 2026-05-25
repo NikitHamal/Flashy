@@ -3,28 +3,23 @@
     windows_subsystem = "windows"
 )]
 
-use tauri::api::process::Command;
-use tauri::Manager;
+use tauri::api::process::{Command, CommandEvent};
 
 fn main() {
     tauri::Builder::default()
-        .setup(|app| {
-            let _app_handle = app.handle();
-            
-            // Spawn backend sidecar
-            tauri::async_runtime::spawn(async move {
-                let (mut rx, _child) = Command::new_sidecar("flashy-backend")
-                    .expect("failed to configure sidecar")
-                    .spawn()
-                    .expect("failed to spawn sidecar");
+        .setup(|_app| {
+            let (mut rx, _child) = Command::new_sidecar("flashy-backend")
+                .expect("failed to configure flashy-backend sidecar")
+                .spawn()
+                .expect("failed to spawn flashy-backend sidecar");
 
-                // Stream backend stdout/stderr to terminal
+            tauri::async_runtime::spawn(async move {
                 while let Some(event) = rx.recv().await {
                     match event {
-                        tauri::api::process::CommandEvent::Stdout(line) => {
+                        CommandEvent::Stdout(line) => {
                             println!("[Backend]: {}", line);
                         }
-                        tauri::api::process::CommandEvent::Stderr(line) => {
+                        CommandEvent::Stderr(line) => {
                             eprintln!("[Backend Error]: {}", line);
                         }
                         _ => {}
