@@ -109,7 +109,18 @@ function setupShellEventListeners() {
             connectModal.classList.add('hidden');
             try {
                 let workspace;
-                if (window.flashyDesktop?.selectDirectory) {
+                if (window.__TAURI__?.dialog?.open) {
+                    const path = await window.__TAURI__.dialog.open({
+                        directory: true,
+                        multiple: false,
+                        title: 'Select a project folder'
+                    });
+                    if (!path) {
+                        connectModal.classList.remove('hidden');
+                        return;
+                    }
+                    workspace = await connectWorkspacePath(path);
+                } else if (window.flashyDesktop?.selectDirectory) {
                     const path = await window.flashyDesktop.selectDirectory();
                     if (!path) return;
                     workspace = await connectWorkspacePath(path);
@@ -164,7 +175,14 @@ function setupShellEventListeners() {
     if (pickCloneParentButton) {
         pickCloneParentButton.addEventListener('click', async () => {
             try {
-                if (window.flashyDesktop?.selectDirectory) {
+                if (window.__TAURI__?.dialog?.open) {
+                    const path = await window.__TAURI__.dialog.open({
+                        directory: true,
+                        multiple: false,
+                        title: 'Select parent folder'
+                    });
+                    if (path) document.getElementById('clone-parent-path').value = path;
+                } else if (window.flashyDesktop?.selectDirectory) {
                     const path = await window.flashyDesktop.selectDirectory();
                     if (path) document.getElementById('clone-parent-path').value = path;
                 } else {
