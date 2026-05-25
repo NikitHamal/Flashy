@@ -4,13 +4,9 @@ Object.assign(UI, {
     serverLogPath: '',
 
     showServerCenter() {
-        document.getElementById('workspace-dashboard')?.classList.add('hidden');
-        document.getElementById('chat-container')?.classList.add('hidden');
+        document.getElementById('home-dashboard')?.classList.add('hidden');
+        document.getElementById('workspace-view')?.classList.add('hidden');
         document.getElementById('server-center')?.classList.remove('hidden');
-        this.hideExplorer();
-        this.hidePlan();
-        this.hideGit();
-        this.hideMemory();
         document.getElementById('btn-toggle-server')?.classList.add('active');
         this.refreshServerCenter();
         this.startServerPolling();
@@ -29,7 +25,13 @@ Object.assign(UI, {
             this.showServerCenter();
         } else {
             this.hideServerCenter();
-            document.getElementById('chat-container')?.classList.remove('hidden');
+            const wsView = document.getElementById('workspace-view');
+            const dashboard = document.getElementById('home-dashboard');
+            if (wsView && !wsView.classList.contains('hidden')) {
+                document.getElementById('chat-container')?.classList.remove('hidden');
+            } else if (dashboard) {
+                dashboard.classList.remove('hidden');
+            }
         }
     },
 

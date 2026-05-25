@@ -199,7 +199,7 @@ class AgentRegistry:
         
         agent = agent_class(
             provider_name=config.get("provider", "qwen"),
-            model=config.get("model", "G_3_0_FLASH"),
+            model=config.get("model", "qwen3.6-plus"),
             workspace_path=workspace_path,
             session_id=session_id
         )

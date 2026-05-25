@@ -1,7 +1,7 @@
 {
   "orchestrator": {
     "provider": "qwen",
-    "model": "G_3_0_FLASH",
+    "model": "qwen3.6-plus",
     "description": "Coordinates tasks and delegates to specialized agents"
   },
   "architect": {
@@ -11,7 +11,7 @@
   },
   "developer": {
     "provider": "qwen",
-    "model": "G_3_0_FLASH",
+    "model": "qwen3-coder-plus",
     "description": "Implements code and features"
   },
   "reviewer": {
@@ -46,12 +46,12 @@
   },
   "testing": {
     "provider": "qwen",
-    "model": "G_3_0_FLASH",
+    "model": "qwen3-coder-plus",
     "description": "Creates and runs tests"
   },
   "deploy": {
     "provider": "qwen",
-    "model": "G_3_0_FLASH",
+    "model": "qwen3.6-plus",
     "description": "Handles deployment tasks"
   }
 }

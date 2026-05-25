@@ -1,4 +1,3 @@
-/* ==================== CHAT AREA ==================== */
 .chat-container {
     flex: 1;
     display: flex;
@@ -7,16 +6,13 @@
     position: relative;
 }
 
-/* ==================== PLAN SIDEBAR ==================== */
 .plan-sidebar {
     width: 320px;
-    background: #0a0a0a;
-    /* Slightly darker than main bg for depth */
+    background: var(--bg-sidebar);
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
+    transition: all var(--transition-slow);
 }
 
 .plan-sidebar.hidden {
@@ -30,7 +26,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 16px;
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.7;
     color: var(--text-primary);
     scrollbar-gutter: stable;
@@ -39,14 +35,15 @@
 .plan-content h1,
 .plan-content h2,
 .plan-content h3 {
-    margin: 24px 0 12px;
-    font-size: 15px;
+    margin: 20px 0 10px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--accent);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(74, 222, 128, 0.1);
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--accent-muted);
     padding-bottom: 4px;
+    font-family: var(--font-display);
 }
 
 .plan-content h1:first-child {
@@ -55,14 +52,14 @@
 
 .plan-content ul {
     padding-left: 0;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     list-style: none;
 }
 
 .plan-content li {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     position: relative;
-    padding-left: 32px;
+    padding-left: 28px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -74,7 +71,6 @@
     display: inline;
 }
 
-/* Specific styling for task items to remove default bullets if present */
 .plan-content li.task-list-item {
     padding-left: 0;
 }
@@ -85,28 +81,26 @@
     top: 2px;
     appearance: none;
     -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    border: 2px solid #3a3a3a;
-    border-radius: 5px;
-    background: #1a1a1a;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-strong);
+    border-radius: var(--radius-xs);
+    background: var(--bg-input);
     cursor: default;
-    /* Non-interactive for now as it's readonly from file */
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-fast);
     z-index: 2;
 }
 
 .plan-content li input[type="checkbox"]:checked {
     background: var(--accent);
     border-color: var(--accent);
-    box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
 }
 
 .plan-content li input[type="checkbox"]:checked::after {
     content: 'done';
     font-family: 'Material Symbols Outlined';
-    font-size: 15px;
-    color: #000;
+    font-size: 13px;
+    color: var(--bg-dark);
     position: absolute;
     top: 50%;
     left: 50%;
@@ -115,46 +109,44 @@
 }
 
 .plan-content li:has(input[type="checkbox"]:checked) {
-    color: #666;
+    color: var(--text-tertiary);
     text-decoration: line-through;
-    opacity: 0.8;
+    opacity: 0.65;
 }
 
-/* Sub-lists nesting */
 .plan-content li ul {
-    margin-top: 10px;
-    padding-left: 24px;
-    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: 8px;
+    padding-left: 20px;
+    border-left: 1px solid var(--border);
     width: 100%;
 }
 
 .plan-content li li {
-    padding-left: 28px;
-    margin-bottom: 8px;
+    padding-left: 24px;
+    margin-bottom: 6px;
 }
 
 .plan-content li li input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
 }
 
 .plan-empty {
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     text-align: center;
-    padding: 80px 20px;
+    padding: 60px 20px;
     font-style: italic;
-    opacity: 0.4;
+    opacity: 0.5;
     font-size: 13px;
 }
 
-/* ==================== GIT SIDEBAR ==================== */
 .git-sidebar {
     width: 320px;
-    background: #0d0d0d;
+    background: var(--bg-sidebar);
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-slow);
 }
 
 .git-sidebar.hidden {
@@ -167,47 +159,48 @@
 .git-content {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
 }
 
-/* Staging Area */
 .git-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .git-section-header {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     text-transform: uppercase;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    letter-spacing: 0.08em;
 }
 
 .git-file-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 
 .git-file-item {
     display: flex;
     align-items: center;
     padding: 4px 6px;
-    border-radius: 4px;
-    gap: 8px;
+    border-radius: var(--radius-xs);
+    gap: 7px;
     cursor: pointer;
     font-size: 12px;
+    transition: background var(--transition-fast);
 }
 
 .git-file-item:hover {
-    background: #2d2d2d;
+    background: var(--bg-hover);
 }
 
 .git-file-status {
@@ -217,21 +210,10 @@
     text-align: center;
 }
 
-.git-file-status.modified {
-    color: #cca700;
-}
-
-.git-file-status.added {
-    color: #4ec9b0;
-}
-
-.git-file-status.deleted {
-    color: #f48771;
-}
-
-.git-file-status.untracked {
-    color: #569cd6;
-}
+.git-file-status.modified { color: #eab308; }
+.git-file-status.added { color: var(--accent); }
+.git-file-status.deleted { color: var(--danger); }
+.git-file-status.untracked { color: #60a5fa; }
 
 .git-file-path {
     flex: 1;
@@ -239,14 +221,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
 }
 
 .git-action-btn {
     opacity: 0;
     padding: 2px;
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     cursor: pointer;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
+    transition: all var(--transition-fast);
 }
 
 .git-file-item:hover .git-action-btn {
@@ -254,7 +239,7 @@
 }
 
 .git-action-btn:hover {
-    background: #333333;
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
 
@@ -264,7 +249,7 @@
     gap: 8px;
     margin-top: auto;
     border-top: 1px solid var(--border);
-    padding-top: 16px;
+    padding-top: 14px;
 }
 
 .commit-actions {
@@ -277,7 +262,7 @@
     background: var(--bg-dark);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 8px;
     resize: none;
     font-family: inherit;
@@ -290,11 +275,11 @@
 }
 
 .btn-commit {
-    background: #007acc;
-    color: white;
+    background: var(--info);
+    color: #fff;
     border: none;
     padding: 6px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-weight: 500;
 }
@@ -307,7 +292,7 @@
     background: var(--bg-dark);
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 8px;
     font-size: 11px;
     white-space: pre-wrap;
@@ -318,16 +303,17 @@
 .git-section-title {
     font-size: 10px;
     font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
-    margin-top: 8px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.08em;
+    margin-top: 6px;
+    text-transform: uppercase;
 }
 
 .git-empty {
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     font-size: 12px;
     text-align: center;
-    padding: 20px;
+    padding: 16px;
 }
 
 .git-actions-grid {
@@ -337,7 +323,7 @@
 }
 
 .btn-sm {
-    padding: 6px 10px !important;
+    padding: 5px 10px !important;
     font-size: 11px !important;
 }
 
@@ -345,39 +331,40 @@
 .git-log-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .git-branch-item {
-    padding: 6px 10px;
-    border-radius: 6px;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
     font-size: 12px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     color: var(--text-secondary);
+    transition: background var(--transition-fast);
 }
 
 .git-branch-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
 
 .git-branch-item.active {
     color: var(--accent);
-    background: rgba(74, 222, 128, 0.05);
+    background: var(--accent-muted);
 }
 
 .git-log-item {
     font-size: 12px;
-    padding: 10px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.02);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .commit-header {
@@ -395,7 +382,7 @@
 
 .commit-date {
     font-size: 10px;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
 }
 
 .commit-msg {
@@ -406,18 +393,16 @@
 
 .commit-author {
     font-size: 10px;
-    color: var(--text-secondary);
-    opacity: 0.7;
+    color: var(--text-tertiary);
 }
 
-/* ==================== EXPLORER SIDEBAR ==================== */
 .explorer-sidebar {
     width: 260px;
-    background: #0d0d0d;
+    background: var(--bg-sidebar);
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-slow);
 }
 
 .explorer-sidebar.hidden {
@@ -428,38 +413,40 @@
 }
 
 .explorer-header {
-    padding: 12px 16px;
-    font-size: 11px;
+    padding: 10px 14px;
+    font-size: 10px;
     font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.08em;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    font-family: var(--font-display);
 }
 
 .explorer-tree {
     flex: 1;
     overflow-y: auto;
     overflow-x: auto;
-    padding: 10px 0;
+    padding: 8px 0;
 }
 
 .tree-item {
-    padding: 4px 16px;
+    padding: 3px 14px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-secondary);
-    transition: all 0.15s;
+    transition: all var(--transition-fast);
     white-space: nowrap;
 }
 
 .tree-item:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
 
@@ -469,20 +456,19 @@
 
 .tree-item .icon {
     font-size: 16px;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
 }
 
 .tree-item.directory .icon {
     color: #eab308;
-    /* folder color */
 }
 
 .tree-item.file .icon {
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
 }
 
 .tree-item-children {
-    padding-left: 16px;
+    padding-left: 14px;
 }
 
 .tree-node.collapsed .tree-item-children {
@@ -509,15 +495,8 @@
     margin: 0 auto;
 }
 
-.hidden {
-    display: none !important;
-}
-
-
-/* Production right-dock hardening: these utility panels must never enter the left rail. */
 .workspace-layout > .chat-container,
-.workspace-layout > .workspace-dashboard,
-.workspace-layout > .server-center {
+.workspace-layout > .workspace-dashboard {
     order: 1;
 }
 
@@ -537,10 +516,6 @@
     align-self: stretch;
     border-left: 1px solid var(--border);
     border-right: 0;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)),
-        #0b0d0c;
-    box-shadow: -24px 0 80px rgba(0, 0, 0, 0.28);
 }
 
 #explorer-sidebar {
@@ -554,23 +529,6 @@
 }
 
 .workspace-layout > aside:not(.hidden) {
-    animation: rightPanelIn 180ms ease-out both;
-}
-
-@keyframes rightPanelIn {
-    from {
-        opacity: 0;
-        transform: translateX(16px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.explorer-header {
-    min-height: 48px;
-    font-family: var(--font-display);
 }
 
 .tree-item .name,

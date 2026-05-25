@@ -1,3 +1,28 @@
+const ThemeManager = {
+    init() {
+        const saved = localStorage.getItem('flashy-theme') || 'dark';
+        this.apply(saved);
+        const btn = document.getElementById('btn-theme-toggle');
+        if (btn) {
+            btn.addEventListener('click', () => this.toggle());
+        }
+    },
+    apply(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('flashy-theme', theme);
+        const icon = document.getElementById('theme-icon');
+        if (icon) {
+            icon.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
+        }
+    },
+    toggle() {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        this.apply(current === 'dark' ? 'light' : 'dark');
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => ThemeManager.init());
+
 const UI = {
     elements: {
         sidebar: document.querySelector('.sidebar'),
@@ -33,8 +58,8 @@ const UI = {
     },
 
     isWorking: false,
-    taggedFiles: [], // Array of { name, path }
-    uploadedFiles: [], // Array of File objects
+    taggedFiles: [],
+    uploadedFiles: [],
 
     escapeHtml(text) {
         const div = document.createElement('div');

@@ -214,6 +214,20 @@ function setupShellEventListeners() {
         toggleServerButton.addEventListener('click', () => UI.toggleServerCenter());
     }
 
+    const serverBackButton = document.getElementById('btn-server-back');
+    if (serverBackButton) {
+        serverBackButton.addEventListener('click', () => {
+            UI.hideServerCenter();
+            const wsView = document.getElementById('workspace-view');
+            const dashboard = document.getElementById('home-dashboard');
+            if (wsView && !wsView.classList.contains('hidden')) {
+                document.getElementById('chat-container')?.classList.remove('hidden');
+            } else if (dashboard) {
+                dashboard.classList.remove('hidden');
+            }
+        });
+    }
+
     const serverRefreshButton = document.getElementById('btn-server-refresh');
     if (serverRefreshButton) {
         serverRefreshButton.addEventListener('click', () => UI.refreshServerCenter());

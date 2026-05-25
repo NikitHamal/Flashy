@@ -7,8 +7,10 @@
     <title>Flashy | AI Coding Agent</title>
     <link rel="stylesheet" href="/css/main.css">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="icon"
@@ -53,9 +55,18 @@
             </div>
 
             <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 8px;">
+                <button id="btn-toggle-server" class="btn-secondary full-width">
+                    <span class="material-symbols-outlined">dns</span> Server Center
+                </button>
                 <button id="btn-add-workspace" class="btn-secondary full-width">
                     <span class="material-symbols-outlined">add</span> Connect Project
                 </button>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0;">
+                    <span style="font-size: 11px; color: var(--text-tertiary); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;">Theme</span>
+                    <button id="btn-theme-toggle" class="theme-toggle" title="Toggle light/dark mode">
+                        <span class="material-symbols-outlined" id="theme-icon">dark_mode</span>
+                    </button>
+                </div>
             </div>
         </aside>
         <div id="sidebar-resizer" class="resizer-h"></div>
@@ -76,6 +87,96 @@
                     <div id="recent-projects-grid" class="projects-grid">
                         <!-- Projects injected here -->
                     </div>
+                </div>
+            </div>
+
+            <!-- Server Center (Global - outside workspace) -->
+            <div id="server-center" class="server-center hidden">
+                <div class="server-top-bar">
+                    <button id="btn-server-back" class="btn-ghost" title="Back">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div class="server-top-title">Server Center</div>
+                </div>
+                <div class="server-scroll">
+                    <section class="server-hero-panel">
+                        <div>
+                            <div class="eyebrow">LOCAL PROVIDER SERVER</div>
+                            <h2>Server Center</h2>
+                            <p>Start and monitor the OpenAI-compatible Flashy provider server without leaving the desktop app.</p>
+                        </div>
+                        <div id="server-state-pill" class="server-state-pill offline">
+                            <span class="status-dot"></span>
+                            <span>Offline</span>
+                        </div>
+                    </section>
+
+                    <section class="server-grid">
+                        <div class="server-card server-controls-card">
+                            <div class="server-card-header">
+                                <div>
+                                    <div class="server-card-kicker">Runtime</div>
+                                    <h3>Process Control</h3>
+                                </div>
+                                <button id="btn-server-refresh" class="btn-ghost" title="Refresh server status">
+                                    <span class="material-symbols-outlined">refresh</span>
+                                </button>
+                            </div>
+                            <div class="server-meta-grid">
+                                <div>
+                                    <span>Endpoint</span>
+                                    <strong id="server-url">—</strong>
+                                </div>
+                                <div>
+                                    <span>PID</span>
+                                    <strong id="server-pid">—</strong>
+                                </div>
+                                <div>
+                                    <span>Uptime</span>
+                                    <strong id="server-uptime">—</strong>
+                                </div>
+                                <div>
+                                    <span>Health</span>
+                                    <strong id="server-health">Unknown</strong>
+                                </div>
+                            </div>
+                            <div class="server-actions">
+                                <button id="btn-server-start" class="btn-primary server-action-primary">
+                                    <span class="material-symbols-outlined">play_arrow</span> Start Server
+                                </button>
+                                <button id="btn-server-stop" class="btn-secondary">
+                                    <span class="material-symbols-outlined">stop</span> Stop
+                                </button>
+                                <button id="btn-server-restart" class="btn-secondary">
+                                    <span class="material-symbols-outlined">restart_alt</span> Restart
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="server-card server-events-card">
+                            <div class="server-card-header">
+                                <div>
+                                    <div class="server-card-kicker">Realtime</div>
+                                    <h3>Requests & Responses</h3>
+                                </div>
+                                <span class="server-mini-label">Auto-refresh</span>
+                            </div>
+                            <div id="server-events" class="server-events-list">
+                                <div class="server-empty">No provider requests yet.</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="server-card server-log-card">
+                        <div class="server-card-header">
+                            <div>
+                                <div class="server-card-kicker">Diagnostics</div>
+                                <h3>Server Log</h3>
+                            </div>
+                            <button id="btn-server-copy-log-path" class="btn-secondary btn-sm">Copy log path</button>
+                        </div>
+                        <pre id="server-log-output" class="server-log-output">No logs loaded.</pre>
+                    </section>
                 </div>
             </div>
 
@@ -109,9 +210,6 @@
                         <button id="btn-toggle-activity" class="btn-ghost" title="Agent Activity">
                             <span class="material-symbols-outlined">hub</span>
                         </button>
-                        <button id="btn-toggle-server" class="btn-ghost" title="Server Center">
-                            <span class="material-symbols-outlined">dns</span>
-                        </button>
                         <button id="btn-toggle-plan" class="btn-ghost" title="View Plan">
                             <span class="material-symbols-outlined">assignment</span>
                         </button>
@@ -127,7 +225,7 @@
                 <div class="workspace-layout">
                     <div id="workspace-dashboard" class="workspace-dashboard hidden">
                         <div class="hero-section">
-                            <h2 style="font-size: 20px; text-transform: none; color: white; letter-spacing: normal">
+                            <h2 style="font-size: 20px; text-transform: none; color: var(--text-primary); letter-spacing: normal">
                                 Recent Sessions</h2>
                             <p>Pick up where you left off or start a new conversation.</p>
                         </div>
@@ -140,88 +238,6 @@
                                 <span class="material-symbols-outlined">add</span> New Session
                             </button>
                         </div>
-                    </div>
-
-
-                    <div id="server-center" class="server-center hidden">
-                        <section class="server-hero-panel">
-                            <div>
-                                <div class="eyebrow">LOCAL PROVIDER SERVER</div>
-                                <h2>Server Center</h2>
-                                <p>Start and monitor the OpenAI-compatible Flashy provider server without leaving the desktop app.</p>
-                            </div>
-                            <div id="server-state-pill" class="server-state-pill offline">
-                                <span class="status-dot"></span>
-                                <span>Offline</span>
-                            </div>
-                        </section>
-
-                        <section class="server-grid">
-                            <div class="server-card server-controls-card">
-                                <div class="server-card-header">
-                                    <div>
-                                        <div class="server-card-kicker">Runtime</div>
-                                        <h3>Process Control</h3>
-                                    </div>
-                                    <button id="btn-server-refresh" class="btn-ghost" title="Refresh server status">
-                                        <span class="material-symbols-outlined">refresh</span>
-                                    </button>
-                                </div>
-                                <div class="server-meta-grid">
-                                    <div>
-                                        <span>Endpoint</span>
-                                        <strong id="server-url">—</strong>
-                                    </div>
-                                    <div>
-                                        <span>PID</span>
-                                        <strong id="server-pid">—</strong>
-                                    </div>
-                                    <div>
-                                        <span>Uptime</span>
-                                        <strong id="server-uptime">—</strong>
-                                    </div>
-                                    <div>
-                                        <span>Health</span>
-                                        <strong id="server-health">Unknown</strong>
-                                    </div>
-                                </div>
-                                <div class="server-actions">
-                                    <button id="btn-server-start" class="btn-primary server-action-primary">
-                                        <span class="material-symbols-outlined">play_arrow</span> Start Server
-                                    </button>
-                                    <button id="btn-server-stop" class="btn-secondary">
-                                        <span class="material-symbols-outlined">stop</span> Stop
-                                    </button>
-                                    <button id="btn-server-restart" class="btn-secondary">
-                                        <span class="material-symbols-outlined">restart_alt</span> Restart
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="server-card server-events-card">
-                                <div class="server-card-header">
-                                    <div>
-                                        <div class="server-card-kicker">Realtime</div>
-                                        <h3>Requests & Responses</h3>
-                                    </div>
-                                    <span class="server-mini-label">Auto-refresh</span>
-                                </div>
-                                <div id="server-events" class="server-events-list">
-                                    <div class="server-empty">No provider requests yet.</div>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section class="server-card server-log-card">
-                            <div class="server-card-header">
-                                <div>
-                                    <div class="server-card-kicker">Diagnostics</div>
-                                    <h3>Server Log</h3>
-                                </div>
-                                <button id="btn-server-copy-log-path" class="btn-secondary btn-sm">Copy log path</button>
-                            </div>
-                            <pre id="server-log-output" class="server-log-output">No logs loaded.</pre>
-                        </section>
                     </div>
 
                     <div id="chat-container" class="chat-container">
