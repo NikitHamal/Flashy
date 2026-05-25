@@ -14,7 +14,14 @@
       "all": false,
       "shell": {
         "all": false,
-        "open": true
+        "open": true,
+        "sidecar": true,
+        "scope": [
+          {
+            "name": "binaries/flashy-backend",
+            "sidecar": true
+          }
+        ]
       }
     },
     "bundle": {
