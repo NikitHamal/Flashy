@@ -6,13 +6,14 @@ from ..providers import get_provider_service
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api")
+DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
     "airforce-free": "airforce",
     "gradient-free": "gradient",
     "lmarena-free": "lmarena",
+    "ai4bharat-free": "ai4bharat",
 }
 
 
@@ -69,6 +70,7 @@ class ProviderCatalog:
                 display_name = model.get("name") or model_id
                 model_capabilities = model.get("capabilities", {})
                 model_max_context = model.get("max_context") or model.get("context_window", 128000 if provider_name == "qwen" else 32000)
+                pricing = model.get("pricing") or {}
 
                 if model_capabilities:
                     caps = {
@@ -81,17 +83,25 @@ class ProviderCatalog:
                 else:
                     caps = infer_capabilities(model_id)
 
-                all_models.append(
-                    {
-                        "id": f"{provider_name}/{model_id}",
-                        "object": "model",
-                        "created": int(time.time()),
-                        "owned_by": provider_name,
-                        "name": display_name,
-                        "provider": provider_name,
-                        "context_window": model_max_context,
-                        "capabilities": caps,
+                model_entry = {
+                    "id": f"{provider_name}/{model_id}",
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": provider_name,
+                    "name": display_name,
+                    "provider": provider_name,
+                    "context_window": model_max_context,
+                    "capabilities": caps,
+                }
+
+                input_price = pricing.get("cents_per_input_token")
+                output_price = pricing.get("cents_per_output_token")
+                if input_price is not None or output_price is not None:
+                    model_entry["pricing"] = {
+                        "cents_per_input_token": float(input_price or 0),
+                        "cents_per_output_token": float(output_price or 0),
                     }
-                )
+
+                all_models.append(model_entry)
 
         return {"object": "list", "data": all_models}

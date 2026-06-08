@@ -101,6 +101,7 @@ class DeepInfraProvider(BaseProvider):
             "model": model, 
             "messages": messages, 
             "stream": True,
+            "stream_options": {"include_usage": True},
             "temperature": kwargs.get("temperature", 0.7),
             "max_tokens": kwargs.get("max_tokens"),
             "top_p": kwargs.get("top_p", 1.0),
@@ -226,6 +227,23 @@ class DeepInfraProvider(BaseProvider):
                                     data = json.loads(line[6:])
                                     raw_chunk_count += 1
                                     choices = data.get("choices", [])
+                                    usage_data = data.get("usage")
+
+                                    if usage_data and isinstance(usage_data, dict):
+                                        prompt_tokens = usage_data.get("prompt_tokens", 0) or 0
+                                        completion_tokens = usage_data.get("completion_tokens", 0) or 0
+                                        total_tokens = usage_data.get("total_tokens", 0) or (prompt_tokens + completion_tokens)
+                                        logger.info(
+                                            f"[DEEPINFRA] standalone usage chunk: prompt={prompt_tokens} completion={completion_tokens} total={total_tokens}"
+                                        )
+                                        yield {
+                                            "usage": {
+                                                "prompt_tokens": prompt_tokens,
+                                                "completion_tokens": completion_tokens,
+                                                "total_tokens": total_tokens,
+                                            }
+                                        }
+
                                     if choices:
                                         choice = choices[0]
                                         delta = choice.get("delta", {})
@@ -288,10 +306,25 @@ class DeepInfraProvider(BaseProvider):
                                                         }
                                                     }
                                                 tool_calls_acc = {}
-                                            yield {
+
+                                            usage = data.get("usage")
+                                            final_event = {
                                                 "is_final": True,
                                                 "finish_reason": finish_reason,
                                             }
+                                            if usage and isinstance(usage, dict):
+                                                prompt_tokens = usage.get("prompt_tokens", 0) or 0
+                                                completion_tokens = usage.get("completion_tokens", 0) or 0
+                                                total_tokens = usage.get("total_tokens", 0) or (prompt_tokens + completion_tokens)
+                                                final_event["usage"] = {
+                                                    "prompt_tokens": prompt_tokens,
+                                                    "completion_tokens": completion_tokens,
+                                                    "total_tokens": total_tokens,
+                                                }
+                                                logger.info(
+                                                    f"[DEEPINFRA] usage: prompt={prompt_tokens} completion={completion_tokens} total={total_tokens}"
+                                                )
+                                            yield final_event
 
                                 except json.JSONDecodeError as e:
                                     logger.warning(
@@ -340,8 +373,10 @@ class DeepInfraProvider(BaseProvider):
                             "name": display,
                             "capabilities": caps,
                             "context_window": max_ctx,
-                            "cents_per_input_token": ci,
-                            "cents_per_output_token": co,
+                            "pricing": {
+                                "cents_per_input_token": ci,
+                                "cents_per_output_token": co,
+                            },
                         })
                     return result
         except Exception:

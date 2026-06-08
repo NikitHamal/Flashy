@@ -40,7 +40,7 @@ class ProviderCompletion:
     output_tokens: Optional[int] = None
 
 
-WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena"}
+WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena", "ai4bharat"}
 
 _UPLOAD_DIR = os.path.join(os.getenv("TEMP", tempfile.gettempdir()), "flashy_uploads")
 
@@ -220,11 +220,16 @@ class ProviderGateway:
                 yield {"type": "text", "text": chunk["text"]}
             if "tool_call" in chunk:
                 yield {"type": "tool_call", "tool_call": chunk["tool_call"]}
+            if "usage" in chunk:
+                yield {"type": "usage", "usage": chunk["usage"]}
             if chunk.get("is_final"):
-                yield {
+                event = {
                     "type": "final",
                     "finish_reason": chunk.get("finish_reason", "stop"),
                 }
+                if "usage" in chunk:
+                    event["usage"] = chunk["usage"]
+                yield event
                 return
 
         yield {"type": "final", "finish_reason": "stop"}
@@ -234,6 +239,8 @@ class ProviderGateway:
         thought_parts: List[str] = []
         tool_calls: List[Dict[str, Any]] = []
         finish_reason = "stop"
+        input_tokens = None
+        output_tokens = None
 
         async for event in self.stream(request):
             event_type = event.get("type")
@@ -250,8 +257,20 @@ class ProviderGateway:
                 if not isinstance(arguments, str):
                     tool_call["arguments"] = json.dumps(arguments)
                 tool_calls.append(tool_call)
+            elif event_type == "usage":
+                usage = event.get("usage", {})
+                if usage.get("prompt_tokens") is not None:
+                    input_tokens = usage["prompt_tokens"]
+                if usage.get("completion_tokens") is not None:
+                    output_tokens = usage["completion_tokens"]
             elif event_type == "final":
                 finish_reason = event.get("finish_reason", "stop")
+                usage = event.get("usage")
+                if usage:
+                    if usage.get("prompt_tokens") is not None:
+                        input_tokens = usage["prompt_tokens"]
+                    if usage.get("completion_tokens") is not None:
+                        output_tokens = usage["completion_tokens"]
 
         return ProviderCompletion(
             text="".join(text_parts),
@@ -259,4 +278,6 @@ class ProviderGateway:
             tool_calls=tool_calls,
             finish_reason=finish_reason,
             model=request.model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )

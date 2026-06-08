@@ -30,6 +30,7 @@ def _setup_logging():
         "flashy.deepinfra", "flashy.lmarena", "flashy.airforce",
         "flashy.gradient", "flashy.grok", "flashy.kimi", "flashy.glm",
         "flashy.zai", "flashy.zai_free", "flashy.chat2api",
+        "flashy.ai4bharat",
         "flashy.server.catalog", "flashy.openai",
     ]
 
@@ -134,7 +135,7 @@ if __name__ == "__main__":
         "backend.server_app:app",
         host=os.environ.get("FLASHY_PROVIDER_HOST", "127.0.0.1"),
         port=int(os.environ.get("FLASHY_PROVIDER_PORT", "8001")),
-        reload=os.environ.get("FLASHY_RELOAD", "0").lower() in {"1", "true", "yes"},
+        reload=True,
         access_log=True,
         log_config=log_config,
     )

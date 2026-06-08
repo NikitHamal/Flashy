@@ -34,6 +34,9 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "lmarena":
         from .lmarena import LmarenaProvider
         return LmarenaProvider()
+    elif provider_name == "ai4bharat":
+        from .ai4bharat import AI4BharatProvider
+        return AI4BharatProvider()
     else:
         return None
 

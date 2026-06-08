@@ -69,6 +69,11 @@ class OpenAIAdapter:
                     "finish_reason": "tool_calls" if completion.tool_calls else completion.finish_reason,
                 }
             ],
+            "usage": {
+                "prompt_tokens": completion.input_tokens or 0,
+                "completion_tokens": completion.output_tokens or 0,
+                "total_tokens": (completion.input_tokens or 0) + (completion.output_tokens or 0),
+            },
         }
         if completion.thoughts:
             response["choices"][0]["message"]["reasoning_content"] = completion.thoughts
@@ -93,8 +98,9 @@ class OpenAIAdapter:
         created_time = int(time.time())
         tool_call_index = 0
         emitted_tool_calls = False
+        collected_usage = None
 
-        def _make_chunk(delta: Dict[str, Any], finish_reason) -> str:
+        def _make_chunk(delta: Dict[str, Any], finish_reason, usage=None) -> str:
             payload = {
                 "id": completion_id,
                 "object": "chat.completion.chunk",
@@ -102,6 +108,8 @@ class OpenAIAdapter:
                 "model": request.model,
                 "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
             }
+            if usage is not None:
+                payload["usage"] = usage
             return f"data: {json.dumps(payload)}\n\n"
 
         try:
@@ -131,7 +139,6 @@ class OpenAIAdapter:
                     arguments = tool_call.get("arguments", "{}")
                     if not isinstance(arguments, str):
                         arguments = json.dumps(arguments)
-                    # Chunk 1: tool call content (finish_reason = null, matching OpenAI format)
                     yield _make_chunk(
                         {
                             "tool_calls": [
@@ -146,16 +153,25 @@ class OpenAIAdapter:
                                 }
                             ]
                         },
-                        None,  # finish_reason is null on the content chunk
+                        None,
                     )
                     tool_call_index += 1
                     emitted_tool_calls = True
 
+                elif event_type == "usage":
+                    collected_usage = event.get("usage")
+
                 elif event_type == "final":
-                    # Use "tool_calls" as finish_reason if we emitted any tool calls,
-                    # regardless of what the provider reported (it may say "stop").
                     final_finish = "tool_calls" if emitted_tool_calls else event.get("finish_reason", "stop")
-                    yield _make_chunk({}, final_finish)
+                    final_usage = event.get("usage") or collected_usage
+                    usage_payload = None
+                    if final_usage:
+                        usage_payload = {
+                            "prompt_tokens": final_usage.get("prompt_tokens", 0),
+                            "completion_tokens": final_usage.get("completion_tokens", 0),
+                            "total_tokens": final_usage.get("total_tokens", 0),
+                        }
+                    yield _make_chunk({}, final_finish, usage=usage_payload)
                     break
 
         finally:

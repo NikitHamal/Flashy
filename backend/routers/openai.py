@@ -1,19 +1,45 @@
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..server import ChatCompletionRequest, OpenAIAdapter, ProviderCatalog
+from ..server.cost import format_cost_log
 
 logger = logging.getLogger("flashy.openai")
 router = APIRouter()
 
 _catalog = ProviderCatalog()
 _adapter = OpenAIAdapter()
+
+
+async def _stream_with_cost_log(
+    stream_gen: AsyncGenerator[str, None],
+    provider: str,
+    model: str,
+) -> AsyncGenerator[str, None]:
+    captured_usage = None
+    async for chunk in stream_gen:
+        if chunk.startswith("data: [DONE]"):
+            if captured_usage:
+                pt = captured_usage.get("prompt_tokens", 0) or 0
+                ct = captured_usage.get("completion_tokens", 0) or 0
+                logger.info(format_cost_log(provider, model, pt, ct, pt + ct))
+            yield chunk
+            return
+        yield chunk
+        if chunk.startswith('data: ') and '"usage"' in chunk:
+            try:
+                import json
+                data = json.loads(chunk[6:])
+                if data.get("usage"):
+                    captured_usage = data["usage"]
+            except Exception:
+                pass
 
 
 class ResponseMessage(BaseModel):
@@ -52,13 +78,24 @@ async def chat_completions(request: ChatCompletionRequest):
     )
 
     if request.stream:
+        stream_gen = _adapter.stream_openai_events(request, provider_request)
         return StreamingResponse(
-            _adapter.stream_openai_events(request, provider_request),
+            _stream_with_cost_log(stream_gen, provider_request.provider, provider_request.model),
             media_type="text/event-stream",
         )
 
     completion = await _adapter.gateway.complete(provider_request)
-    return _adapter.to_openai_response(request, completion)
+    response = _adapter.to_openai_response(request, completion)
+    logger.info(
+        format_cost_log(
+            provider_request.provider,
+            provider_request.model,
+            completion.input_tokens or 0,
+            completion.output_tokens or 0,
+            (completion.input_tokens or 0) + (completion.output_tokens or 0),
+        )
+    )
+    return response
 
 
 @router.post("/v1/responses")
@@ -112,4 +149,14 @@ async def responses(request: ResponseRequest):
         )
 
     completion = await _adapter.gateway.complete(provider_request)
-    return _adapter.to_responses_response(request, completion)
+    response = _adapter.to_responses_response(request, completion)
+    logger.info(
+        format_cost_log(
+            provider_request.provider,
+            provider_request.model,
+            completion.input_tokens or 0,
+            completion.output_tokens or 0,
+            (completion.input_tokens or 0) + (completion.output_tokens or 0),
+        )
+    )
+    return response
