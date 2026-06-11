@@ -37,6 +37,33 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "ai4bharat":
         from .ai4bharat import AI4BharatProvider
         return AI4BharatProvider()
+    elif provider_name == "egov":
+        from .egov import EGovProvider
+        return EGovProvider()
+    elif provider_name == "deepai":
+        from .deepai import DeepAIProvider
+        return DeepAIProvider()
+    elif provider_name == "eqing":
+        from .eqing import EQingProvider
+        return EQingProvider()
+    elif provider_name == "freegpt":
+        from .freegpt import FreeGPTProvider
+        config = {}
+        try:
+            from ..config import load_config
+            config = load_config()
+        except Exception:
+            pass
+        return FreeGPTProvider(
+            access_code=config.get("freegpt_access_code", ""),
+            base_url=config.get("freegpt_base_url", ""),
+        )
+    elif provider_name == "deepseekai":
+        from .deepseekai import DeepSeekAIProvider
+        return DeepSeekAIProvider()
+    elif provider_name == "surfsense":
+        from .surfsense import SurfSenseProvider
+        return SurfSenseProvider()
     else:
         return None
 

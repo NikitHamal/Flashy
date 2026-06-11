@@ -445,6 +445,12 @@ function setupShellEventListeners() {
                 const lmarenaCookiesInput = document.getElementById('settings-lmarena-cookies');
                 if (lmarenaCookiesInput) lmarenaCookiesInput.value = config.lmarena_cookies || '';
                 
+                const freegptAccessCodeInput = document.getElementById('settings-freegpt-access-code');
+                if (freegptAccessCodeInput) freegptAccessCodeInput.value = config.freegpt_access_code || '';
+                
+                const freegptBaseUrlInput = document.getElementById('settings-freegpt-base-url');
+                if (freegptBaseUrlInput) freegptBaseUrlInput.value = config.freegpt_base_url || '';
+                
                 updateProviderSettingsVisibility(config.active_provider || 'qwen');
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -510,6 +516,8 @@ function setupShellEventListeners() {
                 chat2api_base_url: document.getElementById('settings-chat2api-base-url')?.value || 'http://127.0.0.1:8080',
                 chat2api_api_key: document.getElementById('settings-chat2api-api-key')?.value || '',
                 lmarena_cookies: document.getElementById('settings-lmarena-cookies')?.value || '',
+                freegpt_access_code: document.getElementById('settings-freegpt-access-code')?.value || '',
+                freegpt_base_url: document.getElementById('settings-freegpt-base-url')?.value || '',
             };
             try {
                 saveSettingsButton.disabled = true;

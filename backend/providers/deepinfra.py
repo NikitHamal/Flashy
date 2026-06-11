@@ -103,7 +103,7 @@ class DeepInfraProvider(BaseProvider):
             "stream": True,
             "stream_options": {"include_usage": True},
             "temperature": kwargs.get("temperature", 0.7),
-            "max_tokens": kwargs.get("max_tokens"),
+            "max_tokens": kwargs.get("max_tokens") or 16384,
             "top_p": kwargs.get("top_p", 1.0),
         }
         if tools:
@@ -248,11 +248,12 @@ class DeepInfraProvider(BaseProvider):
                                         choice = choices[0]
                                         delta = choice.get("delta", {})
                                         content = delta.get("content")
+                                        reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                                         finish_reason = choice.get("finish_reason")
                                         delta_tool_calls = delta.get("tool_calls")
 
                                         logger.debug(
-                                            f"[DEEPINFRA] chunk#{raw_chunk_count} finish={finish_reason} content={str(content)[:80]!r} tool_calls={bool(delta_tool_calls)}"
+                                            f"[DEEPINFRA] chunk#{raw_chunk_count} finish={finish_reason} content={str(content)[:80]!r} reasoning={str(reasoning)[:80]!r} tool_calls={bool(delta_tool_calls)}"
                                         )
 
                                         # Handle streaming tool_calls deltas
@@ -280,6 +281,9 @@ class DeepInfraProvider(BaseProvider):
 
                                         if content:
                                             yield {"text": content}
+
+                                        if reasoning:
+                                            yield {"thought": reasoning}
 
                                         if finish_reason:
                                             logger.info(
@@ -359,6 +363,10 @@ class DeepInfraProvider(BaseProvider):
                         ci = float(pricing.get("cents_per_input_token") or 0)
                         co = float(pricing.get("cents_per_output_token") or 0)
                         max_ctx = m.get("max_tokens") or m.get("context_window", 32768)
+                        # Set a sensible per-request output limit based on context window
+                        max_output = max_ctx - 1024
+                        max_output = min(max_output, 131072)   # cap at 128K
+                        max_output = max(max_output, 8192)     # floor at 8K
                         lower = model_id.lower()
                         caps = {
                             "chat": True,
@@ -373,6 +381,7 @@ class DeepInfraProvider(BaseProvider):
                             "name": display,
                             "capabilities": caps,
                             "context_window": max_ctx,
+                            "max_output": max_output,
                             "pricing": {
                                 "cents_per_input_token": ci,
                                 "cents_per_output_token": co,
@@ -381,4 +390,4 @@ class DeepInfraProvider(BaseProvider):
                     return result
         except Exception:
             pass
-        return [{"id": mid, "name": name, "capabilities": caps} for mid, name, caps in DEEPINFRA_FALLBACK_MODELS]
+        return [{"id": mid, "name": name, "capabilities": caps, "context_window": 32768, "max_output": 16384} for mid, name, caps in DEEPINFRA_FALLBACK_MODELS]

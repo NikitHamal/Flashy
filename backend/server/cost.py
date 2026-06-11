@@ -34,8 +34,9 @@ _init_pricing()
 
 
 def calculate_cost_cents(model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
-    key = model_id.split("/", 1)[-1] if "/" in model_id else model_id
-    prices = _DEEPINFRA_PRICING_CENTS.get(key)
+    prices = _DEEPINFRA_PRICING_CENTS.get(model_id)
+    if not prices and "/" in model_id:
+        prices = _DEEPINFRA_PRICING_CENTS.get(model_id.split("/", 1)[-1])
     if not prices:
         return 0.0
     input_price, output_price = prices

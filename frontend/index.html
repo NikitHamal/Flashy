@@ -554,6 +554,13 @@
                                 <option value="gradient">Gradient Network</option>
                                 <option value="chat2api">Chat2API (Local)</option>
                                 <option value="lmarena">LMArena (Free Models)</option>
+                                <option value="ai4bharat">AI4Bharat (Indic Arena)</option>
+                                <option value="egov">eGov (Philippines)</option>
+                                <option value="deepai">DeepAI</option>
+                                <option value="eqing">EQing / EasyChat</option>
+                                <option value="freegpt">FreeGPT</option>
+                                <option value="deepseekai">DeepSeek AI</option>
+                                <option value="surfsense">SurfSense</option>
                             </select>
                         </div>
                     </div>
@@ -665,9 +672,71 @@
                                 </div>
                             </div>
 </div>
+                     </div>
+
+                    <div id="settings-provider-ai4bharat" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>AI4Bharat (Indic LLM Arena)</label>
+                            <p class="settings-hint">Free access to Indian language models via AI4Bharat's arena. No authentication required — uses anonymous token rotation.</p>
+                        </div>
                     </div>
 
-                    <div class="settings-group">
+                    <div id="settings-provider-egov" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>eGov Chat AI (Philippines)</label>
+                            <p class="settings-hint">Philippine government AI chatbot. No authentication required — uses Next.js server action proxying.</p>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-deepai" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>DeepAI</label>
+                            <p class="settings-hint">Free access to multiple AI models via deepai.org. No authentication required — uses obfuscated endpoint with automatic key generation.</p>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-eqing" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>EQing / EasyChat</label>
+                            <p class="settings-hint">Free access to GPT-4o, Claude, Gemini and more via chat3.eqing.tech. No authentication required — uses altcha proof-of-work captcha with automatic guest ID rotation.</p>
+                        </div>
+                    </div>
+
+                    <div id="settings-provider-freegpt" class="provider-settings-section hidden">
+                        <div class="settings-group">
+                            <label>FreeGPT (OneAPI)</label>
+                            <p class="settings-hint">Access 400+ models via FreeGPT's OneAPI backend. Uses WASM proof-of-work anti-bot and optional access code authentication.</p>
+                            <div class="settings-field">
+                                <label>Access Code (Optional)</label>
+                                <div class="input-with-action">
+                                    <input type="password" id="settings-freegpt-access-code" placeholder="Enter access code (nk-xxx)">
+                                    <button class="btn-toggle-visibility" data-target="settings-freegpt-access-code">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="settings-field">
+                                <label>Base URL (Optional)</label>
+                                <input type="text" id="settings-freegpt-base-url" placeholder="https://standalone.freegpt.win:3001">
+                            </div>
+</div>
+                     </div>
+
+<div id="settings-provider-deepseekai" class="provider-settings-section hidden">
+                          <div class="settings-group">
+                              <h4>DeepSeek AI Settings</h4>
+                              <p class="settings-hint">Free DeepSeek models via deep-seek.ai — no login required. Models: DeepSeek-V4 Flash, DeepSeek-R1 (reasoning), DeepSeek-V3.2.</p>
+                          </div>
+                      </div>
+
+                     <div id="settings-provider-surfsense" class="provider-settings-section hidden">
+                         <div class="settings-group">
+                             <h4>SurfSense Settings</h4>
+                             <p class="settings-hint">Free GPT models via surfsense.com — no login required. Supports web search. Models: GPT 5.4 Mini, GPT O4 Mini (reasoning).</p>
+                         </div>
+                     </div>
+
+                     <div class="settings-group">
                         <div class="settings-field">
                             <label>Default Model ID (Optional)</label>
                             <p class="settings-hint">Override default model (e.g., gemini-2.0-flash-preview)</p>
@@ -710,6 +779,13 @@
                                 <option value="airforce">Airforce</option>
                                 <option value="gradient">Gradient Network</option>
                                 <option value="lmarena">LMArena</option>
+                                <option value="ai4bharat">AI4Bharat</option>
+                                <option value="egov">eGov</option>
+                                <option value="deepai">DeepAI</option>
+                                <option value="eqing">EQing</option>
+                                <option value="freegpt">FreeGPT</option>
+                                <option value="deepseekai">DeepSeek AI</option>
+                                <option value="surfsense">SurfSense</option>
                             </select>
                         </div>
                         <div class="settings-field">

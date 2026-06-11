@@ -43,16 +43,16 @@ class QwenProvider(BaseProvider):
         original_model = model
         model_lower = (model or "").lower()
         if not model or model == "G_2_5_FLASH" or model == "G_3_0_FLASH" or "flash" in model_lower:
-            model = "qwen3.6-plus"
+            model = "qwen3.7-plus"
         elif "235b" in model_lower or "max" in model_lower or "qwq" in model_lower:
             if "preview" in model_lower:
                 model = "qwen3.6-max-preview"
             else:
                 model = "qwen3.7-max"
         elif "coder" in model_lower or "plus" in model_lower:
-            model = "qwen3.6-plus"
+            model = "qwen3.7-plus"
         else:
-            model = "qwen3.6-plus"
+            model = "qwen3.7-plus"
 
         logger.info(f"[QWEN] Model resolved: original={original_model} -> mapped={model}")
 

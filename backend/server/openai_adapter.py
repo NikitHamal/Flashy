@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
+from .cost import calculate_cost_cents
 from .gateway import ProviderCompletion, ProviderRequest, ProviderGateway
 
 
@@ -34,6 +35,19 @@ class OpenAIAdapter:
     def __init__(self, gateway: Optional[ProviderGateway] = None):
         self.gateway = gateway or ProviderGateway()
 
+    @staticmethod
+    def _build_usage_cost(model_id: str, input_tokens: int, output_tokens: int) -> Optional[Dict[str, Any]]:
+        cost_cents = calculate_cost_cents(model_id, input_tokens, output_tokens)
+        if not cost_cents:
+            return None
+        cost_usd = round(cost_cents / 100, 10)
+        return {
+            "total_cost": cost_usd,
+            "request_cost": cost_usd,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+        }
+
     def build_provider_request(self, request: ChatCompletionRequest) -> ProviderRequest:
         provider_name, actual_model = self.gateway.resolve_model(request.model)
 
@@ -54,6 +68,16 @@ class OpenAIAdapter:
         )
 
     def to_openai_response(self, request: ChatCompletionRequest, completion: ProviderCompletion) -> Dict[str, Any]:
+        input_tokens = completion.input_tokens or 0
+        output_tokens = completion.output_tokens or 0
+        usage_payload: Dict[str, Any] = {
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+        }
+        cost = self._build_usage_cost(request.model, input_tokens, output_tokens)
+        if cost:
+            usage_payload["cost"] = cost
         response: Dict[str, Any] = {
             "id": f"chatcmpl-{uuid.uuid4().hex}",
             "object": "chat.completion",
@@ -69,11 +93,7 @@ class OpenAIAdapter:
                     "finish_reason": "tool_calls" if completion.tool_calls else completion.finish_reason,
                 }
             ],
-            "usage": {
-                "prompt_tokens": completion.input_tokens or 0,
-                "completion_tokens": completion.output_tokens or 0,
-                "total_tokens": (completion.input_tokens or 0) + (completion.output_tokens or 0),
-            },
+            "usage": usage_payload,
         }
         if completion.thoughts:
             response["choices"][0]["message"]["reasoning_content"] = completion.thoughts
@@ -166,11 +186,16 @@ class OpenAIAdapter:
                     final_usage = event.get("usage") or collected_usage
                     usage_payload = None
                     if final_usage:
+                        pt = final_usage.get("prompt_tokens", 0)
+                        ct = final_usage.get("completion_tokens", 0)
                         usage_payload = {
-                            "prompt_tokens": final_usage.get("prompt_tokens", 0),
-                            "completion_tokens": final_usage.get("completion_tokens", 0),
-                            "total_tokens": final_usage.get("total_tokens", 0),
+                            "prompt_tokens": pt,
+                            "completion_tokens": ct,
+                            "total_tokens": pt + ct,
                         }
+                        cost = self._build_usage_cost(request.model, pt, ct)
+                        if cost:
+                            usage_payload["cost"] = cost
                     yield _make_chunk({}, final_finish, usage=usage_payload)
                     break
 
@@ -178,6 +203,16 @@ class OpenAIAdapter:
             yield "data: [DONE]\n\n"
 
     def to_responses_response(self, request, completion: ProviderCompletion) -> Dict[str, Any]:
+        input_tokens = completion.input_tokens or 0
+        output_tokens = completion.output_tokens or 0
+        usage_payload: Dict[str, Any] = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+        }
+        cost = self._build_usage_cost(request.model, input_tokens, output_tokens)
+        if cost:
+            usage_payload["cost"] = cost
         response: Dict[str, Any] = {
             "id": f"resp_{uuid.uuid4().hex}",
             "object": "response",
@@ -197,11 +232,7 @@ class OpenAIAdapter:
                     ],
                 }
             ],
-            "usage": {
-                "input_tokens": completion.input_tokens or 0,
-                "output_tokens": completion.output_tokens or 0,
-                "total_tokens": (completion.input_tokens or 0) + (completion.output_tokens or 0),
-            },
+            "usage": usage_payload,
         }
 
         if completion.thoughts:

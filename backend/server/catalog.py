@@ -6,7 +6,7 @@ from ..providers import get_provider_service
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat")
+DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
@@ -14,6 +14,14 @@ PROVIDER_ALIASES = {
     "gradient-free": "gradient",
     "lmarena-free": "lmarena",
     "ai4bharat-free": "ai4bharat",
+    "egov-free": "egov",
+    "deepai-free": "deepai",
+    "eqing-free": "eqing",
+    "freegpt-free": "freegpt",
+    "deepseek-ai": "deepseekai",
+    "deepseek_ai": "deepseekai",
+    "deepseek-free": "deepseekai",
+    "surfsense-free": "surfsense",
 }
 
 
@@ -91,6 +99,7 @@ class ProviderCatalog:
                     "name": display_name,
                     "provider": provider_name,
                     "context_window": model_max_context,
+                    "max_output": model.get("max_output"),
                     "capabilities": caps,
                 }
 

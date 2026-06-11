@@ -40,7 +40,7 @@ class ProviderCompletion:
     output_tokens: Optional[int] = None
 
 
-WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena", "ai4bharat"}
+WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense"}
 
 _UPLOAD_DIR = os.path.join(os.getenv("TEMP", tempfile.gettempdir()), "flashy_uploads")
 
@@ -186,6 +186,9 @@ class ProviderGateway:
             kwargs["proxy"] = config.get("grok_proxy") or kwargs.get("proxy")
         elif resolved_name == "qwen":
             kwargs["token"] = config.get("qwen_api_token") or config.get("qwen_api_key") or ""
+        elif resolved_name == "freegpt":
+            kwargs["access_code"] = config.get("freegpt_access_code", "")
+            kwargs["base_url"] = config.get("freegpt_base_url", "")
         return kwargs
 
     async def stream(self, request: ProviderRequest) -> AsyncGenerator[Dict[str, Any], None]:

@@ -111,7 +111,7 @@ class AirforceProvider(BaseProvider):
             "stream": True,
             "stream_options": {"include_usage": True},
             "temperature": kwargs.get("temperature", 0.7),
-            "max_tokens": kwargs.get("max_tokens"),
+            "max_tokens": kwargs.get("max_tokens") or 16384,
             "top_p": kwargs.get("top_p", 1.0),
         }
 
@@ -257,6 +257,7 @@ class AirforceProvider(BaseProvider):
                                         choice = choices[0]
                                         delta = choice.get("delta", {})
                                         content = delta.get("content")
+                                        reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                                         finish_reason = choice.get("finish_reason")
                                         delta_tool_calls = delta.get("tool_calls")
 
@@ -279,6 +280,9 @@ class AirforceProvider(BaseProvider):
 
                                         if content:
                                             yield {"text": content}
+
+                                        if reasoning:
+                                            yield {"thought": reasoning}
 
                                         if finish_reason:
                                             for tidx in sorted(tool_calls_acc.keys()):
