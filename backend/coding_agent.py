@@ -52,7 +52,7 @@ class AgentContext:
     workspace_path: str
     session_id: str
     iteration_count: int = 0
-    max_iterations: int = 20
+    max_iterations: int = 500
     tool_history: List[ToolExecution] = field(default_factory=list)
     file_cache: Dict[str, str] = field(default_factory=dict)
     recent_errors: List[str] = field(default_factory=list)
@@ -103,7 +103,7 @@ class CodingAgent:
         self.context = AgentContext(
             workspace_path=workspace_path or "",
             session_id=session_id or "",
-            max_iterations=20
+            max_iterations=500
         )
 
         # Tool call parsing patterns (ordered by priority)
@@ -146,51 +146,64 @@ class CodingAgent:
         Parse a tool call from model output with enhanced robustness.
 
         Supports multiple formats:
-        1. ```json code blocks (preferred)
-        2. Inline JSON with "action" key
-        3. Fallback patterns for edge cases
+        1. XML <tool_call> blocks (most reliable, preferred)
+        2. ```json code blocks
+        3. Inline JSON with "action" key
+        4. Function-call style: tool_name(args)
 
         Returns dict with: name, args, raw_match
         """
         if not text:
             return None
 
-        # Get valid tool names
         valid_tools = {t['name'] for t in self.tools.get_available_tools()}
         valid_tools.add("delegate_task")
         valid_tools.update({
-            "run_command",
-            "shell_command",
-            "execute_command",
-            "read",
-            "cat",
-            "bash",
-            "glob",
-            "question",
-            "ask",
-            "ls",
-            "tree",
+            "run_command", "shell_command", "execute_command", "run_shell",
+            "read", "cat", "bash", "glob",
+            "question", "ask", "ls", "tree",
         })
 
-        # Strategy 1: JSON code blocks (most reliable)
+        # Strategy 0: XML <tool_call> blocks (most reliable cross-model format)
+        xml_pattern = re.compile(
+            r'<tool_call>\s*<name>([^<]+)</name>\s*<args>\s*(.*?)\s*</args>\s*</tool_call>',
+            re.DOTALL
+        )
+        xml_match = xml_pattern.search(text)
+        if xml_match:
+            tool_name = xml_match.group(1).strip()
+            args_raw = xml_match.group(2).strip()
+            args = self._parse_xml_args(args_raw)
+            if tool_name in valid_tools:
+                return {
+                    "name": tool_name,
+                    "args": args,
+                    "raw_match": xml_match.group(0)
+                }
+            normalized = self.tools._normalize_tool_name(tool_name)
+            if normalized and normalized in valid_tools:
+                return {
+                    "name": normalized,
+                    "args": args,
+                    "raw_match": xml_match.group(0)
+                }
+
+        # Strategy 1: JSON code blocks
         json_blocks = self._json_block_pattern.findall(text)
         for block in json_blocks:
             result = self._try_parse_json(block, valid_tools)
             if result:
-                # Find the full match for raw_match
                 full_match = f"```json\n{block}\n```"
                 if full_match not in text:
                     full_match = f"```json{block}```"
                 result["raw_match"] = full_match
                 return result
 
-        # Strategy 2: Find inline JSON with action key
+        # Strategy 2: Inline JSON with action key
         for match in self._inline_action_pattern.finditer(text):
             tool_name = match.group(1)
             if tool_name not in valid_tools:
                 continue
-
-            # Extract complete JSON object
             json_str = self._extract_json_object(text, match.start())
             if json_str:
                 result = self._try_parse_json(json_str, valid_tools)
@@ -198,13 +211,11 @@ class CodingAgent:
                     result["raw_match"] = json_str
                     return result
 
-        # Strategy 3: Look for tool-like patterns without proper JSON
-        # This handles edge cases where the model outputs malformed JSON
+        # Strategy 3: Function-call style tool_name(args)
         for tool_name in valid_tools:
-            pattern = rf'{tool_name}\s*\(\s*([^)]*)\s*\)'
+            pattern = rf'{re.escape(tool_name)}\s*\(\s*([^)]*)\s*\)'
             match = re.search(pattern, text)
             if match:
-                # Try to parse function-call style
                 args_str = match.group(1)
                 args = self._parse_function_args(args_str)
                 if args is not None:
@@ -215,6 +226,31 @@ class CodingAgent:
                     }
 
         return None
+
+    def _parse_xml_args(self, args_raw: str) -> Dict[str, Any]:
+        """Parse XML-style arguments like <path>foo/bar</path><content>hello</content>."""
+        args = {}
+        if not args_raw:
+            return args
+
+        for match in re.finditer(r'<([^>]+)>(.*?)</\1>', args_raw, re.DOTALL):
+            key = match.group(1).strip()
+            value = match.group(2).strip()
+            if value.lower() == 'true':
+                value = True
+            elif value.lower() == 'false':
+                value = False
+            elif value.isdigit():
+                value = int(value)
+            args[key] = value
+
+        if not args:
+            try:
+                args = json.loads(args_raw) if args_raw.strip().startswith('{') else {}
+            except json.JSONDecodeError:
+                pass
+
+        return args
 
     def _try_parse_json(self, json_str: str, valid_tools: set) -> Optional[Dict[str, Any]]:
         """Try to parse JSON and validate as tool call."""
@@ -524,7 +560,7 @@ The main agent loop will handle this delegation by spawning a sub-agent."""
     def increment_iteration(self) -> bool:
         """Increment iteration counter and check limit."""
         self.context.iteration_count += 1
-        return self.context.iteration_count < self.context.max_iterations
+        return self.context.iteration_count <= self.context.max_iterations
 
     def reset_context(self):
         """Reset agent context for new conversation."""

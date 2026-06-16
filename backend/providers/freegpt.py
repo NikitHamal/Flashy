@@ -206,32 +206,32 @@ class FreeGPTProvider(BaseProvider):
             if top_p is not None:
                 payload["top_p"] = top_p
 
-async with client.stream(
-                    "POST",
-                    f"{base_url}/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                ) as resp:
-                    if resp.status_code == 401:
-                        body = await resp.aread()
-                        error_msg = body.decode("utf-8", errors="replace")
-                        if not access_code:
-                            yield {"error": "freegpt: access code required — configure freegpt_access_code in settings"}
-                        else:
-                            yield {"error": f"freegpt: invalid access code (401): {error_msg[:200]}"}
+            async with client.stream(
+                "POST",
+                f"{base_url}/v1/chat/completions",
+                json=payload,
+                headers=headers,
+            ) as resp:
+                if resp.status_code == 401:
+                    body = await resp.aread()
+                    error_msg = body.decode("utf-8", errors="replace")
+                    if not access_code:
+                        yield {"error": "freegpt: access code required — configure freegpt_access_code in settings"}
+                    else:
+                        yield {"error": f"freegpt: invalid access code (401): {error_msg[:200]}"}
                     return
                 if resp.status_code == 403:
                     body = await resp.aread()
                     error_msg = body.decode("utf-8", errors="replace")
-                    yield {"error": f"Forbidden: {error_msg[:200]}"}
+                    yield {"error": f"freegpt: forbidden (403): {error_msg[:200]}"}
                     return
                 if resp.status_code == 429:
-                    yield {"error": "Rate limited. Please try again later."}
+                    yield {"error": "freegpt: rate limited (429). Please try again later."}
                     return
                 if resp.status_code != 200:
                     body = await resp.aread()
                     error_msg = body.decode("utf-8", errors="replace")
-                    yield {"error": f"HTTP {resp.status_code}: {error_msg[:200]}"}
+                    yield {"error": f"freegpt: HTTP {resp.status_code}: {error_msg[:200]}"}
                     return
 
                 buffer = ""

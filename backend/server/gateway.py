@@ -40,7 +40,7 @@ class ProviderCompletion:
     output_tokens: Optional[int] = None
 
 
-WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense"}
+WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "rsk"}
 
 _UPLOAD_DIR = os.path.join(os.getenv("TEMP", tempfile.gettempdir()), "flashy_uploads")
 

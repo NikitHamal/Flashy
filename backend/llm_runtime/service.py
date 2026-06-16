@@ -9,6 +9,7 @@ from ..storage import async_save_chat_message
 from ..providers import get_provider_service
 from .helpers import clean_response_text, separate_thinking
 from .support import generate_simple_response, run_delegated_task
+from ..models import get_context_window, estimate_tokens, should_compact, perform_compaction
 
 
 class LLMService:
@@ -25,6 +26,7 @@ class LLMService:
         self.response_filter = ResponseFilter(aggressive=False)
         self.thought_filter = ThoughtFilter()
         self._qwen_usage_stats: Dict[str, Dict[str, int]] = {}
+        self.session_usage: Dict[str, Dict[str, int]] = {}
 
     def set_workspace(self, path: str, workspace_id: str = None) -> str:
         import os
@@ -83,8 +85,6 @@ class LLMService:
         try:
             if session_id in self.interrupted_sessions:
                 self.interrupted_sessions.remove(session_id)
-            if agent:
-                agent.reset_context()
 
             if agent and self.workspace_path:
                 system_context = (
@@ -119,10 +119,18 @@ class LLMService:
                 self.provider_sessions[session_id] = []
             self.provider_sessions[session_id].append({"role": "user", "content": full_prompt})
 
+            # Init usage tracking for this session
+            model_name = self.config.get("model", "")
+            self.session_usage[session_id] = {
+                "input_tokens": estimate_tokens(full_prompt),
+                "output_tokens": 0,
+                "provider": provider_name,
+                "model": model_name,
+            }
+
             if agent and self.workspace_path:
-                max_iterations = 20
+                max_iterations = 500
                 iteration = 0
-                current_prompt = full_prompt
 
                 while iteration < max_iterations:
                     if self._is_interrupted(session_id):
@@ -144,8 +152,26 @@ class LLMService:
                         yield {"error": f"Provider '{provider_name}' not found.", "is_final": True}
                         return
 
-                    if iteration > 0:
-                        self.provider_sessions[session_id].append({"role": "user", "content": current_prompt})
+                    # Re-estimate token usage from current messages
+                    messages = self.provider_sessions.get(session_id, [])
+                    total_est = sum(estimate_tokens(m.get("content", "")) for m in messages)
+                    s_usage = self.session_usage.get(session_id)
+                    if s_usage:
+                        s_usage["input_tokens"] = total_est
+                    context_window = get_context_window(
+                        s_usage.get("provider", provider_name) if s_usage else provider_name,
+                        s_usage.get("model", "") if s_usage else "",
+                    )
+
+                    # Check whether to compact before this provider call
+                    if should_compact(total_est, context_window):
+                        was = perform_compaction(
+                            session_id, self.provider_sessions,
+                            self.session_usage, context_window,
+                            provider_name, s_usage.get("model", "") if s_usage else "",
+                        )
+                        if was:
+                            yield {"text": "\n*[Context compacted — continuing...]*\n"}
 
                     accumulated_text = ""
                     accumulated_thought = ""
@@ -192,6 +218,12 @@ class LLMService:
                             yield {"thought": chunk["thought"]}
                         if "usage" in chunk:
                             self._qwen_usage_stats[session_id] = chunk["usage"]
+                            usage_data = chunk["usage"]
+                            # Update tracked usage from provider
+                            pu = self.session_usage.get(session_id, {})
+                            if usage_data:
+                                pu["input_tokens"] = usage_data.get("prompt_tokens", usage_data.get("input_tokens", pu.get("input_tokens", 0)))
+                                pu["output_tokens"] = usage_data.get("completion_tokens", usage_data.get("output_tokens", pu.get("output_tokens", 0)))
                             yield {"usage": chunk["usage"]}
                         if "text" in chunk:
                             token = chunk["text"]
@@ -222,7 +254,6 @@ class LLMService:
 
                     response_text = accumulated_text
                     api_thoughts = accumulated_thought
-                    self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
 
                     clean_response = response_text
                     if api_thoughts:
@@ -230,25 +261,15 @@ class LLMService:
 
                     tool_call = agent.parse_tool_call(clean_response)
                     if not tool_call:
+                        self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
                         final_text = clean_response_text(self, clean_response)
-                        if provider_name == "gemini":
-                            if final_text:
-                                yield {"text": final_text, "images": images, "is_final": True}
-                                message_parts.append({"type": "text", "content": final_text})
-                            elif images:
-                                yield {"text": "", "images": images, "is_final": True}
-                            else:
-                                yield {"text": "", "is_final": True}
+                        if final_text:
+                            yield {"text": final_text, "images": images, "is_final": True}
+                            message_parts.append({"type": "text", "content": final_text})
+                        elif images:
+                            yield {"text": "", "images": images, "is_final": True}
                         else:
-                            # For Qwen and other streaming providers, text was already
-                            # yielded incrementally. Only send is_final marker.
-                            if final_text:
-                                yield {"text": "", "images": images, "is_final": True}
-                                message_parts.append({"type": "text", "content": final_text})
-                            elif images:
-                                yield {"text": "", "images": images, "is_final": True}
-                            else:
-                                yield {"text": "", "is_final": True}
+                            yield {"text": "", "is_final": True}
                         break
 
                     display_text = clean_response_text(self, clean_response, tool_call.get("raw_match"))
@@ -281,16 +302,21 @@ class LLMService:
                             yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                             break
 
-                        current_prompt = tool_result
+                        self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
+                        self.provider_sessions[session_id].append({"role": "tool", "content": tool_result})
                         iteration += 1
                     except asyncio.CancelledError:
                         yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                         break
                     except Exception as exc:
                         error_msg = f"Error executing '{tool_call['name']}': {str(exc)}"
-                        yield {"tool_result": error_msg, "is_final": True}
+                        yield {"tool_result": error_msg}
                         message_parts.append({"type": "tool_result", "content": error_msg})
-                        current_prompt = error_msg
+                        if self._is_interrupted(session_id):
+                            yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
+                            break
+                        self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
+                        self.provider_sessions[session_id].append({"role": "tool", "content": error_msg})
                         iteration += 1
 
                 if iteration >= max_iterations and not self._is_interrupted(session_id):

@@ -10,6 +10,9 @@ def clean_response_text(service, text: str, tool_call_raw: str = None) -> str:
     if tool_call_raw:
         cleaned = cleaned.replace(tool_call_raw, "").strip()
 
+    xml_pattern = r'<tool_call>[\s\S]*?</tool_call>'
+    cleaned = re.sub(xml_pattern, "", cleaned, flags=re.DOTALL).strip()
+
     json_block_pattern = r'```json\s*\{[^`]*?"(?:action|tool|name)"\s*:[^`]*?\}\s*```'
     cleaned = re.sub(json_block_pattern, "", cleaned, flags=re.DOTALL).strip()
 

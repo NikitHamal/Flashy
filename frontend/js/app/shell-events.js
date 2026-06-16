@@ -301,6 +301,53 @@ function setupShellEventListeners() {
         });
     }
 
+    // DuckAI buttons
+    const duckaiStartButton = document.getElementById('btn-duckai-start');
+    if (duckaiStartButton) {
+        duckaiStartButton.addEventListener('click', async () => {
+            try {
+                duckaiStartButton.disabled = true;
+                duckaiStartButton.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Starting...';
+                await API.startDuckAI();
+                await UI.refreshDuckAI();
+            } catch (error) {
+                alert(`Failed to start DuckAI: ${error.message}`);
+            } finally {
+                duckaiStartButton.innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Start DuckAI';
+            }
+        });
+    }
+
+    const duckaiStopButton = document.getElementById('btn-duckai-stop');
+    if (duckaiStopButton) {
+        duckaiStopButton.addEventListener('click', async () => {
+            try {
+                duckaiStopButton.disabled = true;
+                await API.stopDuckAI();
+                await UI.refreshDuckAI();
+            } catch (error) {
+                alert(`Failed to stop DuckAI: ${error.message}`);
+            } finally {
+                duckaiStopButton.disabled = false;
+            }
+        });
+    }
+
+    const duckaiRestartButton = document.getElementById('btn-duckai-restart');
+    if (duckaiRestartButton) {
+        duckaiRestartButton.addEventListener('click', async () => {
+            try {
+                duckaiRestartButton.disabled = true;
+                await API.restartDuckAI();
+                await UI.refreshDuckAI();
+            } catch (error) {
+                alert(`Failed to restart DuckAI: ${error.message}`);
+            } finally {
+                duckaiRestartButton.disabled = false;
+            }
+        });
+    }
+
     const serverCopyLogButton = document.getElementById('btn-server-copy-log-path');
     if (serverCopyLogButton) {
         serverCopyLogButton.addEventListener('click', async () => {
@@ -451,6 +498,12 @@ function setupShellEventListeners() {
                 const freegptBaseUrlInput = document.getElementById('settings-freegpt-base-url');
                 if (freegptBaseUrlInput) freegptBaseUrlInput.value = config.freegpt_base_url || '';
                 
+                const chatxCookieInput = document.getElementById('settings-chatx-cookie');
+                if (chatxCookieInput) chatxCookieInput.value = config.chatx_cookie || '';
+                
+                const chatxBaseUrlInput = document.getElementById('settings-chatx-base-url');
+                if (chatxBaseUrlInput) chatxBaseUrlInput.value = config.chatx_base_url || 'https://chatx.ai';
+                
                 updateProviderSettingsVisibility(config.active_provider || 'qwen');
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -518,6 +571,8 @@ function setupShellEventListeners() {
                 lmarena_cookies: document.getElementById('settings-lmarena-cookies')?.value || '',
                 freegpt_access_code: document.getElementById('settings-freegpt-access-code')?.value || '',
                 freegpt_base_url: document.getElementById('settings-freegpt-base-url')?.value || '',
+                chatx_cookie: document.getElementById('settings-chatx-cookie')?.value || '',
+                chatx_base_url: document.getElementById('settings-chatx-base-url')?.value || 'https://chatx.ai',
             };
             try {
                 saveSettingsButton.disabled = true;

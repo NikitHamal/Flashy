@@ -18,6 +18,9 @@ class ConfigUpdate(BaseModel):
     chat2api_base_url: Optional[str] = None
     chat2api_api_key: Optional[str] = None
     lmarena_cookies: Optional[str] = None
+    duckai_base_url: Optional[str] = None
+    chatx_cookie: Optional[str] = None
+    chatx_base_url: Optional[str] = None
 
 @router.get("/config")
 async def get_config():

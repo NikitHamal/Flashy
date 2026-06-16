@@ -368,5 +368,30 @@ const API = {
         const response = await fetch(`${this.baseUrl}/server/events?limit=${encodeURIComponent(limit)}`);
         if (!response.ok) throw new Error('Failed to load server events');
         return await response.json();
+    },
+
+    // DuckAI APIs
+    async getDuckAIStatus() {
+        const response = await fetch(`${this.baseUrl}/duckai/status`);
+        if (!response.ok) throw new Error('Failed to load DuckAI status');
+        return await response.json();
+    },
+
+    async startDuckAI() {
+        const response = await fetch(`${this.baseUrl}/duckai/start`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to start DuckAI');
+        return await response.json();
+    },
+
+    async stopDuckAI() {
+        const response = await fetch(`${this.baseUrl}/duckai/stop`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to stop DuckAI');
+        return await response.json();
+    },
+
+    async restartDuckAI() {
+        const response = await fetch(`${this.baseUrl}/duckai/restart`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to restart DuckAI');
+        return await response.json();
     }
 };

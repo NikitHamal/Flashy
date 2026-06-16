@@ -64,6 +64,27 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "surfsense":
         from .surfsense import SurfSenseProvider
         return SurfSenseProvider()
+    elif provider_name == "chatgptfree":
+        from .chatgptfree import ChatGPTFreeProvider
+        return ChatGPTFreeProvider()
+    elif provider_name == "rsk":
+        from .rsk import RSKProvider
+        return RSKProvider()
+    elif provider_name == "duckai":
+        from .duckai import DuckAIProvider
+        return DuckAIProvider()
+    elif provider_name == "chatx":
+        from .chatx import ChatXProvider
+        config = {}
+        try:
+            from ..config import load_config
+            config = load_config()
+        except Exception:
+            pass
+        return ChatXProvider(
+            cookie=config.get("chatx_cookie", ""),
+            base_url=config.get("chatx_base_url", ""),
+        )
     else:
         return None
 

@@ -57,6 +57,9 @@ class QwenProvider(BaseProvider):
         logger.info(f"[QWEN] Model resolved: original={original_model} -> mapped={model}")
 
         proxy = kwargs.get("proxy")
+        if not proxy:
+            import os as _os
+            proxy = _os.environ.get("QWEN_PROXY_URL") or None
         tools = kwargs.get("tools")
         file_paths = kwargs.get("files") or []
         conversation: Optional[QwenConversation] = kwargs.get("conversation")

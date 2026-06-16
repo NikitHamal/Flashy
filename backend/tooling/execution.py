@@ -12,14 +12,14 @@ from ..git_manager import GitManager
 from ..websocket_manager import ws_manager
 
 
-def _get_shell_command(command: str) -> tuple:
-    """Get the shell executable and arguments for cross-platform execution.
+def _get_shell_command() -> tuple:
+    """Detect the best available shell for cross-platform execution.
     
     Returns:
         tuple: (executable, args_prefix, shell_type)
     """
     if sys.platform == 'win32':
-        # Check if running in Git Bash / MSYS2 / MinTTY
+        # 1. Check for Git Bash / MSYS2 / MinTTY
         msystem = os.environ.get('MSYSTEM', '')
         term = os.environ.get('TERM', '')
         is_git_bash = (
@@ -28,21 +28,37 @@ def _get_shell_command(command: str) -> tuple:
             'msys' in term.lower() or
             'cygwin' in term.lower()
         )
-        
         if is_git_bash:
-            # Use bash for Git Bash environments
             return ('bash', ['-c'], 'bash')
         
-        # Check for PowerShell
-        com_spec = os.environ.get('ComSpec', 'cmd.exe').lower()
-        if com_spec.endswith('powershell.exe') or com_spec.endswith('pwsh.exe'):
-            return (com_spec, ['-NoProfile', '-Command'], 'powershell')
+        # 2. Check for pwsh (PowerShell Core) in PATH
+        import shutil
+        pwsh_path = shutil.which('pwsh')
+        if pwsh_path:
+            return (pwsh_path, ['-NoProfile', '-Command'], 'pwsh')
         
-        # Default to cmd.exe
+        # 3. Check for Windows PowerShell in PATH
+        powershell_path = shutil.which('powershell')
+        if powershell_path:
+            return (powershell_path, ['-NoProfile', '-Command'], 'powershell')
+        
+        # 4. Fall back to cmd.exe
         return (os.environ.get('ComSpec', 'cmd.exe'), ['/d', '/s', '/c'], 'cmd')
     
     # Unix-like systems (Linux, macOS)
     return ('/bin/bash', ['-c'], 'bash')
+
+
+def _create_subprocess(command: str, cwd: str, **kwargs):
+    """Create a subprocess using the best available shell."""
+    shell_exe, shell_args, _ = _get_shell_command()
+    return asyncio.create_subprocess_exec(
+        shell_exe,
+        *shell_args,
+        command,
+        cwd=cwd,
+        **kwargs,
+    )
 
 
 class ExecutionMixin:
@@ -66,26 +82,12 @@ class ExecutionMixin:
 
             if is_background:
                 terminal_id = f"bg_{os.urandom(4).hex()}"
-                
-                # On Windows, create_subprocess_shell is more reliable
-                # On Unix, we can use create_subprocess_exec with explicit shell
-                if sys.platform == 'win32':
-                    process = await asyncio.create_subprocess_shell(
-                        command,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                        cwd=work_dir,
-                    )
-                else:
-                    shell_exe, shell_args, shell_type = _get_shell_command(command)
-                    process = await asyncio.create_subprocess_exec(
-                        shell_exe,
-                        *shell_args,
-                        command,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                        cwd=work_dir,
-                    )
+                process = await _create_subprocess(
+                    command, work_dir,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    stdin=asyncio.subprocess.PIPE,
+                )
                 
                 if not hasattr(ws_manager, 'bg_processes'):
                     ws_manager.bg_processes = {}
@@ -103,7 +105,6 @@ class ExecutionMixin:
                             text = chunk.decode("utf-8", errors="replace")
                             if term_id in ws_manager.bg_buffers:
                                 ws_manager.bg_buffers[term_id].append(text)
-                            # keep buffer reasonably sized
                             if sum(len(c) for c in ws_manager.bg_buffers[term_id]) > 500000:
                                 ws_manager.bg_buffers[term_id] = ws_manager.bg_buffers[term_id][-50:]
                         except Exception:
@@ -112,7 +113,7 @@ class ExecutionMixin:
                 asyncio.create_task(read_bg_stream(process.stdout, terminal_id))
                 asyncio.create_task(read_bg_stream(process.stderr, terminal_id))
                 
-                return f"Background process started with ID: {terminal_id}\nCommand: `{command}`\nUse `read_background_output` to check its logs."
+                return f"Background process started with ID: {terminal_id}\nCommand: `{command}`\nUse `read_background_output`, `send_terminal_input`, or `list_background_processes` to manage it."
 
             # If we have a session_id, stream the output via WebSocket
             if self.session_id:
@@ -125,25 +126,12 @@ class ExecutionMixin:
                 status = "✓ Success" if exit_code == 0 else f"✗ Exit code: {exit_code}"
                 return f"Command: `{command}`\nStatus: {status}\nOutput:\n```\n{output.strip() or '(no output)'}\n```"
 
-            # Non-session: use asyncio subprocess for proper async execution
-            # On Windows, create_subprocess_shell is more reliable
-            if sys.platform == 'win32':
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=work_dir,
-                )
-            else:
-                shell_exe, shell_args, shell_type = _get_shell_command(command)
-                process = await asyncio.create_subprocess_exec(
-                    shell_exe,
-                    *shell_args,
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=work_dir,
-                )
+            # Non-session: use async subprocess with detected shell
+            process = await _create_subprocess(
+                command, work_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
@@ -186,3 +174,59 @@ class ExecutionMixin:
             status = "Running" if proc.returncode is None else f"Terminated with code {proc.returncode}"
             results.append(f"- {pid}: {status}")
         return "Background Processes:\n" + "\n".join(results)
+
+    def send_terminal_input(self, process_id: str, input_text: str) -> str:
+        """Send input to a running background process (stdin).
+
+        Args:
+            process_id: The background process ID (from run_shell_command with is_background=True)
+            input_text: The text to send to the process's stdin
+        """
+        if not hasattr(ws_manager, 'bg_processes') or process_id not in ws_manager.bg_processes:
+            return f"Error: Background process '{process_id}' not found."
+        
+        process = ws_manager.bg_processes[process_id]
+        if process.returncode is not None:
+            return f"Error: Process '{process_id}' has already terminated (exit code: {process.returncode})."
+        
+        if not process.stdin:
+            return f"Error: Process '{process_id}' does not have stdin available."
+        
+        try:
+            process.stdin.write(input_text.encode('utf-8'))
+            # Use run_coroutine_threadsafe since this may be called from sync context
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.run_coroutine_threadsafe(process.stdin.drain(), loop)
+                else:
+                    loop.run_until_complete(process.stdin.drain())
+            except RuntimeError:
+                pass
+            return f"Sent '{input_text}' to process '{process_id}'."
+        except Exception as e:
+            return f"Error sending input: {str(e)}"
+
+    def stop_background_process(self, process_id: str) -> str:
+        """Kill/terminate a running background process.
+
+        Args:
+            process_id: The background process ID to terminate
+        """
+        if not hasattr(ws_manager, 'bg_processes') or process_id not in ws_manager.bg_processes:
+            return f"Error: Background process '{process_id}' not found."
+        
+        process = ws_manager.bg_processes[process_id]
+        if process.returncode is not None:
+            return f"Process '{process_id}' has already terminated (exit code: {process.returncode})."
+        
+        try:
+            process.terminate()
+            return f"Process '{process_id}' terminated."
+        except Exception as e:
+            try:
+                process.kill()
+                return f"Process '{process_id}' killed (force)."
+            except Exception as e2:
+                return f"Error stopping process '{process_id}': {str(e2)}"

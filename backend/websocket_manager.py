@@ -18,14 +18,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
-def _get_shell_command(command: str) -> tuple:
-    """Get the shell executable and arguments for cross-platform execution.
+def _get_shell_command() -> tuple:
+    """Detect the best available shell for cross-platform execution.
     
     Returns:
         tuple: (executable, args_prefix, shell_type)
     """
     if sys.platform == 'win32':
-        # Check if running in Git Bash / MSYS2 / MinTTY
         msystem = os.environ.get('MSYSTEM', '')
         term = os.environ.get('TERM', '')
         is_git_bash = (
@@ -34,21 +33,33 @@ def _get_shell_command(command: str) -> tuple:
             'msys' in term.lower() or
             'cygwin' in term.lower()
         )
-        
         if is_git_bash:
-            # Use bash for Git Bash environments
             return ('bash', ['-c'], 'bash')
         
-        # Check for PowerShell
-        com_spec = os.environ.get('ComSpec', 'cmd.exe').lower()
-        if com_spec.endswith('powershell.exe') or com_spec.endswith('pwsh.exe'):
-            return (com_spec, ['-NoProfile', '-Command'], 'powershell')
+        import shutil
+        pwsh_path = shutil.which('pwsh')
+        if pwsh_path:
+            return (pwsh_path, ['-NoProfile', '-Command'], 'pwsh')
         
-        # Default to cmd.exe
+        powershell_path = shutil.which('powershell')
+        if powershell_path:
+            return (powershell_path, ['-NoProfile', '-Command'], 'powershell')
+        
         return (os.environ.get('ComSpec', 'cmd.exe'), ['/d', '/s', '/c'], 'cmd')
     
-    # Unix-like systems (Linux, macOS)
     return ('/bin/bash', ['-c'], 'bash')
+
+
+async def _create_subprocess(command: str, cwd: str = None, **kwargs):
+    """Create a subprocess using the best available shell."""
+    shell_exe, shell_args, _ = _get_shell_command()
+    return await asyncio.create_subprocess_exec(
+        shell_exe,
+        *shell_args,
+        command,
+        cwd=cwd,
+        **kwargs,
+    )
 
 
 class MessageType(str, Enum):
@@ -250,26 +261,11 @@ class WebSocketManager:
         Returns the exit code.
         """
         try:
-            # On Windows, create_subprocess_shell is more reliable
-            # On Unix, we can use create_subprocess_exec with explicit shell
-            if sys.platform == 'win32':
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
-                )
-            else:
-                # Get proper shell configuration for Unix
-                shell_exe, shell_args, shell_type = _get_shell_command(command)
-                process = await asyncio.create_subprocess_exec(
-                    shell_exe,
-                    *shell_args,
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
-                )
+            process = await _create_subprocess(
+                command, cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
             self.terminals[terminal_id] = process
 
@@ -333,26 +329,11 @@ class WebSocketManager:
         output_chunks: list[str] = []
 
         try:
-            # On Windows, create_subprocess_shell is more reliable
-            # On Unix, we can use create_subprocess_exec with explicit shell
-            if sys.platform == 'win32':
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
-                )
-            else:
-                # Get proper shell configuration for Unix
-                shell_exe, shell_args, shell_type = _get_shell_command(command)
-                process = await asyncio.create_subprocess_exec(
-                    shell_exe,
-                    *shell_args,
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
-                )
+            process = await _create_subprocess(
+                command, cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
             self.terminals[terminal_id] = process
 

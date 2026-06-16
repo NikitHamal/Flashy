@@ -6,7 +6,7 @@ from ..providers import get_provider_service
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense")
+DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "rsk")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
@@ -22,6 +22,16 @@ PROVIDER_ALIASES = {
     "deepseek_ai": "deepseekai",
     "deepseek-free": "deepseekai",
     "surfsense-free": "surfsense",
+    "chatgptfree-free": "chatgptfree",
+    "cgf": "chatgptfree",
+    "rsk-free": "rsk",
+    "rskai": "rsk",
+    "duckai-free": "duckai",
+    "duck_ai": "duckai",
+    "duck": "duckai",
+    "chatx-free": "chatx",
+    "chatxai": "chatx",
+    "chat_x": "chatx",
 }
 
 

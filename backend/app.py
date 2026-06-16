@@ -40,7 +40,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
-for _name in ("flashy.chat", "flashy.qwen", "flashy.deepinfra", "flashy.lmarena"):
+for _name in ("flashy.chat", "flashy.qwen", "flashy.deepinfra", "flashy.lmarena", "flashy.duckai"):
     _logger = logging.getLogger(_name)
     _logger.setLevel(getattr(logging, _log_level, logging.DEBUG))
     if not _logger.handlers:
@@ -61,6 +61,7 @@ from .desktop_runtime import resource_path, truthy_env, user_data_dir
 from .routers import git_routes, workspace, chat, config, agents, memory
 from .routers import qwen
 from . import server_control
+from . import duckai_control
 
 app = FastAPI()
 
@@ -173,6 +174,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+# --- DuckAI Server Control ---
+
+@app.get("/duckai/status")
+async def duckai_status():
+    return duckai_control.status()
+
+
+@app.post("/duckai/start")
+async def duckai_start():
+    return duckai_control.start()
+
+
+@app.post("/duckai/stop")
+async def duckai_stop():
+    return duckai_control.stop()
+
+
+@app.post("/duckai/restart")
+async def duckai_restart():
+    return duckai_control.restart()
 
 
 # --- Provider Server Control ---
