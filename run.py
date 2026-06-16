@@ -14,25 +14,10 @@ def run():
     target = {
         "flashy": "backend.app",
         "server": "backend.server_app",
-        "duckai": "backend.duckai_control",
     }.get(mode)
 
     if not target:
-        raise SystemExit("Usage: python run.py [flashy|server|duckai]")
-
-    if mode == "duckai":
-        from backend.duckai_control import start, stop
-        import atexit
-        atexit.register(stop)
-        result = start()
-        print(f"DuckAI status: {result}")
-        try:
-            import time
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            pass
-        return
+        raise SystemExit("Usage: python run.py [flashy|server]")
 
     print(f"Starting {mode}...")
     try:

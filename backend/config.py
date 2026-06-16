@@ -18,7 +18,6 @@ DEFAULT_CONFIG = {
     "lmarena_cookies": "",
     "freegpt_access_code": "",
     "freegpt_base_url": "",
-    "duckai_base_url": "http://127.0.0.1:3000",
     "chatx_cookie": "",
     "chatx_base_url": "https://chatx.ai",
 }

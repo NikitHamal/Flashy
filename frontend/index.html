@@ -167,36 +167,6 @@
                         </div>
                     </section>
 
-                    <section class="server-card duckai-card">
-                        <div class="server-card-header">
-                            <div>
-                                <div class="server-card-kicker">Sidecar</div>
-                                <h3>DuckAI (DuckDuckGo AI)</h3>
-                            </div>
-                            <div id="duckai-state-pill" class="server-state-pill offline">
-                                <span class="status-dot"></span>
-                                <span>Offline</span>
-                            </div>
-                        </div>
-                        <div id="duckai-meta" class="server-meta-grid">
-                            <div><span>Endpoint</span><strong id="duckai-url">—</strong></div>
-                            <div><span>PID</span><strong id="duckai-pid">—</strong></div>
-                            <div><span>Uptime</span><strong id="duckai-uptime">—</strong></div>
-                            <div><span>Health</span><strong id="duckai-health">Unknown</strong></div>
-                        </div>
-                        <div class="server-actions">
-                            <button id="btn-duckai-start" class="btn-primary server-action-primary">
-                                <span class="material-symbols-outlined">play_arrow</span> Start DuckAI
-                            </button>
-                            <button id="btn-duckai-stop" class="btn-secondary">
-                                <span class="material-symbols-outlined">stop</span> Stop
-                            </button>
-                            <button id="btn-duckai-restart" class="btn-secondary">
-                                <span class="material-symbols-outlined">restart_alt</span> Restart
-                            </button>
-                        </div>
-                    </section>
-
                     <section class="server-card server-log-card">
                         <div class="server-card-header">
                             <div>
@@ -591,7 +561,7 @@
                                 <option value="freegpt">FreeGPT</option>
                                 <option value="deepseekai">DeepSeek AI</option>
                                 <option value="surfsense">SurfSense</option>
-                                 <option value="duckai">DuckAI (DuckDuckGo AI, via Bun)</option>
+                                 <option value="duckai">DuckAI (DuckDuckGo AI)</option>
                                  <option value="chatx">ChatX (Free GPT/DeepSeek/Claude/Gemini/Grok)</option>
                                  <option value="chatgptfree">ChatGPTFree (8 Models)</option>
                                  <option value="rsk">RSK AI (6 Free Models)</option>
@@ -781,17 +751,6 @@
                             <div class="settings-group">
                                 <h4>RSK AI Settings</h4>
                                 <p class="settings-hint">6 free AI models via rsk.cn — no login required. Guest daily limit: 2 messages. Models: Gemini 3.1 Flash Lite, GPT 5.4 Mini, DeepSeek V4 Flash, GLM 5 Free, GPT 5.4 Nano, Qwen 3.7 Plus.</p>
-                            </div>
-                        </div>
-
-                        <div id="settings-provider-duckai" class="provider-settings-section hidden">
-                            <div class="settings-group">
-                                <h4>DuckAI (DuckDuckGo AI) Settings</h4>
-                                <p class="settings-hint">Free AI models via DuckDuckGo's AI chat backend. Requires the DuckAI Bun server to be running (use Server Center to start it). Models: GPT-4o Mini, GPT-5 Mini, Claude 3.5 Haiku, Llama 4 Scout, Mistral Small, GPT-OSS 120B. Supports tool calling and streaming.</p>
-                                <div class="settings-field">
-                                    <label>DuckAI Base URL (Optional)</label>
-                                    <input type="text" id="settings-duckai-base-url" placeholder="http://127.0.0.1:3000">
-                                </div>
                             </div>
                         </div>
 

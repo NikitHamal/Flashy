@@ -23,10 +23,6 @@ data/
 temp_g4f*
 temp_*
 
-# DuckAI
-duckai/node_modules/
-duckai/bun.lock
-
 # Qwen Code build artifacts
 qwen-code/dist/
 qwen-code/node_modules/

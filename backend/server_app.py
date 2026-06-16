@@ -11,9 +11,6 @@ from fastapi.responses import JSONResponse
 
 from .routers import openai
 from .routers import qwen
-from . import duckai_control
-
-
 def _setup_logging():
     log_level_name = os.environ.get("FLASHY_LOG_LEVEL", "DEBUG").upper()
     log_level = getattr(logging, log_level_name, logging.DEBUG)
@@ -33,7 +30,6 @@ def _setup_logging():
         "flashy.zai", "flashy.zai_free", "flashy.chat2api",
         "flashy.ai4bharat",
         "flashy.server.catalog", "flashy.openai",
-        "flashy.duckai",
     ]
 
     handlers = []
@@ -114,22 +110,6 @@ def create_server_app() -> FastAPI:
 
     app.include_router(openai.router)
     app.include_router(qwen.router)
-
-    @app.get("/duckai/status")
-    async def duckai_status():
-        return duckai_control.status()
-
-    @app.post("/duckai/start")
-    async def duckai_start():
-        return duckai_control.start()
-
-    @app.post("/duckai/stop")
-    async def duckai_stop():
-        return duckai_control.stop()
-
-    @app.post("/duckai/restart")
-    async def duckai_restart():
-        return duckai_control.restart()
 
     @app.get("/health")
     async def health() -> dict:

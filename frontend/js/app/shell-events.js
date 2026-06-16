@@ -301,53 +301,6 @@ function setupShellEventListeners() {
         });
     }
 
-    // DuckAI buttons
-    const duckaiStartButton = document.getElementById('btn-duckai-start');
-    if (duckaiStartButton) {
-        duckaiStartButton.addEventListener('click', async () => {
-            try {
-                duckaiStartButton.disabled = true;
-                duckaiStartButton.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Starting...';
-                await API.startDuckAI();
-                await UI.refreshDuckAI();
-            } catch (error) {
-                alert(`Failed to start DuckAI: ${error.message}`);
-            } finally {
-                duckaiStartButton.innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Start DuckAI';
-            }
-        });
-    }
-
-    const duckaiStopButton = document.getElementById('btn-duckai-stop');
-    if (duckaiStopButton) {
-        duckaiStopButton.addEventListener('click', async () => {
-            try {
-                duckaiStopButton.disabled = true;
-                await API.stopDuckAI();
-                await UI.refreshDuckAI();
-            } catch (error) {
-                alert(`Failed to stop DuckAI: ${error.message}`);
-            } finally {
-                duckaiStopButton.disabled = false;
-            }
-        });
-    }
-
-    const duckaiRestartButton = document.getElementById('btn-duckai-restart');
-    if (duckaiRestartButton) {
-        duckaiRestartButton.addEventListener('click', async () => {
-            try {
-                duckaiRestartButton.disabled = true;
-                await API.restartDuckAI();
-                await UI.refreshDuckAI();
-            } catch (error) {
-                alert(`Failed to restart DuckAI: ${error.message}`);
-            } finally {
-                duckaiRestartButton.disabled = false;
-            }
-        });
-    }
-
     const serverCopyLogButton = document.getElementById('btn-server-copy-log-path');
     if (serverCopyLogButton) {
         serverCopyLogButton.addEventListener('click', async () => {

@@ -1,0 +1,8 @@
+{
+  "name": "vqd-helper",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "jsdom": "^25.0.0"
+  }
+}
