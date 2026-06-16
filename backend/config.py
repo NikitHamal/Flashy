@@ -20,6 +20,9 @@ DEFAULT_CONFIG = {
     "freegpt_base_url": "",
     "chatx_cookie": "",
     "chatx_base_url": "https://chatx.ai",
+    "gemini_1psid": "",
+    "gemini_1psidts": "",
+    "gemini_cookies_json": "",
 }
 
 

@@ -456,6 +456,13 @@ function setupShellEventListeners() {
                 
                 const chatxBaseUrlInput = document.getElementById('settings-chatx-base-url');
                 if (chatxBaseUrlInput) chatxBaseUrlInput.value = config.chatx_base_url || 'https://chatx.ai';
+
+                const gemini1psidInput = document.getElementById('settings-gemini-1psid');
+                if (gemini1psidInput) gemini1psidInput.value = config.gemini_1psid || '';
+                const gemini1psidtsInput = document.getElementById('settings-gemini-1psidts');
+                if (gemini1psidtsInput) gemini1psidtsInput.value = config.gemini_1psidts || '';
+                const geminiCookiesJsonInput = document.getElementById('settings-gemini-cookies-json');
+                if (geminiCookiesJsonInput) geminiCookiesJsonInput.value = config.gemini_cookies_json || '';
                 
                 updateProviderSettingsVisibility(config.active_provider || 'qwen');
             } catch (error) {
@@ -526,6 +533,9 @@ function setupShellEventListeners() {
                 freegpt_base_url: document.getElementById('settings-freegpt-base-url')?.value || '',
                 chatx_cookie: document.getElementById('settings-chatx-cookie')?.value || '',
                 chatx_base_url: document.getElementById('settings-chatx-base-url')?.value || 'https://chatx.ai',
+                gemini_1psid: document.getElementById('settings-gemini-1psid')?.value || '',
+                gemini_1psidts: document.getElementById('settings-gemini-1psidts')?.value || '',
+                gemini_cookies_json: document.getElementById('settings-gemini-cookies-json')?.value || '',
             };
             try {
                 saveSettingsButton.disabled = true;

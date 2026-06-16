@@ -85,6 +85,19 @@ def get_provider_service(provider_name: str) -> BaseProvider:
             cookie=config.get("chatx_cookie", ""),
             base_url=config.get("chatx_base_url", ""),
         )
+    elif provider_name == "gemini":
+        from .gemini import GeminiProvider
+        config = {}
+        try:
+            from ..config import load_config
+            config = load_config()
+        except Exception:
+            pass
+        return GeminiProvider(
+            cookie=config.get("gemini_1psid", ""),
+            cookie_ts=config.get("gemini_1psidts", ""),
+            cookies_json=config.get("gemini_cookies_json", ""),
+        )
     else:
         return None
 

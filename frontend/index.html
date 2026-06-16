@@ -561,6 +561,7 @@
                                 <option value="freegpt">FreeGPT</option>
                                 <option value="deepseekai">DeepSeek AI</option>
                                 <option value="surfsense">SurfSense</option>
+                                 <option value="gemini">Gemini (Google - Cookie Required)</option>
                                  <option value="duckai">DuckAI (DuckDuckGo AI)</option>
                                  <option value="chatx">ChatX (Free GPT/DeepSeek/Claude/Gemini/Grok)</option>
                                  <option value="chatgptfree">ChatGPTFree (8 Models)</option>
@@ -754,7 +755,26 @@
                             </div>
                         </div>
 
-                        <div id="settings-provider-chatx" class="provider-settings-section hidden">
+                        <div id="settings-provider-gemini" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <label>Gemini (Google)</label>
+        <p class="settings-hint">Requires cookies from gemini.google.com. Export using a browser extension while logged into your Google account. Both <code>__Secure-1PSID</code> and <code>__Secure-1PSIDTS</code> are needed for authenticated access.</p>
+        <div class="settings-field">
+            <label>__Secure-1PSID</label>
+            <input type="password" id="settings-gemini-1psid" placeholder="Paste __Secure-1PSID value" class="config-input">
+        </div>
+        <div class="settings-field">
+            <label>__Secure-1PSIDTS (optional)</label>
+            <input type="password" id="settings-gemini-1psidts" placeholder="Paste __Secure-1PSIDTS value" class="config-input">
+        </div>
+        <div class="settings-field">
+            <label>Full Cookie JSON (optional, replaces above)</label>
+            <textarea id="settings-gemini-cookies-json" placeholder='[{&quot;name&quot;:&quot;__Secure-1PSID&quot;,&quot;value&quot;:&quot;...&quot;}]' class="config-input" rows="3"></textarea>
+        </div>
+    </div>
+</div>
+
+<div id="settings-provider-chatx" class="provider-settings-section hidden">
                             <div class="settings-group">
                                 <h4>ChatX Settings</h4>
                                 <p class="settings-hint">Free AI models via chatx.ai — use anonymously (limited) or log in for more. Models: GPT-5 nano (free unlimited), DeepSeek V4 Flash (free), GPT-5.4, Claude, Gemini, Grok. Guest mode works without any setup.</p>
@@ -821,6 +841,7 @@
                                 <option value="eqing">EQing</option>
                                  <option value="freegpt">FreeGPT</option>
                                  <option value="deepseekai">DeepSeek AI</option>
+                                 <option value="gemini">Gemini (Google)</option>
                                  <option value="surfsense">SurfSense</option>
                                  <option value="chatx">ChatX (Free Models)</option>
                                  <option value="chatgptfree">ChatGPTFree (8 Models)</option>
