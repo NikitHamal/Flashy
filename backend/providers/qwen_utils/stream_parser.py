@@ -114,10 +114,6 @@ def _handle_content(
 
     state.full_answer_text += content
     state.has_any_content = True
-
-    if has_tools:
-        return None
-
     state.has_yielded_content = True
     return {"text": content}
 
@@ -136,14 +132,14 @@ def _handle_finish_reason(
         events.append({"is_final": True, "finish_reason": "tool_calls"})
         return events
 
-    if state.full_answer_text and not state.has_yielded_content:
+    if state.full_answer_text and (not state.has_yielded_content or has_tools):
         cleaned = _TOOL_RESULT_RE.sub("", state.full_answer_text).strip()
         source_text = cleaned if cleaned else state.full_answer_text
-        logger.info(f"[QWEN] _handle_finish_reason: parsing text_len={len(state.full_answer_text)} cleaned_len={len(cleaned)}")
+        logger.info(f"[QWEN] _handle_finish_reason: parsing text_len={len(state.full_answer_text)} cleaned_len={len(cleaned)} has_yielded={state.has_yielded_content}")
         clean_text, parsed_tool_calls = parse_tool_calls_from_text(source_text)
         if parsed_tool_calls:
             logger.info(f"[QWEN] _handle_finish_reason: found {len(parsed_tool_calls)} tool calls")
-            if clean_text:
+            if clean_text and not state.has_yielded_content:
                 events.append({"text": clean_text})
             for tc in parsed_tool_calls:
                 tc_obj = ToolCall(id=tc["id"], name=tc["name"], arguments=tc["arguments"])
@@ -251,8 +247,10 @@ def finalize_stream(state: StreamState, has_tools: bool, conversation=None) -> L
         source_text = cleaned if cleaned else state.full_answer_text
         clean_text, parsed_tool_calls = parse_tool_calls_from_text(source_text)
         if parsed_tool_calls:
-            if clean_text:
+            if clean_text and not state.has_yielded_content:
                 events.append({"text": clean_text})
+            elif not state.has_yielded_content:
+                events.append({"text": "(No text output)"})
             for tc in parsed_tool_calls:
                 tc_obj = ToolCall(id=tc["id"], name=tc["name"], arguments=tc["arguments"])
                 events.append(tool_call_to_dict(tc_obj))

@@ -342,6 +342,11 @@ class LLMService:
                         if tool_defs:
                             provider_kwargs["tools"] = tool_defs
                             provider_kwargs["tool_choice"] = "auto"
+                    elif provider_name == "qwen" and agent and self.workspace_path:
+                        tool_defs = agent.get_openai_tool_definitions()
+                        if tool_defs:
+                            provider_kwargs["tools"] = tool_defs
+                            provider_kwargs["is_openai_pass_through"] = True
 
                     async for chunk in self._stream_with_retry(
                         provider_svc,

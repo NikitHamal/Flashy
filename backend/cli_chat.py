@@ -1093,7 +1093,7 @@ class ChatCLI:
                         thinking_streamer.end()
                     if accumulated_text:
                         import re as _re
-                        cleaned = _re.sub(r'<tool_call>.*?</tool_call>', '', accumulated_text, flags=_re.DOTALL).strip()
+                        cleaned = _re.sub(r'<tool_call>.*?</tool_call>|««TOOL_CALL»».*?««/TOOL_CALL»»', '', accumulated_text, flags=_re.DOTALL).strip()
                         if cleaned:
                             self.print_agent_text(cleaned)
                             self.print_agent_text("\n")
