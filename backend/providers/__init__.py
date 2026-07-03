@@ -213,6 +213,12 @@ def get_provider_service(provider_name: str) -> BaseProvider:
     elif provider_name == "g4f":
         from .g4f import G4FProvider
         return G4FProvider()
+    elif provider_name == "chatgptoss":
+        from .chatgptoss import ChatGptOssProvider
+        return ChatGptOssProvider()
+    elif provider_name == "easychat":
+        from .easychat import EasyChatProvider
+        return EasyChatProvider()
     else:
         return None
 

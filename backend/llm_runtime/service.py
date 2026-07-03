@@ -53,6 +53,37 @@ def _is_transient(exc: BaseException) -> bool:
     return any(n in msg for n in needles)
 
 
+def _build_text_tool_instruction(tools: List[Dict[str, Any]]) -> str:
+    lines = [
+        "You have access to the following tools. Use them to accomplish the user's task.",
+        "When you need to invoke a tool, respond with ONLY a single line in this exact format:",
+        '««TOOL_CALL»» {"name": "TOOL_NAME", "arguments": {"PARAM_NAME": "PARAM_VALUE"}} ««/TOOL_CALL»»',
+        "",
+        "CRITICAL RULES:",
+        "- Do NOT write any text before or after the tool call line.",
+        "- Do NOT say 'Tool does not exist' or 'I cannot access tools'. All listed tools ARE available.",
+        "- The JSON must have 'name' (exact tool name) and 'arguments' (object with parameter values).",
+        "- NEVER generate <tool_result> blocks yourself.",
+        "- After receiving a <tool_result> block, call another tool or give your final answer.",
+        "",
+        "Available tools:",
+    ]
+    for t in tools:
+        fn = t.get("function", t)
+        name = fn.get("name", "unknown")
+        desc = fn.get("description", "")
+        params = fn.get("parameters", {})
+        param_strs = []
+        if params.get("properties"):
+            required = params.get("required", [])
+            for pname, pinfo in params["properties"].items():
+                req_tag = "required" if pname in required else "optional"
+                param_strs.append(f"{pname} ({req_tag})")
+        param_block = f" — params: {', '.join(param_strs)}" if param_strs else ""
+        lines.append(f"  - {name}: {desc}{param_block}")
+    return "\n".join(lines)
+
+
 class LLMService:
     def __init__(self, config_overrides: Optional[Dict[str, Any]] = None):
         self.config_overrides: Dict[str, Any] = dict(config_overrides or {})
@@ -347,10 +378,23 @@ class LLMService:
                         if tool_defs:
                             provider_kwargs["tools"] = tool_defs
                             provider_kwargs["is_openai_pass_through"] = True
+                    elif agent and self.workspace_path:
+                        tool_defs = agent.get_openai_tool_definitions()
+                        if tool_defs:
+                            tool_instruction = _build_text_tool_instruction(tool_defs)
+                            messages_for_call = list(self.provider_sessions.get(session_id, []))
+                            if not messages_for_call or messages_for_call[0].get("role") != "system":
+                                messages_for_call.insert(0, {"role": "system", "content": tool_instruction})
+                            else:
+                                existing = messages_for_call[0].get("content") or ""
+                                if "you have access to the following tools" not in existing.lower():
+                                    messages_for_call[0] = {**messages_for_call[0], "content": existing + "\n\n" + tool_instruction}
+                            provider_kwargs["messages"] = messages_for_call
 
+                    target_messages = provider_kwargs.pop("messages", None)
                     async for chunk in self._stream_with_retry(
                         provider_svc,
-                        self.provider_sessions[session_id],
+                        target_messages or self.provider_sessions[session_id],
                         self.config.get("model", ""),
                         session_id=session_id,
                         **provider_kwargs,

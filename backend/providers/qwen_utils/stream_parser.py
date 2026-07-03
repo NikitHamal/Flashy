@@ -19,7 +19,7 @@ class StreamState:
     __slots__ = (
         "buffer", "full_answer_text", "has_yielded_content",
         "current_fc_function_name", "current_fc_arguments", "current_fc_id",
-        "saw_native_fc", "seen_function_call_deltas", "function_call_yielded",
+        "seen_function_call_deltas", "function_call_yielded",
         "pending_parent_id", "has_any_content",
     )
 
@@ -30,11 +30,22 @@ class StreamState:
         self.current_fc_function_name = ""
         self.current_fc_arguments = ""
         self.current_fc_id = ""
-        self.saw_native_fc = False
         self.seen_function_call_deltas = False
         self.function_call_yielded = False
         self.pending_parent_id = None
         self.has_any_content = False
+
+
+_QWEN_TO_FLASHY_TOOL_MAP = {
+    "web_search": "web_browse",
+    "fire-crawl": "web_browse",
+    "file_reader": "read_file",
+    "code_interpreter": "run_command",
+}
+
+
+def _map_native_tool_name(name: str) -> str:
+    return _QWEN_TO_FLASHY_TOOL_MAP.get(name, name)
 
 
 def _is_native_tool(name: str) -> bool:
@@ -54,26 +65,20 @@ def _handle_native_function_call(
         fc_name = function_call.get("name", "")
         fc_args = function_call.get("arguments", "")
 
+        mapped_name = _map_native_tool_name(fc_name)
         if _is_native_tool(fc_name):
-            state.saw_native_fc = True
-            logger.debug(f"[QWEN] Suppressing native tool call: {fc_name}")
-            return
-
-        logger.debug(f"[QWEN] Non-native function_call: name={fc_name} args_len={len(fc_args)}")
-        state.seen_function_call_deltas = True
+            state.seen_function_call_deltas = True
+            logger.debug(f"[QWEN] Mapping native tool '{fc_name}' -> '{mapped_name}'")
         if fc_name:
-            state.current_fc_function_name = fc_name
+            state.current_fc_function_name = mapped_name
         if fc_args:
             state.current_fc_arguments = fc_args
         if function_id:
             state.current_fc_id = function_id
 
     if fc_name_delta and function_id:
-        if _is_native_tool(fc_name_delta):
-            state.saw_native_fc = True
-            logger.debug(f"[QWEN] Suppressing native tool call delta: {fc_name_delta}")
-            return
-
+        mapped = _map_native_tool_name(fc_name_delta)
+        state.current_fc_function_name = mapped
         state.current_fc_id = function_id
 
     if fc_name_delta and function_id and extra:
@@ -217,11 +222,6 @@ def parse_stream_chunks(
             events.append(fc_event)
 
         if finish_reason:
-            if state.saw_native_fc and not state.function_call_yielded:
-                logger.debug(f"[QWEN] Skipping finish_reason={finish_reason} after native FC, waiting for answer phase")
-                state.saw_native_fc = False
-                continue
-
             logger.debug(f"[QWEN] finish_reason={finish_reason} yielded={state.has_yielded_content} text_len={len(state.full_answer_text)}")
             finish_events = _handle_finish_reason(finish_reason, state, has_tools)
             if finish_events is not None:

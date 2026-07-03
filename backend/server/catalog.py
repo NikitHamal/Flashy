@@ -7,7 +7,7 @@ from ..model_registry import resolve_context_window
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("g4f", "deepinfra", "grok", "zai-free", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseek", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "gemini", "rsk", "minimax", "mimo", "perplexity", "unimodel", "bai", "openmodel", "atomesus", "paxsenix", "zenmux", "mistral", "babestown", "qwen")
+DEFAULT_PROVIDERS = ("g4f", "deepinfra", "grok", "zai-free", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseek", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "gemini", "rsk", "minimax", "mimo", "perplexity", "unimodel", "bai", "openmodel", "atomesus",     "paxsenix", "zenmux", "mistral", "babestown", "qwen", "chatgptoss", "easychat")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
@@ -42,6 +42,10 @@ PROVIDER_ALIASES = {
     "g4fai": "g4f",
     "gpt4free": "g4f",
     "unimodel-free": "unimodel",
+    "chatgptoss-free": "chatgptoss",
+    "gptoss": "chatgptoss",
+    "gpt-oss": "chatgptoss",
+    "easychat-free": "easychat",
 }
 
 

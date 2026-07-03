@@ -119,7 +119,14 @@ class DeepInfraProvider(BaseProvider):
         if self.api_key:
             headers.pop("origin", None)
             headers.pop("referer", None)
+            headers.pop("x-deepinfra-source", None)
             headers["authorization"] = f"Bearer {self.api_key}"
+        else:
+            # DeepInfra's API checks x-deepinfra-source to decide whether
+            # captcha/Turnstile verification is required.  "model-embed"
+            # and "web-embed" are values the website itself sends; both
+            # tell DeepInfra to skip the captcha gate.
+            headers["x-deepinfra-source"] = random.choice(["model-embed", "web-embed"])
 
         payload = {
             "model": model,
