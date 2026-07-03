@@ -52,7 +52,7 @@ class AgentContext:
     workspace_path: str
     session_id: str
     iteration_count: int = 0
-    max_iterations: int = 500
+    max_iterations: int = 999999
     tool_history: List[ToolExecution] = field(default_factory=list)
     file_cache: Dict[str, str] = field(default_factory=dict)
     recent_errors: List[str] = field(default_factory=list)
@@ -92,8 +92,8 @@ class CodingAgent:
     def __init__(self, workspace_path: str = None, session_id: str = None):
         from .agents import AgentType
         self.agent_type = AgentType.ORCHESTRATOR # Flashy agent acting as orchestrator by default
-        self.provider_name = "qwen"
-        self.model = "qwen3.6-plus"
+        self.provider_name = "g4f"
+        self.model = "gpt-5.4-nano"
         
         self.tools = Tools(workspace_path, session_id=session_id)
         self.conversation_history: List[Dict[str, Any]] = []
@@ -103,12 +103,12 @@ class CodingAgent:
         self.context = AgentContext(
             workspace_path=workspace_path or "",
             session_id=session_id or "",
-            max_iterations=500
+            max_iterations=999999
         )
 
         # Tool call parsing patterns (ordered by priority)
         self._json_block_pattern = re.compile(
-            r'```json\s*(\{[\s\S]*?\})\s*```',
+            r'```json\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```',
             re.MULTILINE
         )
         self._inline_action_pattern = re.compile(
@@ -158,6 +158,7 @@ class CodingAgent:
 
         valid_tools = {t['name'] for t in self.tools.get_available_tools()}
         valid_tools.add("delegate_task")
+        valid_tools.add("task")
         valid_tools.update({
             "run_command", "shell_command", "execute_command", "run_shell",
             "read", "cat", "bash", "glob",
@@ -186,6 +187,44 @@ class CodingAgent:
                     "name": normalized,
                     "args": args,
                     "raw_match": xml_match.group(0)
+                }
+
+        # Strategy 0.5: Flat <tool_call> inline format (no <name>/<args> sub-elements)
+        # e.g. <tool_call> list_dir F:\NEB </tool_call>
+        # e.g. <tool_call> list_dir path=F:\NEB </tool_call>
+        for sc_match in re.finditer(r'<tool_call>\s*(.*?)\s*</tool_call>', text, re.DOTALL):
+            inner = sc_match.group(1).strip()
+            if not inner or '<name>' in inner or '<args>' in inner:
+                continue
+            parts = inner.split(None, 1)
+            tool_name = parts[0]
+            normalized = tool_name if tool_name in valid_tools else self.tools._normalize_tool_name(tool_name)
+            if not normalized or normalized not in valid_tools:
+                continue
+            args = {}
+            if len(parts) > 1:
+                args_str = parts[1].strip()
+                if args_str.startswith('{'):
+                    try:
+                        args = json.loads(args_str)
+                    except json.JSONDecodeError:
+                        pass
+                elif '=' in args_str:
+                    for kv_match in re.finditer(r'(\w+)\s*=\s*(["\']?)([^,"\'"]*?)\2', args_str):
+                        args[kv_match.group(1)] = kv_match.group(3)
+                if not args and len(parts) > 1:
+                    schema = TOOL_SCHEMAS.get(normalized, {})
+                    param_keys = list(schema.get("parameters", {}).keys())
+                    if param_keys and parts[1]:
+                        pos_vals = parts[1].split()
+                        for i, val in enumerate(pos_vals):
+                            if i < len(param_keys):
+                                args[param_keys[i]] = val
+            if normalized in valid_tools:
+                return {
+                    "name": normalized,
+                    "args": args,
+                    "raw_match": sc_match.group(0),
                 }
 
         # Strategy 1: JSON code blocks
@@ -263,40 +302,39 @@ class CodingAgent:
 
             data = json.loads(json_str)
 
-            if not isinstance(data, dict):
+            if isinstance(data, list):
+                for item in data:
+                    result = self._try_parse_json_inner(item, valid_tools)
+                    if result:
+                        return result
                 return None
 
-            # Extract tool name (support multiple key formats)
-            tool_name = (
-                data.get("action") or
-                data.get("tool") or
-                data.get("name") or
-                data.get("function")
-            )
-
-            if not tool_name or tool_name not in valid_tools:
-                return None
-
-            # Extract args
-            args = (
-                data.get("args") or
-                data.get("arguments") or
-                data.get("parameters") or
-                data.get("params") or
-                {}
-            )
-
-            # Validate args is a dict
-            if not isinstance(args, dict):
-                args = {}
-
-            return {
-                "name": tool_name,
-                "args": args
-            }
+            return self._try_parse_json_inner(data, valid_tools)
 
         except json.JSONDecodeError:
             return None
+
+    def _try_parse_json_inner(self, data: Any, valid_tools: set) -> Optional[Dict[str, Any]]:
+        if not isinstance(data, dict):
+            return None
+        tool_name = (
+            data.get("action") or
+            data.get("tool") or
+            data.get("name") or
+            data.get("function")
+        )
+        if not tool_name or tool_name not in valid_tools:
+            return None
+        args = (
+            data.get("args") or
+            data.get("arguments") or
+            data.get("parameters") or
+            data.get("params") or
+            {}
+        )
+        if not isinstance(args, dict):
+            args = {}
+        return {"name": tool_name, "args": args}
 
     def _extract_json_object(self, text: str, start_idx: int) -> Optional[str]:
         """Extract a complete JSON object starting at start_idx."""
@@ -367,7 +405,7 @@ class CodingAgent:
         for attempt in range(max_retries + 1):
             try:
                 # Handle delegation specially
-                if tool_name == "delegate_task":
+                if tool_name in ("delegate_task", "task"):
                     result = self._handle_delegation(args)
                     status = ToolCallStatus.SUCCESS
                 else:
@@ -583,8 +621,73 @@ The main agent loop will handle this delegation by spawning a sub-agent."""
                 descriptions.append(f"- `{t['name']}`: {t['description']}")
 
         descriptions.append("- `delegate_task`: Delegate a complex sub-task to a specialized sub-agent. Args: task (str), context (str, optional)")
+        descriptions.append("- `task`: Delegate a task to a named subagent type (general, explore, researcher, developer). Args: agent_type (str), task (str), context (str, optional)")
 
         return "\n".join(descriptions)
+
+    def get_openai_tool_definitions(self) -> List[Dict[str, Any]]:
+        """Get tool definitions in OpenAI function calling format."""
+        tools = self.tools.get_available_tools()
+        definitions = []
+
+        for t in tools:
+            schema = TOOL_SCHEMAS.get(t["name"])
+            if not schema:
+                continue
+
+            properties: Dict[str, Any] = {}
+            required: List[str] = []
+            for param_name, param_info in schema.get("parameters", {}).items():
+                raw_type = param_info.get("type", "string")
+                desc = param_info.get("description", "")
+                required_flag = param_info.get("required", True)
+
+                if raw_type == "integer":
+                    prop: Dict[str, Any] = {"type": "integer", "description": desc}
+                elif raw_type == "boolean":
+                    prop = {"type": "boolean", "description": desc}
+                elif raw_type == "array[string]":
+                    prop = {"type": "array", "items": {"type": "string"}, "description": desc}
+                else:
+                    prop = {"type": "string", "description": desc}
+
+                default = param_info.get("default")
+                if default is not None:
+                    prop["default"] = default
+
+                properties[param_name] = prop
+                if required_flag:
+                    required.append(param_name)
+
+            definitions.append({
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": schema.get("description", t.get("description", "")),
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required,
+                    },
+                },
+            })
+
+        definitions.append({
+            "type": "function",
+            "function": {
+                "name": "delegate_task",
+                "description": "Delegate a complex sub-task to a specialized sub-agent.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "task": {"type": "string", "description": "Clear description of the subtask"},
+                        "context": {"type": "string", "description": "Relevant context from the main task"},
+                    },
+                    "required": ["task"],
+                },
+            },
+        })
+        return definitions
 
     async def process_response(self, model_response: str) -> Dict[str, Any]:
         """

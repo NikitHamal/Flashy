@@ -28,7 +28,7 @@ class GitMixin:
         if not self.git.is_repo():
             return "Error: Not a git repository."
         # Note: We'll try to use the PAT from config if not already set in remote
-        from .config import load_config
+        from ..config import load_config
         config = load_config()
         pat = config.get("GITHUB_PAT")
         return self.git.push(remote, branch, pat=pat)
@@ -37,7 +37,7 @@ class GitMixin:
         """Pull changes from a remote repository."""
         if not self.git.is_repo():
             return "Error: Not a git repository."
-        from .config import load_config
+        from ..config import load_config
         config = load_config()
         pat = config.get("GITHUB_PAT")
         return self.git.pull(remote, branch, pat=pat)
@@ -63,7 +63,7 @@ class GitMixin:
 
     def git_clone(self, url: str, path: str = ".") -> str:
         """Clone a git repository from a URL."""
-        from .config import load_config
+        from ..config import load_config
         config = load_config()
         pat = config.get("GITHUB_PAT")
         # Ensure path is absolute or relative to workspace

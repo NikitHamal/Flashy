@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: flashy
+Version: 0.2.0
+Summary: Flashy - minimal, fast AI coding assistant CLI and local workspace agent
+Requires-Python: >=3.10
+Requires-Dist: fastapi>=0.104.1
+Requires-Dist: uvicorn>=0.24.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: pydantic>=2.5.3
+Requires-Dist: aiohttp>=3.13.4
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: questionary>=2.0.0
+Requires-Dist: prompt_toolkit>=3.0.0
+Requires-Dist: chardet>=5.2.0
+Requires-Dist: requests>=2.31.0
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

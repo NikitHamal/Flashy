@@ -69,6 +69,7 @@ async def get_available_providers():
     """Get all available providers for agent configuration."""
     return [
         {"id": "qwen", "name": "Qwen (Alibaba)"},
+        {"id": "bai", "name": "B.AI"},
         {"id": "deepinfra", "name": "DeepInfra"},
     ]
 

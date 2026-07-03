@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from ..config import load_config
 from ..providers import get_provider_service
+from ..providers.base import ProviderType
 from .catalog import resolve_provider_alias
 
 
@@ -39,8 +40,6 @@ class ProviderCompletion:
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
 
-
-WEB_SCRAPER_PROVIDERS = {"qwen", "kimi", "grok", "zai", "zai-free", "glm", "chat2api", "lmarena", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "gemini", "rsk"}
 
 _UPLOAD_DIR = os.path.join(os.getenv("TEMP", tempfile.gettempdir()), "flashy_uploads")
 
@@ -158,8 +157,13 @@ class ProviderGateway:
             return resolve_provider_alias(provider_name, self.default_provider), actual_model
         return self.default_provider, model_name
 
+    def _provider_type(self, provider_name: str) -> ProviderType:
+        svc = get_provider_service(provider_name)
+        return svc.provider_type if svc else ProviderType.REVERSE_ENGINEERED
+
     def _provider_kwargs(self, request: ProviderRequest, provider_name: str = "") -> Dict[str, Any]:
-        is_scraper = provider_name in WEB_SCRAPER_PROVIDERS
+        ptype = self._provider_type(provider_name)
+        is_openai = ptype == ProviderType.OPENAI_COMPATIBLE
         resolved_name = resolve_provider_alias(request.provider, self.default_provider) if not provider_name else provider_name
         kwargs = {
             "tools": request.tools,
@@ -170,25 +174,29 @@ class ProviderGateway:
             "chat_type": request.chat_type,
             "thinking_enabled": request.thinking_enabled,
             "thinking_mode": request.thinking_mode,
-            "is_openai_pass_through": False if is_scraper else request.pass_through,
+            "is_openai_pass_through": is_openai,
             **request.metadata,
         }
         config = load_config()
-        if resolved_name == "kimi":
-            kwargs["token"] = config.get("kimi_token", "")
-        elif resolved_name == "zai":
-            kwargs["token"] = config.get("zai_token", "")
-        elif resolved_name == "zai-free":
-            pass
-        elif resolved_name == "glm":
+        if resolved_name == "glm":
             kwargs["token"] = config.get("glm_refresh_token", "")
         elif resolved_name == "grok":
             kwargs["proxy"] = config.get("grok_proxy") or kwargs.get("proxy")
-        elif resolved_name == "qwen":
-            kwargs["token"] = config.get("qwen_api_token") or config.get("qwen_api_key") or ""
+        # DEPRECATED: Qwen provider blocked by Aliyun WAF captcha
+        # elif resolved_name == "qwen":
+        #     kwargs["token"] = config.get("qwen_api_token") or config.get("qwen_api_key") or ""
         elif resolved_name == "freegpt":
             kwargs["access_code"] = config.get("freegpt_access_code", "")
             kwargs["base_url"] = config.get("freegpt_base_url", "")
+        elif resolved_name == "minimax":
+            kwargs["token"] = config.get("minimax_token", "")
+            kwargs["real_user_id"] = config.get("minimax_real_user_id", "")
+        elif resolved_name == "mimo":
+            kwargs["service_token"] = config.get("mimo_service_token", "")
+            kwargs["user_id"] = config.get("mimo_user_id", "")
+            kwargs["ph_token"] = config.get("mimo_ph_token", "")
+        elif resolved_name == "perplexity":
+            kwargs["session_token"] = config.get("perplexity_session_token", "")
         return kwargs
 
     async def stream(self, request: ProviderRequest) -> AsyncGenerator[Dict[str, Any], None]:
@@ -198,13 +206,14 @@ class ProviderGateway:
             yield {"type": "error", "error": f"Provider '{provider_name}' not found"}
             return
 
-        is_scraper = provider_name in WEB_SCRAPER_PROVIDERS
-        normalize_passthrough = False if is_scraper else request.pass_through
+        ptype = self._provider_type(provider_name)
+        is_openai = ptype == ProviderType.OPENAI_COMPATIBLE
+        normalize_passthrough = is_openai
         normalized_messages = self.normalize_messages(request.messages, pass_through=normalize_passthrough)
 
         kwargs = self._provider_kwargs(request, provider_name=provider_name)
 
-        if is_scraper:
+        if not is_openai:
             image_paths = self._extract_images_from_messages(request.messages)
             if image_paths:
                 kwargs["files"] = image_paths

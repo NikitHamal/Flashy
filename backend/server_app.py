@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .routers import openai
-from .routers import qwen
+# DEPRECATED: Qwen provider blocked by Aliyun WAF captcha
+# from .routers import qwen
 def _setup_logging():
     log_level_name = os.environ.get("FLASHY_LOG_LEVEL", "DEBUG").upper()
     log_level = getattr(logging, log_level_name, logging.DEBUG)
@@ -23,11 +24,11 @@ def _setup_logging():
     )
 
     flashy_loggers = [
-        "flashy.qwen", "flashy.qwen.prompts", "flashy.qwen.stream",
-        "flashy.qwen.auth", "flashy.qwen.upload", "flashy.qwen.models",
+        # "flashy.qwen", "flashy.qwen.prompts", "flashy.qwen.stream",
+        # "flashy.qwen.auth", "flashy.qwen.upload", "flashy.qwen.models",
         "flashy.deepinfra", "flashy.lmarena", "flashy.airforce",
-        "flashy.gradient", "flashy.grok", "flashy.kimi", "flashy.glm",
-        "flashy.zai", "flashy.zai_free", "flashy.chat2api",
+        "flashy.gradient", "flashy.grok", "flashy.glm",
+        "flashy.zai_free", "flashy.chat2api",
         "flashy.ai4bharat",
         "flashy.server.catalog", "flashy.openai",
     ]
@@ -109,7 +110,7 @@ def create_server_app() -> FastAPI:
             )
 
     app.include_router(openai.router)
-    app.include_router(qwen.router)
+    # app.include_router(qwen.router)
 
     @app.get("/health")
     async def health() -> dict:

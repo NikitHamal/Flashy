@@ -1,0 +1,16 @@
+[
+  {
+    "id": "mem_000074c7",
+    "category": "flashy-audit",
+    "title": "Flashy codebase layout reference",
+    "content": "Flashy v0.1.0 - Python-based agentic coding CLI. Started Jan 14 2026, 91 commits.\nEntry: cli.py (argparse) + run.py + __main__.py. Interactive chat: backend/cli_chat.py using rich/questionary/prompt_toolkit.\nBackend: FastAPI app (backend/app.py) with 16 routers, 33+ providers in backend/providers/, 7 specialized agents in backend/agents/ (Orchestrator, Architect, Developer, Reviewer, Researcher, Explorer, Learner), tool system in backend/tooling/ (filesystem, shell, git, web, collaboration).\nLLMService in backend/llm_runtime/service.py with agent loop (max_iter=500), context compaction, native tool calls, JSON/XML tool parsing.\nDesktop: Tauri shell (src-tauri/) + PyInstaller sidecar. Per-launch Basic Auth on 127.0.0.1.\nStorage: JSON files in user data dir (atomic writes with tempfile+rename), file locks.\nFrontend: vanilla JS, 61KB index.html, 12+ JS modules, 12 CSS modules. WebSocket chat.\nTests: NONE (no tests/ dir, no pytest config, no CI for tests - only release.yml).\nDocs: AUDIT_REPORT.md, CONTINUITY.md, DESKTOP.md, PRODUCTION_PASS.md - no README.md.\nCLI commands today: serve, server, status, stop, config, chat, version. Slash cmds in chat: /clear, /model, /compact, /thinking, exit/quit.",
+    "timestamp": 1781894908.3551004
+  },
+  {
+    "id": "mem_52caa48b",
+    "category": "plan",
+    "title": "Flashy CLI Production Pass",
+    "content": "## Goal\nBring flashy-cli from a working but rough tool to a serious, reliable AI coding CLI that competes with Claude Code, Gemini CLI, Codex CLI.\n\n## Approach\n- Don't overcomplicate. Don't add heavy security/policy/sandbox stuff.\n- Focus on UX, reliability, useful commands, and a polished interactive experience.\n- Split the 700-line cli_chat.py into smaller modules.\n- Add new features that matter: session resume, file references, better streaming, theme picker, shell completions.\n- Keep things lean and fast.\n\n## Key Deliverables\n1. Theme/color system with NO_COLOR, theme picker\n2. Better streaming output: spinner, tool progress, token usage in real-time\n3. Multi-line input (Esc+Enter for newlines)\n4. @file references in prompts\n5. Session persistence: /sessions, /resume, /save\n6. New commands: init, resume, sessions, completion, theme, stats, login, review\n7. Better diagnostics: faster, more actionable\n8. Better error messages with suggested fixes\n9. More tests\n10. Updated docs\n\n## Files I'll create/modify\nNEW:\n- flashy_cli/theme.py\n- flashy_cli/output.py (rich output rendering)\n- flashy_cli/prompt.py (multi-line prompt)\n- flashy_cli/banner.py\n- flashy_cli/sessions.py\n- flashy_cli/format/markdown.py\n- flashy_cli/format/diff.py\n- flashy_cli/commands/* (split command logic)\n- flashy_cli/commands/chat.py (refactored chat)\n- tests/test_format.py\n- tests/test_sessions.py\n- tests/test_prompt.py\n\nMODIFY:\n- flashy_cli/app.py (add new commands, better error handling)\n- flashy_cli/ui.py (refined)\n- flashy_cli/doctor.py (better)\n- flashy_cli/runtime.py (small additions)\n- backend/cli_chat.py (or remove if fully replaced)\n- README.md (or add new docs)\n- setup.py (add new entry)\n",
+    "timestamp": 1781937590.8306372
+  }
+]

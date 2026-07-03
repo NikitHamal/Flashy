@@ -12,8 +12,6 @@ MODEL_METADATA = {
     ("qwen", "qwq-plus"): {"context_window": 131072, "max_output": 8192},
     # DeepInfra (varies by model; use generous default)
     ("deepinfra", "*"): {"context_window": 32768, "max_output": 16384},
-    # Kimi
-    ("kimi", "*"): {"context_window": 128000, "max_output": 8192},
     # Grok
     ("grok", "*"): {"context_window": 131072, "max_output": 8192},
     # Airforce
@@ -22,12 +20,35 @@ MODEL_METADATA = {
     ("lmarena", "*"): {"context_window": 65536, "max_output": 4096},
     # Chat2API (passthrough — depends on upstream)
     ("chat2api", "*"): {"context_window": 65536, "max_output": 8192},
-    # GLM / ZAI / Gradient / FreeGPT / etc
+    # GLM / ZAI / Gradient / FreeGPT / G4F / etc
     ("glm", "*"): {"context_window": 128000, "max_output": 4096},
-    ("zai", "*"): {"context_window": 32000, "max_output": 4096},
+    ("g4f", "*"): {"context_window": 128000, "max_output": 8192},
     ("gradient", "*"): {"context_window": 32000, "max_output": 4096},
     ("freegpt", "*"): {"context_window": 32000, "max_output": 4096},
     ("deepseekai", "*"): {"context_window": 65536, "max_output": 4096},
+    # DeepSeek official (chat.deepseek.com)
+    ("deepseek", "*"): {"context_window": 1000000, "max_output": 32768},
+    # B.AI (api.b.ai) — Free providers via B.AI API
+    ("bai", "*"): {"context_window": 1048576, "max_output": 65536},
+    # UniModel (unimodel.ai) — Free DeepSeek V4
+    ("unimodel", "*"): {"context_window": 1048576, "max_output": 65536},
+    # OpenModel (api.openmodel.app) — Multi-model gateway
+    ("openmodel", "*"): {"context_window": 1048576, "max_output": 65536},
+    # Atomesus (api.atomesus.com) — Cipher 8B (YaRN extended)
+    ("atomesus", "*"): {"context_window": 130024, "max_output": 16384},
+    # PaxSenix (api.paxsenix.org) — Free multi-model gateway
+    ("paxsenix", "*"): {"context_window": 1000000, "max_output": 65536},
+    # ZenMux (zenmux.ai) — Free multi-model gateway
+    ("zenmux", "*"): {"context_window": 1000000, "max_output": 65536},
+    # BabelTown (api.babel.town) — Free GLM-5.2 via Cloudflare Workers AI
+    ("babestown", "*"): {"context_window": 1000000, "max_output": 65536},
+    # Mistral AI (api.mistral.ai)
+    ("mistral", "*"): {"context_window": 131072, "max_output": 32768},
+
+    # MiniMax
+    ("minimax", "*"): {"context_window": 196608, "max_output": 8192},
+    # MiMo
+    ("mimo", "*"): {"context_window": 262144, "max_output": 8192},
 }
 
 DEFAULT_METADATA = {"context_window": 32000, "max_output": 4096}

@@ -1,0 +1,23 @@
+FlashyTUI creation failed: Invalid key: s-enter
+Traceback (most recent call last):
+  File "F:\Flashy\flashy_cli\chat_ui.py", line 622, in build_tui
+    return FlashyTUI(
+        workspace=workspace,
+    ...<6 lines>...
+        get_usage=get_usage,
+    )
+  File "F:\Flashy\flashy_cli\tui_layout.py", line 141, in __init__
+    self._build()
+    ~~~~~~~~~~~^^
+  File "F:\Flashy\flashy_cli\tui_layout.py", line 376, in _build
+    @kb.add("s-enter")
+     ~~~~~~^^^^^^^^^^^
+  File "C:\Users\Acer\AppData\Roaming\Python\Python314\site-packages\prompt_toolkit\key_binding\key_bindings.py", line 280, in add
+    keys = tuple(_parse_key(k) for k in keys)
+           ^^^^^
+  File "C:\Users\Acer\AppData\Roaming\Python\Python314\site-packages\prompt_toolkit\key_binding\key_bindings.py", line 280, in <genexpr>
+    keys = tuple(_parse_key(k) for k in keys)
+                 ~~~~~~~~~~^^^
+  File "C:\Users\Acer\AppData\Roaming\Python\Python314\site-packages\prompt_toolkit\key_binding\key_bindings.py", line 455, in _parse_key
+    raise ValueError(f"Invalid key: {key}")
+ValueError: Invalid key: s-enter

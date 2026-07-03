@@ -1,5 +1,12 @@
 import asyncio
+import json
+import logging
+import random
+import time
+import uuid
 from typing import Dict, Any, List, Optional, AsyncGenerator
+
+import aiohttp
 
 from ..config import load_config
 from ..coding_agent import CodingAgent
@@ -7,17 +14,52 @@ from ..prompts import SYSTEM_PROMPT as LEGACY_SYSTEM_PROMPT
 from ..response_filter import ResponseFilter, ThoughtFilter
 from ..storage import async_save_chat_message
 from ..providers import get_provider_service
+from ..providers.base import ProviderType
 from .helpers import clean_response_text, separate_thinking
 from .support import generate_simple_response, run_delegated_task
-from ..models import get_context_window, estimate_tokens, should_compact, perform_compaction
+from ..models import get_context_window, get_max_output, estimate_tokens, should_compact, perform_compaction
+
+logger = logging.getLogger("flashy.service")
+
+
+_TRANSIENT_EXCEPTIONS = (
+    asyncio.TimeoutError,
+    aiohttp.ClientConnectionError,
+    aiohttp.ClientOSError,
+    aiohttp.ServerDisconnectedError,
+    aiohttp.ServerTimeoutError,
+    ConnectionError,
+    OSError,
+)
+
+
+def _is_transient(exc: BaseException) -> bool:
+    if isinstance(exc, _TRANSIENT_EXCEPTIONS):
+        return True
+    msg = str(exc).lower()
+    needles = (
+        "connection aborted",
+        "connection reset",
+        "connection refused",
+        "remote disconnected",
+        "timed out",
+        "timeout",
+        "temporary failure",
+        "network is unreachable",
+        "winerror 1236",
+        "winerror 10054",
+        "winerror 10053",
+    )
+    return any(n in msg for n in needles)
 
 
 class LLMService:
-    def __init__(self):
+    def __init__(self, config_overrides: Optional[Dict[str, Any]] = None):
+        self.config_overrides: Dict[str, Any] = dict(config_overrides or {})
         self.config = load_config()
+        self.config.update(self.config_overrides)
         self.sessions: Dict[str, Any] = {}
         self.provider_sessions: Dict[str, List[Dict[str, str]]] = {}
-        self.qwen_conversations: Dict[str, Any] = {}
         self.agents: Dict[str, CodingAgent] = {}
         self.interrupted_sessions: set = set()
         self.active_tasks: Dict[str, asyncio.Task] = {}
@@ -25,8 +67,9 @@ class LLMService:
         self.workspace_id: Optional[str] = None
         self.response_filter = ResponseFilter(aggressive=False)
         self.thought_filter = ThoughtFilter()
-        self._qwen_usage_stats: Dict[str, Dict[str, int]] = {}
         self.session_usage: Dict[str, Dict[str, int]] = {}
+        # Subagent session tracking: parent_session_id -> list of child session ids
+        self.subagent_sessions: Dict[str, Dict[str, Any]] = {}
 
     def set_workspace(self, path: str, workspace_id: str = None) -> str:
         import os
@@ -44,7 +87,14 @@ class LLMService:
 
     def get_active_provider(self) -> str:
         self.config = load_config()
-        return self.config.get("active_provider", "qwen")
+        self.config.update(self.config_overrides)
+        return self.config.get("active_provider", "g4f")
+
+    def reset_provider_session(self) -> None:
+        provider_name = self.get_active_provider()
+        svc = get_provider_service(provider_name)
+        if svc and hasattr(svc, "reset_session"):
+            svc.reset_session()
 
     def get_agent(self, session_id: str) -> CodingAgent:
         if session_id not in self.agents:
@@ -67,6 +117,63 @@ class LLMService:
     def _is_interrupted(self, session_id: str) -> bool:
         return session_id in self.interrupted_sessions
 
+    async def _stream_with_retry(
+        self,
+        provider_svc,
+        messages: List[Dict[str, Any]],
+        model: str,
+        session_id: str,
+        max_retries: int = 5,
+        **kwargs,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Wrap a provider's stream with transient-error retry + exponential backoff.
+
+        Any error that is judged transient (connection aborted/reset, timeouts, 5xx, etc.)
+        is retried by replaying the same request. Errors that yielded any output before
+        the failure are dropped on retry (the model is stateless, so the next attempt
+        will regenerate from scratch). Non-transient errors propagate to the caller.
+        """
+        attempt = 0
+        last_exc: Optional[BaseException] = None
+        while attempt <= max_retries:
+            if self._is_interrupted(session_id):
+                yield {"error": "*Interrupted by user.*", "is_final": True}
+                return
+            try:
+                async for chunk in provider_svc.generate_stream(messages, model, **kwargs):
+                    if "error" in chunk:
+                        text = str(chunk.get("error", ""))
+                        if any(s in text for s in (" 5", " 502", " 503", " 504", "timeout", "timed out")) and _is_transient(Exception(text)):
+                            last_exc = Exception(text)
+                            logger.warning("[LLM] transient stream error (attempt %d/%d): %s", attempt + 1, max_retries, text[:200])
+                            break
+                        yield chunk
+                        return
+                    yield chunk
+                return
+            except _TRANSIENT_EXCEPTIONS as exc:
+                last_exc = exc
+                logger.warning("[LLM] transient connection error (attempt %d/%d): %s", attempt + 1, max_retries, exc)
+            except Exception as exc:
+                if _is_transient(exc):
+                    last_exc = exc
+                    logger.warning("[LLM] transient error (attempt %d/%d): %s", attempt + 1, max_retries, exc)
+                else:
+                    raise
+
+            attempt += 1
+            if attempt > max_retries:
+                break
+
+            backoff = min(2 ** attempt, 30) + random.uniform(0, 0.5)
+            yield {"text": f"\n*[Network blip — retrying in {backoff:.1f}s ({attempt}/{max_retries})...]*\n"}
+            try:
+                await asyncio.sleep(backoff)
+            except asyncio.CancelledError:
+                raise
+
+        yield {"error": f"Network error after {max_retries} retries: {last_exc}"}
+
     async def generate_response(
         self,
         text: str,
@@ -76,6 +183,7 @@ class LLMService:
         chat_type: str = "t2t",
         thinking_enabled: bool = True,
         thinking_mode: str = "Auto",
+        reasoning_effort: str = "medium",
     ) -> AsyncGenerator[Dict[str, Any], None]:
         provider_name = self.get_active_provider()
         agent = self.get_agent(session_id) if session_id else None
@@ -87,11 +195,7 @@ class LLMService:
                 self.interrupted_sessions.remove(session_id)
 
             if agent and self.workspace_path:
-                system_context = (
-                    LEGACY_SYSTEM_PROMPT.replace("{workspace_path}", agent.tools.workspace_path or "[Not Set]")
-                    if provider_name == "qwen"
-                    else agent.get_system_prompt()
-                )
+                system_context = agent.get_system_prompt()
                 full_prompt = (
                     f"{system_context}\n\n## User Request\n{text}\n\n"
                     "Execute this task using the appropriate tools."
@@ -129,17 +233,14 @@ class LLMService:
             }
 
             if agent and self.workspace_path:
-                max_iterations = 500
                 iteration = 0
 
-                while iteration < max_iterations:
+                while True:
                     if self._is_interrupted(session_id):
                         yield {"text": "\n\n*Agent interrupted by user.*", "is_final": True}
                         break
 
-                    if not agent.increment_iteration():
-                        yield {"text": "\n\n*Agent reached maximum iterations. Task may be incomplete.*", "is_final": True}
-                        break
+                    agent.increment_iteration()
 
                     from ..agents import agent_registry
                     agent_registry.update_session(session_id)
@@ -165,16 +266,21 @@ class LLMService:
 
                     # Check whether to compact before this provider call
                     if should_compact(total_est, context_window):
-                        was = perform_compaction(
+                        yield {"text": "\n*[Context is getting full, compacting...]*\n"}
+                        was = await perform_compaction(
                             session_id, self.provider_sessions,
                             self.session_usage, context_window,
                             provider_name, s_usage.get("model", "") if s_usage else "",
+                            llm_service=self
                         )
                         if was:
+                            if hasattr(provider_svc, "reset_session"):
+                                provider_svc.reset_session()
                             yield {"text": "\n*[Context compacted — continuing...]*\n"}
 
                     accumulated_text = ""
                     accumulated_thought = ""
+                    native_tool_calls: List[Dict[str, Any]] = []
                     in_think_block = False
 
                     provider_kwargs = {
@@ -182,17 +288,17 @@ class LLMService:
                         "chat_type": chat_type,
                         "thinking_enabled": thinking_enabled,
                         "thinking_mode": thinking_mode,
+                        "reasoning_effort": reasoning_effort,
                         "files": files,
-                        "conversation": self.qwen_conversations.get(session_id) if provider_name == "qwen" else None,
+                        "max_tokens": get_max_output(
+                            s_usage.get("provider", provider_name) if s_usage else provider_name,
+                            s_usage.get("model", "") if s_usage else "",
+                        ),
                     }
                     if provider_name == "grok":
                         provider_kwargs["proxy"] = self.config.get("grok_proxy") or provider_kwargs["proxy"]
                     elif provider_name == "deepseek":
                         provider_kwargs["token"] = self.config.get("deepseek_token", "")
-                    elif provider_name == "kimi":
-                        provider_kwargs["token"] = self.config.get("kimi_token", "")
-                    elif provider_name == "zai":
-                        provider_kwargs["token"] = self.config.get("zai_token", "")
                     elif provider_name == "glm":
                         provider_kwargs["token"] = self.config.get("glm_refresh_token", "")
                     elif provider_name == "chat2api":
@@ -200,15 +306,50 @@ class LLMService:
                         provider_kwargs["api_key"] = self.config.get("chat2api_api_key", "")
                     elif provider_name == "lmarena":
                         provider_kwargs["lmarena_cookies"] = self.config.get("lmarena_cookies", "")
+                    elif provider_name == "minimax":
+                        provider_kwargs["token"] = self.config.get("minimax_token", "")
+                        provider_kwargs["real_user_id"] = self.config.get("minimax_real_user_id", "")
+                    elif provider_name == "mimo":
+                        provider_kwargs["service_token"] = self.config.get("mimo_service_token", "")
+                        provider_kwargs["user_id"] = self.config.get("mimo_user_id", "")
+                        provider_kwargs["ph_token"] = self.config.get("mimo_ph_token", "")
+                    elif provider_name == "perplexity":
+                        provider_kwargs["session_token"] = self.config.get("perplexity_session_token", "")
+                    elif provider_name == "unimodel":
+                        provider_kwargs["api_key"] = self.config.get("unimodel_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("unimodel_base_url", "https://unimodel.ai/v1")
+                    elif provider_name == "bai":
+                        provider_kwargs["api_key"] = self.config.get("bai_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("bai_base_url", "https://api.b.ai/v1")
+                    elif provider_name == "openmodel":
+                        provider_kwargs["api_key"] = self.config.get("openmodel_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("openmodel_base_url", "https://api.openmodel.app/v1")
+                    elif provider_name == "paxsenix":
+                        provider_kwargs["api_key"] = self.config.get("paxsenix_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("paxsenix_base_url", "https://api.paxsenix.org/v1")
+                    elif provider_name == "zenmux":
+                        provider_kwargs["api_key"] = self.config.get("zenmux_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("zenmux_base_url", "https://zenmux.ai/api/v1")
+                    elif provider_name == "mistral":
+                        provider_kwargs["api_key"] = self.config.get("mistral_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("mistral_base_url", "https://api.mistral.ai/v1")
+                    elif provider_name == "babestown":
+                        provider_kwargs["api_key"] = self.config.get("babestown_api_key", "")
+                        provider_kwargs["base_url"] = self.config.get("babestown_base_url", "https://api.babel.town/v1")
 
-                    async for chunk in provider_svc.generate_stream(
+                    if agent and self.workspace_path and provider_svc.supports_native_tools:
+                        tool_defs = agent.get_openai_tool_definitions()
+                        if tool_defs:
+                            provider_kwargs["tools"] = tool_defs
+                            provider_kwargs["tool_choice"] = "auto"
+
+                    async for chunk in self._stream_with_retry(
+                        provider_svc,
                         self.provider_sessions[session_id],
                         self.config.get("model", ""),
-                        **provider_kwargs
+                        session_id=session_id,
+                        **provider_kwargs,
                     ):
-                        if "conversation" in chunk:
-                            self.qwen_conversations[session_id] = chunk["conversation"]
-                            continue
                         if "error" in chunk:
                             yield {"error": chunk["error"]}
                             message_parts.append({"type": "error", "content": chunk["error"]})
@@ -217,7 +358,6 @@ class LLMService:
                             accumulated_thought += chunk["thought"]
                             yield {"thought": chunk["thought"]}
                         if "usage" in chunk:
-                            self._qwen_usage_stats[session_id] = chunk["usage"]
                             usage_data = chunk["usage"]
                             # Update tracked usage from provider
                             pu = self.session_usage.get(session_id, {})
@@ -251,6 +391,8 @@ class LLMService:
                                 yield {"thought": token}
                             else:
                                 yield {"text": token}
+                        if "tool_call" in chunk:
+                            native_tool_calls.append(chunk["tool_call"])
 
                     response_text = accumulated_text
                     api_thoughts = accumulated_thought
@@ -259,17 +401,83 @@ class LLMService:
                     if api_thoughts:
                         message_parts.append({"type": "thought", "content": api_thoughts})
 
+                    if native_tool_calls:
+                        if response_text:
+                            message_parts.append({"type": "text", "content": response_text})
+                        all_results = []
+                        for tc in native_tool_calls:
+                            name = tc.get("name", "")
+                            args_raw = tc.get("arguments", "{}")
+                            try:
+                                args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+                            except json.JSONDecodeError:
+                                args = {}
+
+                            yield {"tool_call": {"name": name, "args": args}}
+                            message_parts.append(
+                                {"type": "tool_call", "content": {"name": name, "args": args}}
+                            )
+
+                            try:
+                                from .support import run_subagent_task as _run_sub
+                                if name in ("delegate_task", "task"):
+                                    result = await _run_sub(
+                                        self,
+                                        task=args.get("task", ""),
+                                        agent_type=args.get("agent_type", "general"),
+                                        context=args.get("context", ""),
+                                    )
+                                else:
+                                    result, _ = await agent.execute_tool(name, args)
+                            except Exception as exc:
+                                result = f"Error executing '{name}': {str(exc)}"
+
+                            yield {"tool_result": result}
+                            message_parts.append({"type": "tool_result", "content": result})
+                            all_results.append(result)
+
+                        if provider_svc.supports_native_tools:
+                            tool_calls_list = []
+                            for tc in native_tool_calls:
+                                tc_id = tc.get("id") or f"call_{uuid.uuid4().hex[:16]}"
+                                tc_args = tc.get("arguments", "{}")
+                                tool_calls_list.append({
+                                    "id": tc_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.get("name", ""),
+                                        "arguments": tc_args if isinstance(tc_args, str) else json.dumps(tc_args),
+                                    },
+                                })
+                            self.provider_sessions[session_id].append({
+                                "role": "assistant",
+                                "content": response_text or None,
+                                "tool_calls": tool_calls_list,
+                            })
+                            for i, result in enumerate(all_results):
+                                self.provider_sessions[session_id].append({
+                                    "role": "tool",
+                                    "content": result,
+                                    "tool_call_id": tool_calls_list[i]["id"],
+                                })
+                        else:
+                            self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
+                            for result in all_results:
+                                self.provider_sessions[session_id].append({"role": "tool", "content": result})
+                        iteration += 1
+                        continue
+
                     tool_call = agent.parse_tool_call(clean_response)
                     if not tool_call:
                         self.provider_sessions[session_id].append({"role": "assistant", "content": response_text})
                         final_text = clean_response_text(self, clean_response)
                         if final_text:
-                            yield {"text": final_text, "images": images, "is_final": True}
+                            yield {"images": images, "is_final": True}
                             message_parts.append({"type": "text", "content": final_text})
                         elif images:
-                            yield {"text": "", "images": images, "is_final": True}
+                            yield {"images": images, "is_final": True}
                         else:
-                            yield {"text": "", "is_final": True}
+                            yield {"is_final": True}
                         break
 
                     display_text = clean_response_text(self, clean_response, tool_call.get("raw_match"))
@@ -286,11 +494,13 @@ class LLMService:
                         break
 
                     try:
-                        if tool_call["name"] == "delegate_task":
-                            tool_result = await run_delegated_task(
+                        from .support import run_subagent_task as _run_sub
+                        if tool_call["name"] in ("delegate_task", "task"):
+                            tool_result = await _run_sub(
                                 self,
-                                tool_call["args"].get("task", ""),
-                                tool_call["args"].get("context", ""),
+                                task=tool_call["args"].get("task", ""),
+                                agent_type=tool_call["args"].get("agent_type", "general"),
+                                context=tool_call["args"].get("context", ""),
                             )
                         else:
                             tool_result, _ = await agent.execute_tool(tool_call["name"], tool_call["args"])
@@ -319,8 +529,6 @@ class LLMService:
                         self.provider_sessions[session_id].append({"role": "tool", "content": error_msg})
                         iteration += 1
 
-                if iteration >= max_iterations and not self._is_interrupted(session_id):
-                    yield {"text": "\n\n*Agent reached maximum iterations.*", "is_final": True}
             else:
                 async for chunk in generate_simple_response(
                     self,
@@ -341,17 +549,16 @@ class LLMService:
             yield {"text": "\n\n*Interrupted.*", "is_final": True}
             message_parts.append({"type": "text", "content": "*Interrupted*"})
         except Exception as exc:
+            import os
             import traceback
 
-            traceback.print_exc()
+            if os.environ.get("FLASHY_DEBUG"):
+                traceback.print_exc()
             error_msg = f"Error ({type(exc).__name__}): {str(exc)}"
             error_str = str(exc).lower()
             provider_name = self.get_active_provider()
             if "invalid response" in error_str or "403" in error_str or "failed to generate" in error_str:
-                if provider_name == "qwen":
-                    error_msg += "\n\n**Hint:** Qwen may have triggered a WAF/captcha challenge. Try again in a moment."
-                else:
-                    error_msg += f"\n\n**Hint:** The {provider_name} provider may be temporarily unavailable."
+                error_msg += f"\n\n**Hint:** The {provider_name} provider may be temporarily unavailable."
             yield {"error": error_msg, "is_final": True}
             message_parts.append({"type": "error", "content": error_msg})
             return
@@ -384,7 +591,6 @@ class LLMService:
         self.gemini_client = None
         self.sessions = {}
         self.provider_sessions = {}
-        self.qwen_conversations = {}
         self.agents = {}
         self.interrupted_sessions.clear()
         self.active_tasks.clear()

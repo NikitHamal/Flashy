@@ -23,6 +23,33 @@ from typing import AsyncGenerator, Dict, Any, List, Optional
 
 import httpx
 
+# ========================= Tool injection =========================
+
+def _format_tools_xml(tools: List[Dict[str, Any]]) -> str:
+    """Convert OpenAI tool format to XML block for prompt injection."""
+    parts = ["\n\n## Available Tools"]
+    for t in tools:
+        fn = t.get("function", t) if isinstance(t, dict) else {}
+        name = fn.get("name", "unknown")
+        desc = fn.get("description", "")
+        params = fn.get("parameters", {})
+        parts.append(f'\n<tool name="{name}">')
+        if desc:
+            parts.append(f"<description>{desc}</description>")
+        props = (params or {}).get("properties", {})
+        required = set((params or {}).get("required", []))
+        if props:
+            parts.append("<parameters>")
+            for pname, pinfo in props.items():
+                ptype = pinfo.get("type", "string")
+                req = " required=\"true\"" if pname in required else ""
+                pdesc = pinfo.get("description", "")
+                parts.append(f'  <param name="{pname}" type="{ptype}"{req}>{pdesc}</param>')
+            parts.append("</parameters>")
+        parts.append(f"</tool>")
+    parts.append("\n\nTo call a tool, respond with XML:\n<tool_call>\n<name>tool_name</name>\n<args>\n<arg_name>value</arg_name>\n</args>\n</tool_call>")
+    return "\n".join(parts)
+
 from .base import BaseProvider
 
 logger = logging.getLogger("flashy.ai4bharat")
@@ -275,6 +302,10 @@ _CURATED_MODELS: List[Dict[str, Any]] = [
     {"id": "1f228a49-deed-4660-9301-d149efe8b068", "name": "Gemini 3 Flash", "provider": "google"},
     {"id": "318878b7-c6a6-4c98-b228-b36ae505250c", "name": "Gemini 2.5 Flash", "provider": "google"},
     {"id": "864608e8-c05d-4ad0-bf46-ecc00b2045b6", "name": "Gemini 2.5 Flash Lite", "provider": "google"},
+    {"id": "6783ab68-3b4b-42d2-b172-9a2d5076699b", "name": "GPT 5.5", "provider": "openai"},
+    {"id": "2457f66a-e273-4d7c-8355-c14ee717f12a", "name": "GPT 5.4 Mini", "provider": "openai"},
+    {"id": "c47fba6b-08b1-4b01-a5e6-af5d8ab8a7c0", "name": "GPT 5.4 Nano", "provider": "openai"},
+    {"id": "a9f12d7e-7b08-4e1c-98ff-db4e82821b6d", "name": "GPT 5.4", "provider": "openai"},
 ]
 
 
@@ -381,6 +412,10 @@ class AI4BharatProvider(BaseProvider):
                     item.get("text", "") for item in prompt
                     if isinstance(item, dict) and item.get("type") == "text"
                 )
+
+        tools = kwargs.get("tools")
+        if tools:
+            prompt += _format_tools_xml(tools)
 
         try:
             sess = await _create_session(token, model_id)

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import uuid
 from typing import AsyncGenerator, Dict, Any, List, Optional
 
 from curl_cffi.requests import AsyncSession
@@ -135,7 +136,8 @@ class QwenProvider(BaseProvider):
                     midtoken = await get_midtoken(session, proxy, force_refresh=(attempt > 0))
                     if midtoken:
                         session.headers['bx-umidtoken'] = midtoken
-                        session.headers['bx-v'] = '2.5.31'
+                        session.headers['bx-v'] = '2.5.36'
+                    session.headers['x-request-id'] = str(uuid.uuid4())
 
                     uploaded_files = []
                     if file_paths:
@@ -150,12 +152,14 @@ class QwenProvider(BaseProvider):
                     chat_mode = resolve_chat_mode(chat_type)
 
                     if conversation is None:
+                        now = int(time.time() * 1000)
                         chat_payload = {
                             "title": "New Chat",
                             "models": [model],
                             "chat_mode": chat_mode,
                             "chat_type": chat_type,
-                            "timestamp": int(time.time() * 1000),
+                            "timestamp": now,
+                            "project_id": "",
                         }
 
                         resp = await session.post(f'{self.URL}/api/v2/chats/new', json=chat_payload)

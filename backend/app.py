@@ -32,7 +32,7 @@ import secrets
 from typing import List, Optional
 
 # ── Logging setup ──────────────────────────────────────────────────────────────
-# flashy.* loggers print at DEBUG level so we can trace qwen-code integration.
+# flashy.* loggers print at DEBUG level so we can trace provider integration.
 # Set FLASHY_LOG_LEVEL=INFO in env if DEBUG is too verbose.
 _log_level = os.environ.get("FLASHY_LOG_LEVEL", "DEBUG").upper()
 logging.basicConfig(
@@ -40,7 +40,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
-for _name in ("flashy.chat", "flashy.qwen", "flashy.deepinfra", "flashy.lmarena"):
+for _name in ("flashy.chat", "flashy.deepinfra", "flashy.lmarena"):
     _logger = logging.getLogger(_name)
     _logger.setLevel(getattr(logging, _log_level, logging.DEBUG))
     if not _logger.handlers:
@@ -59,7 +59,7 @@ from .storage import (
 from .websocket_manager import ws_manager, MessageType
 from .desktop_runtime import resource_path, truthy_env, user_data_dir
 from .routers import git_routes, workspace, chat, config, agents, memory
-from .routers import qwen
+from .routers import oauth as oauth_router
 from . import server_control
 app = FastAPI()
 
@@ -127,11 +127,7 @@ app.include_router(chat.router)
 app.include_router(config.router)
 app.include_router(agents.router)
 app.include_router(memory.router)
-app.include_router(qwen.router)
-
-from . import qwencode_bridge
-
-app.include_router(qwencode_bridge.router)
+app.include_router(oauth_router.router)
 
 
 # Exception Handlers
@@ -160,10 +156,6 @@ if not os.path.exists(UPLOAD_DIR):
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return Response(content="", media_type="image/x-icon")
-
-@app.get("/qwencode", include_in_schema=False)
-async def serve_qwen_code_ui():
-    return FileResponse(FRONTEND_DIR / "qwencode.html")
 
 app.add_middleware(
     CORSMiddleware,

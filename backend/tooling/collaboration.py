@@ -58,50 +58,97 @@ class CollaborationMixin:
             return f"Error updating plan: {str(e)}"
 
     async def spawn_subagent(self, agent_type: str, task: str) -> str:
-        """Spawn a specialized sub-agent with specific instructions."""
+        """Spawn a sub-agent with its own model/provider and system prompt.
+
+        Uses subagent definitions from .flashy/agents/ or built-in types
+        (general, explore, researcher, developer) to configure the
+        sub-agent's model, provider, and role instructions.
+        """
         try:
-            from .agents.base import AgentType
-            from .agents import get_agent
-            
-            # Map string to enum
-            try:
-                a_type = AgentType(agent_type.lower())
-            except ValueError:
-                return f"Error: Invalid agent_type '{agent_type}'. Must be one of: {[e.value for e in AgentType]}"
-            
-            # Use a temporary session ID for the subagent so it doesn't pollute the main chat
-            sub_session_id = f"sub_{os.urandom(4).hex()}"
-            subagent = get_agent(a_type, workspace_path=self.workspace_path, session_id=sub_session_id)
-            
-            if not subagent:
-                return f"Error: Failed to initialize subagent of type '{agent_type}'"
-            
-            # Notify UI that a subagent started
-            if self.session_id:
-                try:
-                    from .websocket_manager import MessageType
-                    await ws_manager.send_to_session(
-                        self.session_id,
-                        MessageType.TEXT,
-                        f"*[System] Spawning {agent_type} sub-agent for: {task[:50]}...*\n"
-                    )
-                except Exception:
-                    pass
-            
-            # Execute task
-            result = await subagent.execute(task)
-            
-            # Format result
-            status = "Success" if result.success else "Failed"
-            output = f"Sub-agent '{agent_type}' completed with status: {status}\n\n"
-            output += f"Summary:\n{result.summary}\n\n"
-            if result.artifacts:
-                output += f"Modified/Created Files:\n" + "\n".join(f"- {f}" for f in result.artifacts)
-                
-            return output
-            
+            from ..agents.subagent_defs import (get_subagent_def,
+                                                list_subagent_types,
+                                                load_custom_defs)
+
+            load_custom_defs(self.workspace_path)
+
+            sub_def = get_subagent_def(agent_type)
+            if not sub_def:
+                types = list_subagent_types()
+                return (f"Error: Unknown subagent type '{agent_type}'. "
+                        f"Available: {', '.join(sorted(types))}")
+
+            from ..coding_agent import CodingAgent
+            from ..providers import get_provider_service
+            from ..config import load_config
+
+            sub_agent = CodingAgent(
+                workspace_path=self.workspace_path,
+                session_id=f"sub_{os.urandom(4).hex()}",
+            )
+
+            if sub_def.provider:
+                sub_agent.provider_name = sub_def.provider
+            if sub_def.model:
+                sub_agent.model = sub_def.model
+
+            config = load_config()
+            provider_name = sub_agent.provider_name or config.get("active_provider", "g4f")
+            model_name = sub_agent.model or config.get("model", "")
+
+            system = sub_agent.get_system_prompt()
+            full_prompt = (
+                f"{system}\n\n"
+                f"## Role\n\n{sub_def.system_prompt}\n\n"
+                f"## Task from parent agent\n\n{task}\n\n"
+                "Complete this task. When done, output your final answer without a tool call."
+            )
+
+            provider_svc = get_provider_service(provider_name)
+            if not provider_svc:
+                return f"Error: Provider '{provider_name}' not found for subagent."
+
+            messages = [{"role": "user", "content": full_prompt}]
+
+            response_text = ""
+            for iteration in range(15):
+                accumulated = ""
+                async for chunk in provider_svc.generate_stream(
+                    messages,
+                    model_name,
+                    proxy=config.get("proxy"),
+                ):
+                    if "text" in chunk:
+                        accumulated += chunk["text"]
+                    if "error" in chunk:
+                        return f"Sub-agent error: {chunk['error']}"
+
+                response_text = accumulated
+
+                tool_call = sub_agent.parse_tool_call(response_text)
+                if not tool_call:
+                    break
+
+                # Skip tools the subagent type disallows
+                if sub_def.tools.deny and tool_call["name"] in sub_def.tools.deny:
+                    err = f"Tool '{tool_call['name']}' is not allowed for '{agent_type}' subagent"
+                    messages.append({"role": "assistant", "content": response_text})
+                    messages.append({"role": "tool", "content": err})
+                    continue
+
+                tool_result, _ = await sub_agent.execute_tool(
+                    tool_call["name"], tool_call["args"]
+                )
+                messages = [
+                    {"role": "user", "content": full_prompt},
+                    {"role": "assistant", "content": response_text},
+                    {"role": "tool", "content": tool_result},
+                ]
+
+            return (f"**Sub-agent ({agent_type}) result:**\n\n"
+                    f"{response_text}")
+
         except Exception as e:
-            return f"Error spawning subagent: {str(e)}"
+            return f"Error spawning subagent '{agent_type}': {str(e)}"
 
     def activate_skill(self, skill_name: str) -> str:
         """Load a specific file-based skill (SKILL.md)."""
@@ -140,7 +187,7 @@ You MUST strictly follow the instructions in the <activated_skill> block above f
         ws_manager.pending_questions[question_id] = future
         
         try:
-            from .websocket_manager import MessageType
+            from ..websocket_manager import MessageType
             await ws_manager.send_to_session(
                 self.session_id,
                 MessageType.ASK_USER_QUESTION,
@@ -195,7 +242,7 @@ You MUST strictly follow the instructions in the <activated_skill> block above f
 
         # Git health
         try:
-            from .config import load_config
+            from ..config import load_config
             pat = load_config().get("GITHUB_PAT")
             result["git"] = self.git.get_health(pat=pat)
         except Exception as e:

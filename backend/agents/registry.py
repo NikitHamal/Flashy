@@ -15,57 +15,57 @@ from .base import BaseAgent, AgentType, AgentMessage
 # Default agent configurations
 DEFAULT_AGENT_CONFIG = {
     AgentType.ORCHESTRATOR: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3.6-plus",
         "description": "Coordinates tasks and delegates to specialized agents"
     },
     AgentType.ARCHITECT: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-235b-a22b",
         "description": "Designs system architecture and plans"
     },
     AgentType.DEVELOPER: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-coder-plus",
         "description": "Implements code and features"
     },
     AgentType.REVIEWER: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-coder-plus",
         "description": "Reviews code for quality and security"
     },
     AgentType.RESEARCHER: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-235b-a22b",
         "description": "Searches documentation and web"
     },
     AgentType.EXPLORER: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-235b-a22b",
         "description": "Explores and understands codebase"
     },
     AgentType.LEARNER: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-235b-a22b",
         "description": "Learns from project and maintains memory"
     },
     AgentType.DOCUMENTATION: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-coder-plus",
         "description": "Generates documentation"
     },
     AgentType.REFACTOR: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-coder-plus",
         "description": "Refactors and improves code"
     },
     AgentType.TESTING: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3-coder-plus",
         "description": "Creates and runs tests"
     },
     AgentType.DEPLOY: {
-        "provider": "qwen",
+        "provider": "g4f",
         "model": "qwen3.6-plus",
         "description": "Handles deployment tasks"
     }
@@ -198,7 +198,7 @@ class AgentRegistry:
                 return None
         
         agent = agent_class(
-            provider_name=config.get("provider", "qwen"),
+            provider_name=config.get("provider", "g4f"),
             model=config.get("model", "qwen3.6-plus"),
             workspace_path=workspace_path,
             session_id=session_id
@@ -229,7 +229,7 @@ class AgentRegistry:
         for agent_type in AgentType:
             config = self.get_agent_config(agent_type)
             result[agent_type.value] = {
-                "provider": config.get("provider", "qwen"),
+                "provider": config.get("provider", "g4f"),
                 "model": config.get("model", ""),
                 "description": config.get("description", "")
             }

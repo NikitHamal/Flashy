@@ -3,9 +3,9 @@ import asyncio
 import logging
 import random
 import time
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional
 from curl_cffi.requests import AsyncSession
-from .base import BaseProvider
+from .base import BaseProvider, ProviderType
 
 logger = logging.getLogger("flashy.airforce")
 
@@ -88,7 +88,11 @@ class AirforceProvider(BaseProvider):
     URL = "https://api.airforce/v1/chat/completions"
     _request_count = 0
     _last_request_time = 0
-    
+
+    @property
+    def provider_type(self) -> ProviderType:
+        return ProviderType.OPENAI_COMPATIBLE
+
     async def generate_stream(
         self, messages: List[Dict[str, str]], model: str, **kwargs
     ) -> AsyncGenerator[Dict[str, Any], None]:
@@ -123,11 +127,6 @@ class AirforceProvider(BaseProvider):
                 payload["tool_choice"] = tool_choice
             else:
                 payload["tool_choice"] = "auto"
-
-            is_openai_pass = kwargs.get("is_openai_pass_through", False)
-            if not is_openai_pass:
-                payload.pop("tools", None)
-                payload.pop("tool_choice", None)
 
         proxy_arg = kwargs.get("proxy")
         proxies = []
@@ -184,6 +183,8 @@ class AirforceProvider(BaseProvider):
                     buffer = ""
                     tool_calls_acc: Dict[int, Dict] = {}
                     raw_chunk_count = 0
+                    pending_finish: Optional[str] = None
+                    pending_usage: Optional[Dict[str, Any]] = None
 
                     async for chunk_bytes in resp.aiter_content():
                         buffer += chunk_bytes.decode("utf-8", errors="ignore")
@@ -221,12 +222,25 @@ class AirforceProvider(BaseProvider):
                                     tc = tool_calls_acc[idx]
                                     yield {
                                         "tool_call": {
-                                            "id": tc.get("id", f"call_{idx}"),
+                                            "id": tc.get("id") or f"call_{idx}",
                                             "name": tc.get("function", {}).get("name", ""),
                                             "arguments": tc.get("function", {}).get("arguments", "{}"),
                                         }
                                     }
                                 tool_calls_acc = {}
+                                # Yield deferred final event with any usage seen after finish
+                                if pending_finish:
+                                    final_event = {
+                                        "is_final": True,
+                                        "finish_reason": pending_finish,
+                                    }
+                                    if pending_usage:
+                                        final_event["usage"] = pending_usage
+                                        logger.info(
+                                            f"[AIRFORCE] usage (at DONE): prompt={pending_usage.get('prompt_tokens', 0)} completion={pending_usage.get('completion_tokens', 0)}"
+                                        )
+                                    yield final_event
+                                    pending_finish = None
                                 continue
 
                             if line.startswith("data: "):
@@ -244,13 +258,15 @@ class AirforceProvider(BaseProvider):
                                         logger.info(
                                             f"[AIRFORCE] usage: prompt={prompt_tokens} completion={completion_tokens} total={total_tokens}"
                                         )
-                                        yield {
-                                            "usage": {
-                                                "prompt_tokens": prompt_tokens,
-                                                "completion_tokens": completion_tokens,
-                                                "total_tokens": total_tokens,
-                                            }
+                                        usage_dict = {
+                                            "prompt_tokens": prompt_tokens,
+                                            "completion_tokens": completion_tokens,
+                                            "total_tokens": total_tokens,
                                         }
+                                        if pending_finish:
+                                            pending_usage = usage_dict
+                                        else:
+                                            yield {"usage": usage_dict}
 
                                     choices = data.get("choices", [])
                                     if choices:
@@ -278,11 +294,11 @@ class AirforceProvider(BaseProvider):
                                                 if fn.get("arguments"):
                                                     acc["function"]["arguments"] += fn["arguments"]
 
-                                        if content:
-                                            yield {"text": content}
-
                                         if reasoning:
                                             yield {"thought": reasoning}
+
+                                        elif content:
+                                            yield {"text": content}
 
                                         if finish_reason:
                                             for tidx in sorted(tool_calls_acc.keys()):
@@ -296,24 +312,38 @@ class AirforceProvider(BaseProvider):
                                                 }
                                             tool_calls_acc = {}
 
-                                            final_event = {"is_final": True, "finish_reason": finish_reason}
+                                            # Defer the final event — AirForce sends usage in a
+                                            # separate chunk after finish_reason.
+                                            pending_finish = finish_reason
                                             finish_usage = data.get("usage")
                                             if finish_usage and isinstance(finish_usage, dict):
                                                 fp = finish_usage.get("prompt_tokens", 0) or 0
                                                 fc = finish_usage.get("completion_tokens", 0) or 0
                                                 ft = finish_usage.get("total_tokens", 0) or (fp + fc)
-                                                final_event["usage"] = {
+                                                pending_usage = {
                                                     "prompt_tokens": fp,
                                                     "completion_tokens": fc,
                                                     "total_tokens": ft,
                                                 }
-                                            yield final_event
 
                                 except json.JSONDecodeError:
                                     continue
                     
                     if stream_success:
-                        yield {"is_final": True}
+                        if pending_finish:
+                            final_event = {
+                                "is_final": True,
+                                "finish_reason": pending_finish,
+                            }
+                            if pending_usage:
+                                final_event["usage"] = pending_usage
+                                logger.info(
+                                    f"[AIRFORCE] usage (at stream end): prompt={pending_usage.get('prompt_tokens', 0)} completion={pending_usage.get('completion_tokens', 0)}"
+                                )
+                            yield final_event
+                            pending_finish = None
+                        else:
+                            yield {"is_final": True}
                         return
                     else:
                         delay = random.uniform(1.0, 3.0)

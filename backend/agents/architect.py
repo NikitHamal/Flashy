@@ -25,7 +25,7 @@ class ArchitectAgent(BaseAgent):
     
     def __init__(
         self,
-        provider_name: str = "qwen",
+        provider_name: str = "g4f",
         model: str = "qwen3-235b-a22b",
         workspace_path: str = None,
         session_id: str = None

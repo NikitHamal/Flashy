@@ -24,8 +24,8 @@ class DeveloperAgent(BaseAgent):
     
     def __init__(
         self,
-        provider_name: str = "qwen",
-        model: str = "qwen3-coder-plus",
+        provider_name: str = "g4f",
+        model: str = "gpt-5.4-nano",
         workspace_path: str = None,
         session_id: str = None
     ):

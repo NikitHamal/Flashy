@@ -12,7 +12,7 @@ from ..websocket_manager import ws_manager
 
 class ToolsBase:
     def __init__(self, workspace_path: str = None, session_id: str = None):
-        self.workspace_path = workspace_path or os.getcwd()
+        self.workspace_path = os.path.abspath(workspace_path or os.getcwd())
         self.session_id = session_id
         self.git = GitManager(self.workspace_path)
 
@@ -27,9 +27,10 @@ class ToolsBase:
 
     def _resolve_path(self, relative_path: str) -> str:
         """Resolve a path relative to the workspace."""
+        relative_path = relative_path or "."
         if os.path.isabs(relative_path):
-            return relative_path
-        return os.path.join(self.workspace_path, relative_path)
+            return os.path.abspath(relative_path)
+        return os.path.abspath(os.path.join(self.workspace_path, relative_path))
 
     def _is_within_workspace(self, full_path: str) -> bool:
         """Check if a path is within the workspace root."""

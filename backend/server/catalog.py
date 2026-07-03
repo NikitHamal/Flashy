@@ -3,10 +3,11 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from ..providers import get_provider_service
+from ..model_registry import resolve_context_window
 
 logger = logging.getLogger("flashy.server.catalog")
 
-DEFAULT_PROVIDERS = ("qwen", "deepinfra", "grok", "zai-free", "kimi", "zai", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "gemini", "rsk")
+DEFAULT_PROVIDERS = ("g4f", "deepinfra", "grok", "zai-free", "glm", "airforce", "gradient", "lmarena", "chat2api", "ai4bharat", "egov", "deepai", "eqing", "freegpt", "deepseek", "deepseekai", "surfsense", "chatgptfree", "duckai", "chatx", "gemini", "rsk", "minimax", "mimo", "perplexity", "unimodel", "bai", "openmodel", "atomesus", "paxsenix", "zenmux", "mistral", "babestown", "qwen")
 PROVIDER_ALIASES = {
     "qwen-free": "qwen",
     "deepinfra-free": "deepinfra",
@@ -20,7 +21,9 @@ PROVIDER_ALIASES = {
     "freegpt-free": "freegpt",
     "deepseek-ai": "deepseekai",
     "deepseek_ai": "deepseekai",
-    "deepseek-free": "deepseekai",
+    "deepseek-free": "deepseek",
+    "deepseekai": "deepseekai",
+    "chat-deepseek": "deepseek",
     "surfsense-free": "surfsense",
     "chatgptfree-free": "chatgptfree",
     "cgf": "chatgptfree",
@@ -35,10 +38,14 @@ PROVIDER_ALIASES = {
     "gemini-free": "gemini",
     "google-gemini": "gemini",
     "google_gemini": "gemini",
+    "g4f-free": "g4f",
+    "g4fai": "g4f",
+    "gpt4free": "g4f",
+    "unimodel-free": "unimodel",
 }
 
 
-def resolve_provider_alias(provider_name: Optional[str], default: str = "qwen") -> str:
+def resolve_provider_alias(provider_name: Optional[str], default: str = "g4f") -> str:
     if not provider_name:
         return default
     provider_name = provider_name.strip().lower()
@@ -61,7 +68,7 @@ def infer_capabilities(model_id: str) -> Dict[str, bool]:
         "chat": True,
         "stream": True,
         "vision": any(token in lower_id for token in vision_tokens),
-        "reasoning": any(token in lower_id for token in ("reason", "think", "r1", "o1", "o3", "qwq")),
+        "reasoning": any(token in lower_id for token in ("reason", "think", "r1", "o1", "o3", "qwq", "deepseek-v4")),
         "tools": True,
     }
 
@@ -90,7 +97,7 @@ class ProviderCatalog:
                 model_id = model.get("id", "")
                 display_name = model.get("name") or model_id
                 model_capabilities = model.get("capabilities", {})
-                model_max_context = model.get("max_context") or model.get("context_window", 128000 if provider_name == "qwen" else 32000)
+                model_max_context = (model.get("max_context") or model.get("context_window") or resolve_context_window(model_id, 32000))
                 pricing = model.get("pricing") or {}
 
                 if model_capabilities:
@@ -99,7 +106,7 @@ class ProviderCatalog:
                         "stream": True,
                         "vision": model_capabilities.get("vision", False),
                         "reasoning": model_capabilities.get("thinking", False),
-                        "tools": True,
+                        "tools": model_capabilities.get("tools", True),
                     }
                 else:
                     caps = infer_capabilities(model_id)

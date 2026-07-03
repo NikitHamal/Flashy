@@ -8,6 +8,8 @@ import asyncio
 import sys
 from typing import Optional, List, Dict, Any
 
+_CREATION_FLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
 from ..git_manager import GitManager
 from ..websocket_manager import ws_manager
 
@@ -57,6 +59,7 @@ def _create_subprocess(command: str, cwd: str, **kwargs):
         *shell_args,
         command,
         cwd=cwd,
+        creationflags=_CREATION_FLAGS,
         **kwargs,
     )
 
@@ -75,6 +78,8 @@ class ExecutionMixin:
             if not command or not command.strip():
                 return "Error: Command is empty."
             work_dir = self._resolve_path(cwd) if cwd else self.workspace_path
+            if not self._is_within_workspace(work_dir):
+                return f"Error: Working directory is outside the workspace: {cwd}"
             
             # Ensure work_dir exists
             if not os.path.isdir(work_dir):

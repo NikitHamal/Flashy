@@ -1,4 +1,5 @@
 import json
+import time
 import uuid
 from typing import Dict, Any, List, Optional
 
@@ -142,13 +143,16 @@ def build_msg_payload(
     stream: bool = True,
 ) -> Dict[str, Any]:
     msg_id = str(uuid.uuid4())
+    now = int(time.time() * 1000)
     return {
+        "version": "2.1",
         "stream": stream,
         "incremental_output": stream,
         "chat_id": chat_id,
         "chat_mode": chat_mode,
         "model": model,
         "parent_id": parent_id,
+        "timestamp": now,
         "messages": [
             {
                 "fid": msg_id,
@@ -162,6 +166,7 @@ def build_msg_payload(
                 "chat_type": chat_type,
                 "feature_config": feature_config,
                 "sub_chat_type": chat_type,
+                "timestamp": now,
                 # Disable safety/recitation filters
                 "safety": {
                     "enabled": False,
@@ -169,6 +174,7 @@ def build_msg_payload(
                 "extra": {
                     "disable_recitation_policy": True,
                     "skip_safety_check": True,
+                    "meta": {"subChatType": chat_type},
                 },
             }
         ],

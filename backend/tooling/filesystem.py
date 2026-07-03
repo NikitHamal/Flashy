@@ -144,6 +144,8 @@ class FileSystemMixin:
         try:
             path = path or "."
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
             if not os.path.isdir(full_path):
                 return f"Error: '{path}' is not a directory."
             items = os.listdir(full_path)
@@ -161,6 +163,10 @@ class FileSystemMixin:
         try:
             path = path or "."
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
+            if not os.path.isdir(full_path):
+                return f"Error: '{path}' is not a directory."
             result = [f"Root: {path}"]
             
             def _build_tree(current_path, current_depth):
@@ -191,6 +197,8 @@ class FileSystemMixin:
         try:
             path = path or "."
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
             search_pattern = os.path.join(full_path, "**", pattern)
             matches = glob.glob(search_pattern, recursive=True)
             relative_matches = [os.path.relpath(m, self.workspace_path) for m in matches[:50]]
@@ -209,6 +217,8 @@ class FileSystemMixin:
         try:
             path = path or "."
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return f"Error: Path is outside the workspace: {path}"
             exclude_dirs = {'.git', 'node_modules', '__pycache__', 'venv', '.venv', 'dist', 'build'}
 
             # Try ripgrep first — it's orders of magnitude faster on large codebases
@@ -316,6 +326,8 @@ class FileSystemMixin:
         try:
             path = path or "."
             full_path = self._resolve_path(path)
+            if not self._is_within_workspace(full_path):
+                return {"error": f"Path is outside the workspace: {path}"}
             
             def _scan(current_full_path):
                 name = os.path.basename(current_full_path) or path
@@ -360,7 +372,8 @@ class FileSystemMixin:
                     with open(full_path, 'r', encoding='utf-8') as f:
                         content = f.read(200000)
                     results.append(f"--- {file} ---\n{content}")
-                except: pass
+                except Exception:
+                    pass
         
         if results:
             return "\n\n".join(results)

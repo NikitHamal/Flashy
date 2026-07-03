@@ -65,14 +65,6 @@ async def get_models(request: Request):
         from ..providers.grok import MODELS
         return [{"id": m["id"], "name": m["name"]} for m in MODELS]
 
-    if provider_name == "kimi":
-        from ..providers.kimi import MODELS as KIMI_MODELS
-        return [{"id": m["id"], "name": m["name"]} for m in KIMI_MODELS]
-
-    if provider_name == "zai":
-        from ..providers.zai import MODELS as ZAI_MODELS
-        return [{"id": m["id"], "name": m["name"]} for m in ZAI_MODELS]
-
     if provider_name == "zai-free":
         from ..providers.zai_free import MODELS as ZAI_FREE_MODELS
         return [{"id": m["id"], "name": m["name"]} for m in ZAI_FREE_MODELS]
@@ -85,6 +77,22 @@ async def get_models(request: Request):
         from ..providers.lmarena import LmarenaProvider
         models = await LmarenaProvider.get_models()
         return [{"id": m["id"], "name": m["name"]} for m in models]
+
+    if provider_name == "deepseek":
+        from ..providers.deepseek import MODELS as DEEPSEEK_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in DEEPSEEK_MODELS]
+
+    if provider_name == "minimax":
+        from ..providers.minimax import MODELS as MINIMAX_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in MINIMAX_MODELS]
+
+    if provider_name == "mimo":
+        from ..providers.mimo import MODELS as MIMO_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in MIMO_MODELS]
+
+    if provider_name == "perplexity":
+        from ..providers.perplexity import MODELS as PERPLEXITY_MODELS
+        return [{"id": m["id"], "name": m["name"]} for m in PERPLEXITY_MODELS]
 
     catalog = await _catalog.list_models([provider_name])
     return [

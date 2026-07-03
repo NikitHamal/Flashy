@@ -4,7 +4,7 @@ from typing import Any, AsyncGenerator, Dict, List
 
 import aiohttp
 
-from .base import BaseProvider
+from .base import BaseProvider, ProviderType
 
 logger = logging.getLogger("flashy.chat2api")
 
@@ -37,6 +37,10 @@ def _decode_grpc_web(data: bytes) -> List[bytes]:
 
 class Chat2APIProvider(BaseProvider):
     """Chat2API local proxy provider."""
+
+    @property
+    def provider_type(self) -> ProviderType:
+        return ProviderType.PROXY
 
     def __init__(self, base_url: str = "http://127.0.0.1:8080"):
         self.base_url = base_url.rstrip("/")

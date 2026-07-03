@@ -12,14 +12,27 @@ class ConfigUpdate(BaseModel):
     deepinfra_api_key: Optional[str] = None
     qwen_api_key: Optional[str] = None
     grok_proxy: Optional[str] = None
-    kimi_token: Optional[str] = None
-    zai_token: Optional[str] = None
     glm_refresh_token: Optional[str] = None
     chat2api_base_url: Optional[str] = None
     chat2api_api_key: Optional[str] = None
     lmarena_cookies: Optional[str] = None
     chatx_cookie: Optional[str] = None
     chatx_base_url: Optional[str] = None
+    unimodel_api_key: Optional[str] = None
+    unimodel_base_url: Optional[str] = None
+    reasoning_effort: Optional[str] = None
+    bai_api_key: Optional[str] = None
+    bai_base_url: Optional[str] = None
+    openmodel_api_key: Optional[str] = None
+    openmodel_base_url: Optional[str] = None
+    paxsenix_api_key: Optional[str] = None
+    paxsenix_base_url: Optional[str] = None
+    zenmux_api_key: Optional[str] = None
+    zenmux_base_url: Optional[str] = None
+    mistral_api_key: Optional[str] = None
+    mistral_base_url: Optional[str] = None
+    babestown_api_key: Optional[str] = None
+    babestown_base_url: Optional[str] = None
 
 @router.get("/config")
 async def get_config():

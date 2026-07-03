@@ -145,7 +145,7 @@ TOOL_SCHEMAS_PRIMARY: Dict[str, Dict[str, Any]] = {'activate_skill': {'best_prac
                                          'required': True,
                                          'type': 'array[string]'}},
                 'returns': 'Contents of all files, each wrapped in code blocks'},
- 'run_command': {'best_practices': ['Use for verification (tests, linting, type checking)',
+ 'run_shell_command': {'best_practices': ['Use for verification (tests, linting, type checking)',
                                     'Check exit codes for success/failure',
                                     'Break long pipelines into separate commands for clarity'],
                  'description': 'Execute a shell command. Use for running tests, builds, '
@@ -220,4 +220,9 @@ TOOL_SCHEMAS_PRIMARY: Dict[str, Dict[str, Any]] = {'activate_skill': {'best_prac
                                                          'content',
                                           'required': True,
                                           'type': 'array[{path: string, content: string}]'}},
-                 'returns': 'Status for each file written'}}
+                  'returns': 'Status for each file written'},
+ 'web_browse': {'description': 'Fetch and summarize a web page. Use for reading documentation, articles, or any online content.',
+                'name': 'web_browse',
+                'parameters': {'url': {'description': 'URL to fetch and read', 'required': True, 'type': 'string'},
+                               'max_length': {'default': 50000, 'description': 'Maximum characters to return', 'required': False, 'type': 'integer'}},
+                'returns': 'Page content as text, truncated if too long'}}

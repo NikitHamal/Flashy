@@ -6,6 +6,7 @@ Handles real-time bidirectional communication between frontend and backend.
 import asyncio
 import json
 import logging
+import subprocess
 import time
 import uuid
 import sys
@@ -53,11 +54,13 @@ def _get_shell_command() -> tuple:
 async def _create_subprocess(command: str, cwd: str = None, **kwargs):
     """Create a subprocess using the best available shell."""
     shell_exe, shell_args, _ = _get_shell_command()
+    creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     return await asyncio.create_subprocess_exec(
         shell_exe,
         *shell_args,
         command,
         cwd=cwd,
+        creationflags=creation_flags,
         **kwargs,
     )
 

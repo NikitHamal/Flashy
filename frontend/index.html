@@ -544,11 +544,10 @@
                         <div class="settings-field">
                             <select id="settings-active-provider" class="dropdown-select">
                                 <option value="qwen">Qwen (Alibaba)</option>
+                                <option value="bai">B.AI (M3 Free)</option>
                                 <option value="deepinfra">DeepInfra</option>
                                 <option value="grok">Grok (xAI)</option>
                                 <option value="zai-free">Z.ai Free (No Auth)</option>
-                                <option value="kimi">Kimi (Moonshot)</option>
-                                <option value="zai">Z.ai (Token)</option>
                                 <option value="glm">GLM (Zhipu)</option>
                                 <option value="airforce">Airforce</option>
                                 <option value="gradient">Gradient Network</option>
@@ -565,8 +564,13 @@
                                  <option value="duckai">DuckAI (DuckDuckGo AI)</option>
                                  <option value="chatx">ChatX (Free GPT/DeepSeek/Claude/Gemini/Grok)</option>
                                  <option value="chatgptfree">ChatGPTFree (8 Models)</option>
-                                 <option value="rsk">RSK AI (6 Free Models)</option>
-                             </select>
+<option value="rsk">RSK AI (6 Free Models)</option>
+<option value="g4f">G4F (50+ Free Models, Auto-Rotate)</option>
+<option value="minimax">MiniMax (Hailuo AI)</option>
+<option value="mimo">Mimo (Xiaomi AI Studio)</option>
+<option value="perplexity">Perplexity AI</option>
+
+</select>
                         </div>
                     </div>
 
@@ -584,38 +588,6 @@
                             <div class="settings-field">
                                 <label>Proxy (Optional)</label>
                                 <input type="text" id="settings-grok-proxy" placeholder="http://user:pass@ip:port">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="settings-provider-kimi" class="provider-settings-section hidden">
-                        <div class="settings-group">
-                            <label>Kimi (Moonshot K2.5)</label>
-                            <p class="settings-hint">Get your JWT token from Kimi web version. Open DevTools (F12) &rarr; Application &rarr; Cookies or Local Storage.</p>
-                            <div class="settings-field">
-                                <label>Access Token</label>
-                                <div class="input-with-action">
-                                    <input type="password" id="settings-kimi-token" placeholder="Enter Kimi JWT token (starts with eyJ)">
-                                    <button class="btn-toggle-visibility" data-target="settings-kimi-token">
-                                        <span class="material-symbols-outlined">visibility</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="settings-provider-zai" class="provider-settings-section hidden">
-                        <div class="settings-group">
-                            <label>Z.ai (GLM International)</label>
-                            <p class="settings-hint">Get your JWT token from chat.z.ai. Open DevTools (F12) &rarr; Application &rarr; Cookies.</p>
-                            <div class="settings-field">
-                                <label>JWT Token</label>
-                                <div class="input-with-action">
-                                    <input type="password" id="settings-zai-token" placeholder="Enter Z.ai JWT token (starts with eyJ)">
-                                    <button class="btn-toggle-visibility" data-target="settings-zai-token">
-                                        <span class="material-symbols-outlined">visibility</span>
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -727,6 +699,22 @@
 </div>
                      </div>
 
+<div id="settings-provider-deepseek" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>DeepSeek (Official Chat) Settings</h4>
+        <p class="settings-hint">Access chat.deepseek.com with your browser token. Open DevTools (F12) → Application → Local Storage → userToken on chat.deepseek.com. Uses persistent sessions — creates one session per conversation and reuses it.</p>
+        <div class="settings-field">
+            <label>User Token</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-deepseek-token" placeholder="Paste userToken from chat.deepseek.com">
+                <button class="btn-toggle-visibility" data-target="settings-deepseek-token">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="settings-provider-deepseekai" class="provider-settings-section hidden">
                           <div class="settings-group">
                               <h4>DeepSeek AI Settings</h4>
@@ -752,6 +740,13 @@
                             <div class="settings-group">
                                 <h4>RSK AI Settings</h4>
                                 <p class="settings-hint">6 free AI models via rsk.cn — no login required. Guest daily limit: 2 messages. Models: Gemini 3.1 Flash Lite, GPT 5.4 Mini, DeepSeek V4 Flash, GLM 5 Free, GPT 5.4 Nano, Qwen 3.7 Plus.</p>
+                            </div>
+                        </div>
+
+                        <div id="settings-provider-g4f" class="provider-settings-section hidden">
+                            <div class="settings-group">
+                                <h4>G4F Settings</h4>
+                                <p class="settings-hint">50+ free AI models via g4f.space (backed by Pollinations AI). No login required. Auto-rotates on rate limits. Models: GPT 5.4 Nano, DeepSeek, Grok, Claude, Gemini, GLM, Mistral, Kimi, and more.</p>
                             </div>
                         </div>
 
@@ -792,11 +787,143 @@
                             </div>
                         </div>
 
+<div id="settings-provider-minimax" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>MiniMax (Hailuo AI) Settings</h4>
+        <p class="settings-hint">Get JWT token from agent.minimaxi.com. Open DevTools (F12) → Application → Local Storage → _token. Use format: realUserID+JWTtoken (combined) or enter separately.</p>
+        <div class="settings-field">
+            <label>JWT Token</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-minimax-token" placeholder="JWT token or realUserID+JWTtoken">
+                <button class="btn-toggle-visibility" data-target="settings-minimax-token">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+        <div class="settings-field">
+            <label>Real User ID (Optional)</label>
+            <input type="text" id="settings-minimax-real-user-id" placeholder="Real User ID from _token or user_detail_agent">
+        </div>
+    </div>
+</div>
+
+<div id="settings-provider-mimo" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>Mimo (Xiaomi AI Studio) Settings</h4>
+        <p class="settings-hint">Get 3 cookies from aistudio.xiaomimimo.com. Open DevTools (F12) → Application → Cookies. You need serviceToken, userId, and xiaomichatbot_ph.</p>
+        <div class="settings-field">
+            <label>Service Token</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-mimo-service-token" placeholder="serviceToken from Cookie">
+                <button class="btn-toggle-visibility" data-target="settings-mimo-service-token">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+        <div class="settings-field">
+            <label>User ID</label>
+            <input type="text" id="settings-mimo-user-id" placeholder="userId from Cookie">
+        </div>
+        <div class="settings-field">
+            <label>PH Token</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-mimo-ph-token" placeholder="xiaomichatbot_ph from Cookie">
+                <button class="btn-toggle-visibility" data-target="settings-mimo-ph-token">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="settings-provider-perplexity" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>Perplexity AI Settings</h4>
+        <p class="settings-hint">Get session token from perplexity.ai. Open DevTools (F12) → Application → Cookies → __Secure-next-auth.session-token.</p>
+        <div class="settings-field">
+            <label>Session Token</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-perplexity-session-token" placeholder="__Secure-next-auth.session-token">
+                <button class="btn-toggle-visibility" data-target="settings-perplexity-session-token">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="settings-provider-bai" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>B.AI (MiniMax M3 Free)</h4>
+        <p class="settings-hint">Free M3 model with API key. Get key from b.ai.</p>
+        <div class="settings-field">
+            <label>API Key</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-bai-api-key" placeholder="sk-...">
+                <button class="btn-toggle-visibility" data-target="settings-bai-api-key">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+        <div class="settings-field">
+            <label>Base URL</label>
+            <input type="text" id="settings-bai-base-url" placeholder="https://api.b.ai/v1" value="https://api.b.ai/v1">
+        </div>
+    </div>
+</div>
+
+<div id="settings-provider-deepinfra" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>DeepInfra</h4>
+        <p class="settings-hint">Free anonymous access requires captcha. Set an API key to bypass it. Get a key at deepinfra.com/dash/api_keys.</p>
+        <div class="settings-field">
+            <label>API Key (optional, bypasses captcha)</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-deepinfra-api-key" placeholder="sk-...">
+                <button class="btn-toggle-visibility" data-target="settings-deepinfra-api-key">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="settings-provider-unimodel" class="provider-settings-section hidden">
+    <div class="settings-group">
+        <h4>UniModel (DeepSeek V4 Free)</h4>
+        <p class="settings-hint">Free API with $300 quota (150M tokens). Get your API key from unimodel.ai.</p>
+        <div class="settings-field">
+            <label>API Key</label>
+            <div class="input-with-action">
+                <input type="password" id="settings-unimodel-api-key" placeholder="sk-...">
+                <button class="btn-toggle-visibility" data-target="settings-unimodel-api-key">
+                    <span class="material-symbols-outlined">visibility</span>
+                </button>
+            </div>
+        </div>
+        <div class="settings-field">
+            <label>Base URL</label>
+            <input type="text" id="settings-unimodel-base-url" placeholder="https://unimodel.ai/v1">
+        </div>
+    </div>
+</div>
+
+
                      <div class="settings-group">
                         <div class="settings-field">
                             <label>Default Model ID (Optional)</label>
                             <p class="settings-hint">Override default model (e.g., gemini-2.0-flash-preview)</p>
                             <input type="text" id="settings-model" placeholder="Model ID">
+                        </div>
+                        <div class="settings-field">
+                            <label>Reasoning Effort</label>
+                            <p class="settings-hint">Controls how much the model thinks before answering (off/low/medium/high)</p>
+                            <select id="settings-reasoning-effort">
+                                <option value="off">off — No thinking tokens</option>
+                                <option value="low">low — Fast, minimal reasoning</option>
+                                <option value="medium" selected>medium — Balanced (default)</option>
+                                <option value="high">high — Deep reasoning</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -826,11 +953,10 @@
                             <label>Provider</label>
                             <select id="agent-provider-selector" class="dropdown-select">
                                 <option value="qwen">Qwen</option>
+                                <option value="bai">B.AI</option>
                                 <option value="deepinfra">DeepInfra</option>
                                 <option value="grok">Grok (xAI)</option>
                                 <option value="zai-free">Z.ai Free</option>
-                                <option value="kimi">Kimi</option>
-                                <option value="zai">Z.ai (Token)</option>
                                 <option value="glm">GLM (Zhipu)</option>
                                 <option value="airforce">Airforce</option>
                                 <option value="gradient">Gradient Network</option>
@@ -840,14 +966,21 @@
                                 <option value="deepai">DeepAI</option>
                                 <option value="eqing">EQing</option>
                                  <option value="freegpt">FreeGPT</option>
-                                 <option value="deepseekai">DeepSeek AI</option>
+                                 <option value="deepseek">DeepSeek (Official Chat)</option>
+                                 <option value="deepseekai">DeepSeek AI (Proxy)</option>
                                  <option value="gemini">Gemini (Google)</option>
                                  <option value="surfsense">SurfSense</option>
                                  <option value="chatx">ChatX (Free Models)</option>
                                  <option value="chatgptfree">ChatGPTFree (8 Models)</option>
-                                 <option value="rsk">RSK AI (6 Free Models)</option>
-                             </select>
-                        </div>
+                                  <option value="rsk">RSK AI (6 Free Models)</option>
+                                  <option value="g4f">G4F (50+ Free Models, Auto-Rotate)</option>
+                                  <option value="minimax">MiniMax (Hailuo AI)</option>
+<option value="mimo">Mimo (Xiaomi AI Studio)</option>
+<option value="perplexity">Perplexity AI</option>
+<option value="unimodel">UniModel (DeepSeek V4 Free)</option>
+
+                               </select>
+                          </div>
                         <div class="settings-field">
                             <label>Model ID</label>
                             <input type="text" id="agent-model-input"

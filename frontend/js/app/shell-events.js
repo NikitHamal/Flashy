@@ -423,15 +423,11 @@ function setupShellEventListeners() {
                 if (activeProviderInput) activeProviderInput.value = config.active_provider || 'qwen';
                 const modelInput = document.getElementById('settings-model');
                 if (modelInput) modelInput.value = config.model || '';
+                const reasoningEffortInput = document.getElementById('settings-reasoning-effort');
+                if (reasoningEffortInput) reasoningEffortInput.value = config.reasoning_effort || 'medium';
                 
                 const grokProxyInput = document.getElementById('settings-grok-proxy');
                 if (grokProxyInput) grokProxyInput.value = config.grok_proxy || '';
-                
-                const kimiTokenInput = document.getElementById('settings-kimi-token');
-                if (kimiTokenInput) kimiTokenInput.value = config.kimi_token || '';
-                
-                const zaiTokenInput = document.getElementById('settings-zai-token');
-                if (zaiTokenInput) zaiTokenInput.value = config.zai_token || '';
                 
                 const glmTokenInput = document.getElementById('settings-glm-refresh-token');
                 if (glmTokenInput) glmTokenInput.value = config.glm_refresh_token || '';
@@ -463,7 +459,38 @@ function setupShellEventListeners() {
                 if (gemini1psidtsInput) gemini1psidtsInput.value = config.gemini_1psidts || '';
                 const geminiCookiesJsonInput = document.getElementById('settings-gemini-cookies-json');
                 if (geminiCookiesJsonInput) geminiCookiesJsonInput.value = config.gemini_cookies_json || '';
-                
+
+                const deepseekTokenInput = document.getElementById('settings-deepseek-token');
+                if (deepseekTokenInput) deepseekTokenInput.value = config.deepseek_token || '';
+
+                const minimaxTokenInput = document.getElementById('settings-minimax-token');
+                if (minimaxTokenInput) minimaxTokenInput.value = config.minimax_token || '';
+                const minimaxRealUserIdInput = document.getElementById('settings-minimax-real-user-id');
+                if (minimaxRealUserIdInput) minimaxRealUserIdInput.value = config.minimax_real_user_id || '';
+
+                const mimoServiceTokenInput = document.getElementById('settings-mimo-service-token');
+                if (mimoServiceTokenInput) mimoServiceTokenInput.value = config.mimo_service_token || '';
+                const mimoUserIdInput = document.getElementById('settings-mimo-user-id');
+                if (mimoUserIdInput) mimoUserIdInput.value = config.mimo_user_id || '';
+                const mimoPhTokenInput = document.getElementById('settings-mimo-ph-token');
+                if (mimoPhTokenInput) mimoPhTokenInput.value = config.mimo_ph_token || '';
+
+                const perplexitySessionTokenInput = document.getElementById('settings-perplexity-session-token');
+                if (perplexitySessionTokenInput) perplexitySessionTokenInput.value = config.perplexity_session_token || '';
+
+                const unimodelApiKeyInput = document.getElementById('settings-unimodel-api-key');
+                if (unimodelApiKeyInput) unimodelApiKeyInput.value = config.unimodel_api_key || '';
+                const unimodelBaseUrlInput = document.getElementById('settings-unimodel-base-url');
+                if (unimodelBaseUrlInput) unimodelBaseUrlInput.value = config.unimodel_base_url || 'https://unimodel.ai/v1';
+
+                const deepinfraApiKeyInput = document.getElementById('settings-deepinfra-api-key');
+                if (deepinfraApiKeyInput) deepinfraApiKeyInput.value = config.deepinfra_api_key || '';
+
+                const baiApiKeyInput = document.getElementById('settings-bai-api-key');
+                if (baiApiKeyInput) baiApiKeyInput.value = config.bai_api_key || '';
+                const baiBaseUrlInput = document.getElementById('settings-bai-base-url');
+                if (baiBaseUrlInput) baiBaseUrlInput.value = config.bai_base_url || 'https://api.b.ai/v1';
+
                 updateProviderSettingsVisibility(config.active_provider || 'qwen');
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -522,9 +549,8 @@ function setupShellEventListeners() {
                 GITHUB_PAT: document.getElementById('settings-github-pat')?.value || '',
                 active_provider: document.getElementById('settings-active-provider')?.value || 'qwen',
                 model: document.getElementById('settings-model')?.value || '',
+                reasoning_effort: document.getElementById('settings-reasoning-effort')?.value || 'medium',
                 grok_proxy: document.getElementById('settings-grok-proxy')?.value || '',
-                kimi_token: document.getElementById('settings-kimi-token')?.value || '',
-                zai_token: document.getElementById('settings-zai-token')?.value || '',
                 glm_refresh_token: document.getElementById('settings-glm-refresh-token')?.value || '',
                 chat2api_base_url: document.getElementById('settings-chat2api-base-url')?.value || 'http://127.0.0.1:8080',
                 chat2api_api_key: document.getElementById('settings-chat2api-api-key')?.value || '',
@@ -536,6 +562,18 @@ function setupShellEventListeners() {
                 gemini_1psid: document.getElementById('settings-gemini-1psid')?.value || '',
                 gemini_1psidts: document.getElementById('settings-gemini-1psidts')?.value || '',
                 gemini_cookies_json: document.getElementById('settings-gemini-cookies-json')?.value || '',
+                deepseek_token: document.getElementById('settings-deepseek-token')?.value || '',
+                minimax_token: document.getElementById('settings-minimax-token')?.value || '',
+                minimax_real_user_id: document.getElementById('settings-minimax-real-user-id')?.value || '',
+                mimo_service_token: document.getElementById('settings-mimo-service-token')?.value || '',
+                mimo_user_id: document.getElementById('settings-mimo-user-id')?.value || '',
+                mimo_ph_token: document.getElementById('settings-mimo-ph-token')?.value || '',
+                perplexity_session_token: document.getElementById('settings-perplexity-session-token')?.value || '',
+                unimodel_api_key: document.getElementById('settings-unimodel-api-key')?.value || '',
+                unimodel_base_url: document.getElementById('settings-unimodel-base-url')?.value || 'https://unimodel.ai/v1',
+                deepinfra_api_key: document.getElementById('settings-deepinfra-api-key')?.value || '',
+                bai_api_key: document.getElementById('settings-bai-api-key')?.value || '',
+                bai_base_url: document.getElementById('settings-bai-base-url')?.value || 'https://api.b.ai/v1',
             };
             try {
                 saveSettingsButton.disabled = true;

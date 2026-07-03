@@ -76,9 +76,11 @@ class ToolRegistryMixin:
             {"name": "todo_write", "description": "Write to the agent's plan/scratchpad. Args: content (str)"},
             {"name": "delete_path", "description": "Delete file/directory. Args: path (str)"},
             {"name": "spawn_subagent", "description": "Spawn a specialized sub-agent for a focused task. Args: agent_type (str), task (str)"},
+            {"name": "task", "description": "Delegate a task to a named subagent type (general, explore, researcher, developer). Args: agent_type (str), task (str), context (str, optional)"},
             {"name": "activate_skill", "description": "Load a specific file-based skill to adopt expert behaviors. Args: skill_name (str)"},
             {"name": "get_dependencies", "description": "Analyze project dependencies. No args."},
             {"name": "get_symbol_info", "description": "Find definition of a symbol. Args: symbol_name (str)"},
+            {"name": "web_browse", "description": "Fetch and summarize a web page. Args: url (str), max_length (int, optional)"},
             {"name": "self_check", "description": "Run a global health check for tools and environment. No args."},
             {"name": "git_status", "description": "Get git status. No args."},
             {"name": "git_commit", "description": "Commit all changes. Args: message (str)"},
@@ -119,10 +121,13 @@ class ToolRegistryMixin:
             "todo_write": self.todo_write,
             "delete_path": self.delete_path,
             "spawn_subagent": self.spawn_subagent,
+            "task": self.spawn_subagent,
             "activate_skill": self.activate_skill,
             # Analysis Tools
             "get_dependencies": self.get_dependencies,
             "get_symbol_info": self.get_symbol_info,
+            # Web Tools
+            "web_browse": self.web_browse,
             # Git Tools
             "self_check": self.self_check,
             "git_status": self.git_status,

@@ -1,0 +1,27 @@
+Flashy terminal UI/UX production pass
+
+Changed/new files included in this overlay zip:
+- CLI_PRODUCTION_PASS.md
+- TERMINAL_UI_PASS.md
+- __main__.py
+- backend/cli_chat.py
+- backend/coding_agent.py
+- backend/config.py
+- backend/llm_runtime/service.py
+- backend/tooling/base.py
+- backend/tooling/collaboration.py
+- backend/tooling/execution.py
+- backend/tooling/filesystem.py
+- backend/tooling/git.py
+- cli.py
+- config-example.json
+- flashy_cli/__init__.py
+- flashy_cli/__main__.py
+- flashy_cli/app.py
+- flashy_cli/doctor.py
+- flashy_cli/runtime.py
+- flashy_cli/ui.py
+- package.json
+- requirements.txt
+- setup.py
+- tests/test_cli_smoke.py

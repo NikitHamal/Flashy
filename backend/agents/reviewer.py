@@ -24,7 +24,7 @@ class ReviewerAgent(BaseAgent):
     
     def __init__(
         self,
-        provider_name: str = "qwen",
+        provider_name: str = "g4f",
         model: str = "qwen3-coder-plus",
         workspace_path: str = None,
         session_id: str = None

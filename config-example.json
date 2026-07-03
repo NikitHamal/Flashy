@@ -1,6 +1,18 @@
 {
-    "Secure_1PSID": "",
-    "Secure_1PSIDTS": "",
-     "Secure_1PSIDCC": "",
-    "model": "qwen3.6-max-preview"
+    "active_provider": "g4f",
+    "model": "gpt-5.4-nano",
+    "reasoning_effort": "medium",
+    "max_agent_iterations": 25,
+    "GITHUB_PAT": "",
+    "proxy": "",
+    "gemini_cookies_json": "",
+    "deepseek_token": "",
+    "glm_refresh_token": "",
+    "chat2api_base_url": "http://127.0.0.1:8080",
+    "chat2api_api_key": "",
+    "unimodel_api_key": "",
+    "unimodel_base_url": "https://unimodel.ai/v1",
+    "deepinfra_api_key": "",
+    "bai_api_key": "",
+    "bai_base_url": "https://api.b.ai/v1"
 }

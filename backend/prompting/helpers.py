@@ -13,10 +13,8 @@ def get_system_prompt(workspace_path: str, workspace_context: str = "") -> str:
 
 
 def get_tool_result_template(tool_name: str, output: str, success: bool = True) -> str:
-    status = "SUCCESS" if success else "ERROR"
     return CODING_TOOL_RESULT_TEMPLATE.format(
         tool_name=tool_name,
-        status=status,
         output=output,
     )
 
